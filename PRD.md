@@ -27,7 +27,6 @@ Las respuestas acordadas se incorporan al RF correspondiente. Las propuestas pen
 | C5 | ¿Se admite cerrar con evidencia obligatoria faltante, rechazando los criterios afectados por ese motivo? Política adoptada por el equipo, pendiente de validación con la cátedra. |
 | C6 | ¿Es válida la política adoptada de permitir certificar con observaciones sujetas a corrección en plazo y bloquear la emisión por rechazos hasta verificar sus correcciones? |
 | C7 | ¿Es suficiente documentar un hallazgo por evidencia faltante indicando qué se exigía y qué no se presentó? Es la solución adoptada por el equipo. |
-| C8 | ¿Es suficiente limitar inicialmente las rectificaciones a correcciones que no cambien el resultado de los criterios? Alcance provisional adoptado; si se requieren cambios de resultado, definir sus efectos sobre hallazgos, acciones y certificados antes de implementar ese circuito. |
 
 ## Dudas para conversar con el equipo
 
@@ -38,7 +37,7 @@ Las respuestas acordadas se incorporan al RF correspondiente. Las propuestas pen
 ### RF1 — Catálogo de activos
 
 - Qué exige: Registrar y consultar los activos que se inspeccionan, con tipo, responsable, ubicación y características.
-- Supuesto adoptado: Características predefinidas por tipo, según S1. Falta completar las de cada tipo.
+- Supuesto adoptado: Características predefinidas por tipo, según S1. El catálogo concreto de atributos no es necesario para cerrar este PRD.
 - Definido: Se permite cambiar responsable y ubicación, conservando los cambios en auditoría.
 - Supuesto adoptado: Las características del equipo no se modifican después del alta, según S4.
 - Definido: La inspección mantiene la identidad del activo y conserva sus datos históricos relevantes tal como eran al inspeccionarlo. Los cambios posteriores del activo no reescriben esos datos históricos ni crean otro activo.
@@ -46,7 +45,8 @@ Las respuestas acordadas se incorporan al RF correspondiente. Las propuestas pen
 #### Pendientes y propuestas
 
 - Definido: Al iniciar la inspección se conservan el identificador estable del activo, tipo, características, ubicación e identificador y datos identificatorios básicos del responsable. Los cambios posteriores del catálogo no modifican esta información, incluso durante una inspección abierta.
-- Pendiente: Completar las características por tipo y los datos identificatorios básicos del responsable.
+- Alcance: La lista concreta de características por tipo y campos identificatorios del responsable se posterga; no bloquea la definición de los comportamientos del negocio ni el cierre del PRD.
+- Definido: Responsable es una entidad del dominio y puede representar una persona o una organización. Su implementación y datos mínimos se definirán posteriormente.
 
 ### RF2 — Esquemas de inspección
 
@@ -79,6 +79,7 @@ Las respuestas acordadas se incorporan al RF correspondiente. Las propuestas pen
 - Definido: Una inspección corresponde a un único activo y un único inspector.
 - Definido: El alcance comprende el esquema completo. No se admiten inspecciones parciales.
 - Definido: Se distinguen asignación e inicio. Al asignar se indican activo, inspector y fecha prevista; el esquema se determina automáticamente por el tipo de activo, no se elige manualmente. Al iniciar se fija su última versión publicada. La consigna no prescribe el nombre de un estado para la etapa previa al inicio. Ver C4.
+- Definido: No se permite iniciar si el tipo de activo no tiene un esquema aplicable con una versión publicada.
 
 ### RF5 — Ejecución
 
@@ -128,6 +129,7 @@ La regla define las condiciones para obtener «observado»: una desviación que 
 - Qué exige: Gestionar la planificación, el vencimiento, la verificación y el cierre de las acciones correctivas.
 - Definido: Se genera automáticamente una acción correctiva por cada hallazgo. La relación inicial es uno a uno: cada hallazgo tiene una acción y cada acción corresponde a un hallazgo.
 - Definido: Planificar la acción consiste en indicar qué se hará, quién debe ejecutarla y su fecha límite.
+- Definido: Una vez confirmada la planificación, no se permite modificar el trabajo previsto, el ejecutor ni la fecha límite. Esto no impide registrar ejecuciones, evidencias y nuevos intentos de verificación en la misma acción.
 - Aclaración terminológica: La consigna exige «planificación» de acciones correctivas. «Plan» se refiere a esos datos de la misma acción; no se requiere un documento ni una entidad adicional llamada Plan.
 - Definido: El sistema crea el hallazgo y el registro de su acción pendiente de planificar. El responsable del hallazgo decide cómo resolverlo y completa la acción indicando el trabajo, ejecutor y fecha límite. La decisión sobre la solución es humana; el sistema registra esa decisión y gestiona su seguimiento, vencimiento, verificación y cierre.
 - Definido: El responsable de ejecutar la acción informa su realización y adjunta evidencia. El inspector verifica si la corrección fue suficiente para cerrarla.
@@ -152,6 +154,9 @@ La regla define las condiciones para obtener «observado»: una desviación que 
 - Definido: Renovar exige una nueva inspección completa, con la versión vigente del esquema al iniciarla, y emitir un nuevo certificado vinculado al anterior. Inicialmente se renueva una vez vencido el certificado anterior; la renovación anticipada queda fuera del alcance.
 - Definido: Inicialmente la única causa de suspensión es el vencimiento de acciones correctivas asociadas. La reactivación es automática al verificar satisfactoriamente y cerrar la última acción causante de suspensión, siempre que el certificado no haya vencido.
 - Definido: La emisión se solicita explícitamente después del cierre. Cerrar una inspección no emite ni intenta emitir automáticamente un certificado. Cada solicitud comprueba las condiciones de emisión vigentes en ese momento.
+- Definido: Cada inspección puede respaldar como máximo un certificado.
+- Definido: Una solicitud repetida de emisión no crea otro certificado: informa que la inspección ya tiene uno y lo identifica.
+- Definido: La renovación se determina por la nueva inspección que la respalda y sus acciones asociadas. Las acciones pendientes de inspecciones anteriores no bloquean la renovación ni suspenden el nuevo certificado; conservan su vínculo e historia originales, sin considerarse cerradas automáticamente por renovar.
 
 #### Pendientes y propuestas
 
@@ -175,13 +180,17 @@ La regla define las condiciones para obtener «observado»: una desviación que 
 - Rectificaciones: Deben conservar el registro original y permitir identificar la corrección realizada y su explicación. Corregir un dato erróneo de una inspección no equivale a registrar que el activo fue reparado después de inspeccionarlo.
 - Relación con RF3 y RF9: El historial de auditoría complementa las versiones de esquemas y los certificados; no reemplaza esos registros del negocio.
 
-#### Rectificaciones: alcance provisional adoptado
+#### Rectificaciones
 
 - El inspector asignado puede rectificar observaciones descriptivas y errores de carga en respuestas, mediciones y referencias de evidencias. Se registran motivo obligatorio, autor, fecha y valores anteriores y nuevos, conservando el original.
 - No se puede cambiar el activo ni la versión del esquema.
-- El sistema vuelve a evaluar los criterios afectados con la versión original para comprobar la rectificación. Solo se admite si no cambia ningún resultado aprobado, observado o rechazado; en caso contrario se rechaza la operación sin modificar información.
-- Los informes posteriores identifican las rectificaciones. Este alcance no incorpora cambios de resultados ni reconstrucción de hallazgos, acciones o certificados; debe validarse con la cátedra, según C8.
+- El sistema vuelve a evaluar los criterios afectados con la versión original. La rectificación puede cambiar su resultado; se conservan el resultado original, el corregido y el motivo del cambio, sin sobrescribir la historia.
+- Los informes posteriores identifican las rectificaciones y distinguen la información original de la corregida.
 - Una reparación posterior se registra en la acción correctiva, no como rectificación de los hechos originales.
+- Definido: Si una rectificación elimina el incumplimiento que originó un hallazgo y su acción, ambos se conservan como antecedentes, pero se deja sin efecto la exigencia de corregir y sus consecuencias sobre la certificación. Se registra el vínculo con la rectificación y su motivo. No se registra una ejecución ni una verificación satisfactoria ficticia, ni se agrega una operación de resolución al hallazgo.
+- Definido: Una acción cuya exigencia quedó sin efecto por rectificación no bloquea la emisión ni causa suspensión por su plazo. Si era la única causa de suspensión, se permite reactivar el certificado siempre que no haya vencido; se conserva el historial y la fecha de vencimiento original. Esta es una excepción al tratamiento ordinario de acciones de RF8 y RF9, no una modificación de su planificación.
+- Definido: Si la rectificación revela un incumplimiento en un criterio antes aprobado, se generan el hallazgo y la acción correspondientes según RF7 y RF8.
+- Pendiente: Definir el efecto sobre un certificado ya emitido si la rectificación revela un incumplimiento nuevo, así como el tratamiento de hallazgos y acciones existentes cuando el incumplimiento no desaparece pero cambian sus motivos o resultado. La auditoría conserva los cambios, pero no determina por sí sola sus consecuencias de negocio.
 
 #### Detalle de las modificaciones auditadas
 
