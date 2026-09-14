@@ -28,10 +28,6 @@ Las respuestas acordadas se incorporan al RF correspondiente. Las propuestas pen
 | C6 | ¿Es válida la política adoptada de permitir certificar con observaciones sujetas a corrección en plazo y bloquear la emisión por rechazos hasta verificar sus correcciones? |
 | C7 | ¿Es suficiente documentar un hallazgo por evidencia faltante indicando qué se exigía y qué no se presentó? Es la solución adoptada por el equipo. |
 
-## Dudas para conversar con el equipo
-
-- **RF7 — Severidad:** decidir si está predefinida en el criterio o depende del resultado concreto. No se adopta todavía ninguna alternativa.
-
 ## Requisitos funcionales
 
 ### RF1 — Catálogo de activos
@@ -104,6 +100,7 @@ Las respuestas acordadas se incorporan al RF correspondiente. Las propuestas pen
 - Definido: La evaluación ordinaria se realiza únicamente como parte del cierre y se conservan los resultados. No se evalúa durante la carga. Una rectificación posterior requiere la comprobación excepcional definida en RF10.
 - Definido: Cada criterio configura cómo sus respuestas o mediciones se traducen en aprobado, observado o rechazado mediante una única regla. No se combinan varias reglas por criterio en el alcance inicial; la obligatoriedad de evidencias se comprueba adicionalmente.
 - Definido: Toda respuesta válida tiene un único resultado según la regla configurada; la ausencia de información o evidencia obligatoria produce rechazo. La política de certificación acordada se describe en RF9.
+- Definido: La severidad se determina a partir del resultado concreto de evaluar el criterio, aplicando una escala de severidad a ese resultado. No es un valor fijo del criterio y puede variar según la respuesta o medición registrada.
 
 #### Significado acordado de observaciones
 
@@ -115,10 +112,6 @@ La regla define las condiciones para obtener «observado»: una desviación que 
 - Supuesto adoptado: Se asigna inicialmente al responsable del activo, según S5.
 - Definido: Ante evidencia obligatoria faltante se registra qué se exigía y qué no se presentó. No se inventa una evidencia presentada; consultar C7.
 - Definido: Cada criterio observado o rechazado genera exactamente un hallazgo dentro de la inspección, reuniendo sus motivos. Los criterios aprobados no generan hallazgos. Es una decisión de alcance del equipo, no una cantidad impuesta por la consigna.
-
-#### Pendientes y propuestas
-
-- La severidad queda pendiente de discusión con el equipo: puede provenir del criterio o depender del resultado.
 
 #### Seguimiento de la corrección
 
@@ -147,12 +140,13 @@ La regla define las condiciones para obtener «observado»: una desviación que 
 - Definido: Con todos los criterios aprobados se permite emitir. Con observaciones y sin rechazos se permite emitir antes de completar las acciones, exigiendo su corrección en plazo. Los rechazos bloquean la emisión hasta verificar satisfactoriamente las correcciones que la impiden; no se exige repetir toda la inspección por el solo hecho de haber obtenido rechazos.
 - Definido: La verificación de correcciones no reescribe los resultados originales de la inspección cerrada. Verificar una acción en RF8 es distinto de evaluar los criterios al cierre en RF6.
 - Definido: Si vence una acción vinculada a un certificado emitido, ese certificado se suspende.
+- Definido: Si una rectificación da como resultado un criterio rechazado, se suspende de inmediato el certificado no vencido respaldado por esa inspección. Si el certificado ya estaba suspendido, el rechazo se agrega como una causa que debe resolverse antes de reactivarlo. Un resultado observado no genera una suspensión inmediata: mantiene el tratamiento ordinario de las observaciones y su acción puede causar la suspensión posterior si vence sin una corrección verificada.
 - Definido: Se permite levantar la suspensión después de verificar satisfactoriamente las correcciones y cerrar las acciones correspondientes, siempre que estén resueltas todas las causas de suspensión y el certificado continúe dentro de su vigencia. Si falla la verificación o persisten otras causas, permanece suspendido.
-- Definido: La reactivación conserva la fecha de vencimiento original y el historial del atraso. No exige una nueva inspección completa por el solo vencimiento de la acción. Si el certificado ya venció, corresponde gestionar la renovación.
+- Definido: La reactivación conserva la fecha de vencimiento original y el historial de la suspensión. La causa de suspensión, por sí sola, no exige una nueva inspección completa. Si el certificado ya venció, corresponde gestionar la renovación.
 - Definido: Para emitir se requiere una inspección cerrada, ningún rechazo sin corrección verificada y ninguna acción abierta vencida. Las acciones pendientes deben estar planificadas y tener fecha límite.
 - Definido: Al emitir se indica y conserva la fecha de vencimiento. La duración predeterminada puede definirse posteriormente.
 - Definido: Renovar exige una nueva inspección completa, con la versión vigente del esquema al iniciarla, y emitir un nuevo certificado vinculado al anterior. Inicialmente se renueva una vez vencido el certificado anterior; la renovación anticipada queda fuera del alcance.
-- Definido: Inicialmente la única causa de suspensión es el vencimiento de acciones correctivas asociadas. La reactivación es automática al verificar satisfactoriamente y cerrar la última acción causante de suspensión, siempre que el certificado no haya vencido.
+- Definido: Inicialmente las causas de suspensión son el vencimiento de una acción correctiva asociada y un criterio rechazado descubierto mediante una rectificación de la inspección que respalda el certificado. La reactivación es automática al verificar satisfactoriamente y cerrar la última acción correspondiente a las causas de suspensión, siempre que el certificado no haya vencido.
 - Definido: La emisión se solicita explícitamente después del cierre. Cerrar una inspección no emite ni intenta emitir automáticamente un certificado. Cada solicitud comprueba las condiciones de emisión vigentes en ese momento.
 - Definido: Cada inspección puede respaldar como máximo un certificado.
 - Definido: Una solicitud repetida de emisión no crea otro certificado: informa que la inspección ya tiene uno y lo identifica.
@@ -190,7 +184,8 @@ La regla define las condiciones para obtener «observado»: una desviación que 
 - Definido: Si una rectificación elimina el incumplimiento que originó un hallazgo y su acción, ambos se conservan como antecedentes, pero se deja sin efecto la exigencia de corregir y sus consecuencias sobre la certificación. Se registra el vínculo con la rectificación y su motivo. No se registra una ejecución ni una verificación satisfactoria ficticia, ni se agrega una operación de resolución al hallazgo.
 - Definido: Una acción cuya exigencia quedó sin efecto por rectificación no bloquea la emisión ni causa suspensión por su plazo. Si era la única causa de suspensión, se permite reactivar el certificado siempre que no haya vencido; se conserva el historial y la fecha de vencimiento original. Esta es una excepción al tratamiento ordinario de acciones de RF8 y RF9, no una modificación de su planificación.
 - Definido: Si la rectificación revela un incumplimiento en un criterio antes aprobado, se generan el hallazgo y la acción correspondientes según RF7 y RF8.
-- Pendiente: Definir el efecto sobre un certificado ya emitido si la rectificación revela un incumplimiento nuevo, así como el tratamiento de hallazgos y acciones existentes cuando el incumplimiento no desaparece pero cambian sus motivos o resultado. La auditoría conserva los cambios, pero no determina por sí sola sus consecuencias de negocio.
+- Definido: Si el nuevo resultado es rechazado, se suspende de inmediato el certificado no vencido respaldado por la inspección rectificada. Si es observado, no se suspende de inmediato; el hallazgo y la acción siguen el tratamiento ordinario, incluido el vencimiento como posible causa posterior de suspensión. La suspensión, sus causas y una eventual reactivación se rigen por RF9 y se registran en la auditoría.
+- Pendiente: Definir el tratamiento de hallazgos y acciones existentes cuando el incumplimiento no desaparece pero cambian sus motivos o resultado. La auditoría conserva los cambios, pero no determina por sí sola esas consecuencias de negocio.
 
 #### Detalle de las modificaciones auditadas
 
