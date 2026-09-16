@@ -82,114 +82,242 @@ flowchart TB
 
 ## Modelo de dominio principal
 
-Las flechas con rombo indican composición: la entidad de origen administra el ciclo de vida de la entidad o valor de destino. Las relaciones etiquetadas `id` son referencias por identificador, no una asociación de objetos en memoria.
+Este es el diagrama más detallado. Expone todos los atributos de estado de las entidades centrales y sus operaciones de negocio principales. Las clases auxiliares (identificadores, enums, notas, evidencias, cambios y valores de auditoría) se agrupan o se reducen para que el gráfico siga siendo utilizable.
+
+La leyenda de color es intencional: **azul** para agregados que administran su propio ciclo de vida, **verde** para entidades de soporte, **violeta** para valores (e incluye el borrador mutable), **amarillo** para servicios/políticas y **gris** para una interfaz. El rombo negro indica composición y una flecha con la etiqueta `por id` indica una referencia almacenada como identificador, no una asociación de objetos.
 
 ```mermaid
 classDiagram
     direction LR
 
     class InspectionSchema {
-        +SchemaId id
-        +Set~AssetType~ applicableTypes
-        +SchemaDraft draft
-        +List~SchemaVersion~ versions
+        <<aggregate root>>
+        -SchemaId id
+        -String name
+        -Set~AssetType~ applicableAssetTypes
+        -List~SchemaVersion~ publishedVersions
+        -SchemaDraft draft
+        +openDraft() SchemaDraft
+        +publish(at) PublicationResult
+        +applyTo(assetType)
+        +stopApplyingTo(assetType)
     }
-    class SchemaDraft
+    class SchemaDraft {
+        <<value-like mutable draft>>
+        -List~Section~ sections
+        +addSection(section)
+        +removeSection(name)
+        +declaredOutcomes() Set~RuleOutcome~
+        +publicationViolations() List~String~
+    }
     class SchemaVersion {
+        <<value>>
         +SchemaVersionId id
         +List~Section~ sections
+        +Instant publishedAt
+        +criteria() List~Criterion~
     }
-    class Section
+    class Section {
+        <<value>>
+        +String name
+        +int order
+        +List~Criterion~ criteria
+    }
     class Criterion {
+        <<value>>
         +CriterionId id
-        +Severity severity
         +EvaluationRule rule
         +List~EvidenceRequirement~ evidenceRequirements
+        +shortfalls(presented) List~EvidenceShortfall~
     }
     class EvaluationRule {
         <<interface>>
-        +evaluate(Answer) RuleOutcome
+        +admissibilityViolation(answer) Optional~String~
+        +evaluate(answer) RuleOutcome
+        +publicationViolations() List~String~
     }
     class YesNoRule
     class NumericRangeRule
     class MappedOptionsRule
 
     class Asset {
-        +AssetId id
-        +PartyId responsibleId
+        <<aggregate root>>
+        -AssetId id
+        -String name
+        -AssetType assetType
+        -Map~StringToString~ characteristics
+        -ResponsiblePartyRef responsible
+        -String location
+        +assignResponsible(ref) FieldChange
+        +relocate(location) FieldChange
+        +captureSnapshot(at) AssetSnapshot
     }
-    class Party
-    class Inspection {
-        +InspectionId id
+    class Party {
+        <<entity>>
+        -PartyId id
+        -String name
+        -PartyKind kind
+        +reference() ResponsiblePartyRef
+    }
+    class AssetSnapshot {
+        <<value>>
         +AssetId assetId
-        +SchemaVersionId frozenSchemaVersionId
-        +InspectionStatus status
-        +start(...)
-        +close(...)
-        +rectify(...)
+        +AssetType assetType
+        +String name
+        +Map~StringToString~ characteristics
+        +String location
+        +ResponsiblePartyRef responsible
+        +Instant capturedAt
+    }
+
+    class Inspection {
+        <<aggregate root>>
+        -InspectionId id
+        -AssetId assetId
+        -PartyId inspector
+        -LocalDate expectedDate
+        -InspectionStatus status
+        -SchemaVersionId frozenSchemaVersionId
+        -AssetSnapshot assetSnapshot
+        -Instant startedAt
+        -Instant closedAt
+        -Map~CriterionIdToCriterionRecord~ records
+        -List~InspectionNote~ notes
+        -List~Rectification~ rectifications
+        +start(version, snapshot, at)
+        +close(at, evaluations) InspectionClosureResult
+        +rectify(id, author, at, reason, corrections) Rectification
+        +appendRectifiedEvaluation(criterion, evaluation)
     }
     class CriterionRecord {
-        +CriterionId criterionId
-        +Answer answer
-        +List~EvidenceRecord~ evidence
-        +List~CriterionEvaluation~ evaluations
+        <<entity>>
+        -CriterionId criterionId
+        -Answer answer
+        -List~EvidenceRecord~ evidence
+        -List~CriterionEvaluation~ evaluations
+        +recordAnswer(answer)
+        +attach(evidence)
+        +recordClosureEvaluation(evaluation)
+        +appendRectifiedEvaluation(evaluation)
     }
-    class Rectification
+    class CriterionEvaluation {
+        <<value>>
+        +CriterionResult result
+        +List~EvaluationReason~ reasons
+        +Severity severity
+        +Instant evaluatedAt
+        +Optional~RectificationId~ rectificationId
+    }
+    class Rectification {
+        <<value>>
+        +RectificationId id
+        +PartyId author
+        +Instant performedAt
+        +String reason
+        +List~RectificationChange~ changes
+        +affectedCriteria() Set~CriterionId~
+    }
     class CriterionEvaluator {
-        +evaluate(Criterion, CriterionRecord, SchemaVersion, Instant)
+        <<domain service>>
+        +evaluate(criterion, record, version, at) CriterionEvaluation
     }
-    class CriterionEvaluation
 
     class Finding {
-        +FindingId id
-        +InspectionId inspectionId
-        +CriterionId criterionId
-        +CorrectiveAction correctiveAction
+        <<aggregate root>>
+        -FindingId id
+        -InspectionId inspectionId
+        -CriterionId criterionId
+        -AssetId assetId
+        -PartyId responsible
+        -Instant createdAt
+        -CriterionResult result
+        -List~EvaluationReason~ reasons
+        -Severity severity
+        -List~String~ presentedEvidence
+        -CorrectiveAction correctiveAction
+        -List~FindingRevision~ revisions
+        -VoidedObligation voided
+        +revise(...)
+        +voidObligation(...)
+        +blocksCertification() boolean
     }
     class CorrectiveAction {
-        +CorrectiveActionStatus status
-        +plan(...)
-        +reportExecution(...)
-        +verify(...)
-        +expireIfOverdue(...)
-    }
-    class Certificate {
-        +CertificateId id
-        +AssetId assetId
-        +InspectionId backingInspectionId
-        +CertificateStatus status
-        +suspend(...)
-        +resolveCauses(...)
-        +expireIfDue(...)
-    }
-    class CertificateIssuancePolicy {
-        +blockersFor(CertificationContext)
+        <<entity>>
+        -CorrectiveActionId id
+        -CorrectiveActionStatus status
+        -CorrectionPlan plan
+        -List~ExecutionReport~ executions
+        -List~Verification~ verifications
+        -Instant closedAt
+        -boolean deadlineBreached
+        -VoidedObligation voided
+        +confirmPlan(plan)
+        +reportExecution(report)
+        +verify(verification, today) boolean
+        +expireIfOverdue(today) boolean
+        +voidObligation(record)
     }
 
-    InspectionSchema *-- SchemaDraft
+    class Certificate {
+        <<aggregate root>>
+        -CertificateId id
+        -AssetId assetId
+        -InspectionId backingInspectionId
+        -SchemaVersionId schemaVersionId
+        -ValidityPeriod validity
+        -CertificateId previousCertificateId
+        -List~SuspensionRecord~ suspensions
+        -CertificateStatus status
+        +suspend(cause, at) boolean
+        +resolveCauses(matches, how, at) boolean
+        +expireIfDue(at) boolean
+    }
+    class CertificateIssuancePolicy {
+        <<domain policy>>
+        -List~IssuanceRequirement~ requirements
+        +blockersFor(context) List~IssuanceBlocker~
+    }
+
+    InspectionSchema *-- "0..1" SchemaDraft
     InspectionSchema *-- "0..*" SchemaVersion
     SchemaVersion *-- "1..*" Section
-    Section *-- "1..*" Criterion
-    Criterion *-- EvaluationRule
+    Section *-- "0..*" Criterion
+    Criterion *-- "0..*" EvidenceRequirement
+    Criterion --> EvaluationRule
     EvaluationRule <|.. YesNoRule
     EvaluationRule <|.. NumericRangeRule
     EvaluationRule <|.. MappedOptionsRule
 
+    Asset --> Party : responsable por id
     Inspection --> Asset : assetId
-    Inspection --> SchemaVersion : frozenSchemaVersionId
-    Asset --> Party : responsibleId
+    Inspection --> SchemaVersion : versión congelada por id
     Inspection *-- "1..*" CriterionRecord
+    Inspection *-- "0..*" InspectionNote
     Inspection *-- "0..*" Rectification
+    Inspection *-- "0..1" AssetSnapshot
+    CriterionRecord *-- "0..*" EvidenceRecord
+    CriterionRecord *-- "0..*" CriterionEvaluation
     CriterionEvaluator ..> Criterion
     CriterionEvaluator ..> CriterionRecord
-    CriterionEvaluator ..> CriterionEvaluation : crea
 
     Finding --> Inspection : inspectionId
     Finding --> Criterion : criterionId
     Finding *-- CorrectiveAction
     Certificate --> Asset : assetId
-    Certificate --> Inspection : backingInspectionId
-    CertificateIssuancePolicy ..> Finding : consulta bloqueos mediante contexto
+    Certificate --> Inspection : respaldo por id
+    Certificate --> SchemaVersion : schemaVersionId
+    CertificateIssuancePolicy ..> Finding : bloqueos vía contexto
+
+    classDef aggregate fill:#dbeafe,stroke:#2563eb,color:#172554,stroke-width:2px
+    classDef entity fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef value fill:#f3e8ff,stroke:#9333ea,color:#581c87
+    classDef service fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef contract fill:#e5e7eb,stroke:#4b5563,color:#111827,stroke-dasharray: 5 5
+    class InspectionSchema,Asset,Inspection,Finding,Certificate aggregate
+    class Party,CriterionRecord,CorrectiveAction entity
+    class SchemaDraft,SchemaVersion,Section,Criterion,AssetSnapshot,CriterionEvaluation,Rectification value
+    class CriterionEvaluator,CertificateIssuancePolicy service
+    class EvaluationRule contract
 ```
 
 ## Recorrido: cierre y rectificación de una inspección
