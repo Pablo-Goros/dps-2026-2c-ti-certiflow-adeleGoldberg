@@ -1,432 +1,105 @@
 # Decisiones de diseño
 
-## 1. Propósito y alcance
+La [consigna](docs/consigna_tp.md) exige un módulo de dominio Java compilable y probado, y un documento que explique los patrones y principios aplicados, dónde y por qué, las alternativas descartadas y sus consecuencias. El [PRD](docs/PRD.md) aporta las decisiones de negocio; sus preguntas pendientes no equivalen a requisitos acordados.
 
-Este repositorio implementa el módulo de dominio de una plataforma de inspección,
-habilitación y certificación de activos técnicos. El alcance corresponde a la Entrega 1
-de la consigna: modelos de negocio, reglas, casos de uso, contratos y tests.
+Este documento explica las decisiones que se reconocen en la implementación. Las alternativas sirven para justificar el diseño actual; no pretenden reconstruir deliberaciones históricas que no estén registradas. Los diagramas y el inventario de componentes están en [arquitectura-actual.md](docs/arquitectura-actual.md).
 
-No se implementan en esta entrega API REST, frontend, persistencia real, seguridad ni
-despliegue. Los repositorios en memoria que aparecen en `src/test` son adaptadores de
-prueba para ejercitar el dominio completo, no una decisión de persistencia de producción.
+## 1. Separar reglas de negocio y coordinación mediante puertos
 
-La implementación usa Java 25 y no tiene dependencias de producción sobre frameworks,
-contenedores o bibliotecas de persistencia. Las dependencias del `pom.xml` se limitan a
-las herramientas de testing.
+**Decisión y aplicación.** Se aplica inversión de dependencias mediante puertos y adaptadores. Las entidades, reglas y políticas de `domain` no dependen de infraestructura. Los casos de uso de `application` coordinan esas reglas a través de contratos de repositorio, consulta, auditoría y publicación de eventos. Las dependencias se reciben por constructor. `FullSystem`, en los tests, compone el sistema con adaptadores en memoria.
 
-## 2. Principios y arquitectura
+**Motivo.** La entrega debe demostrar el dominio sin exigir base de datos, API ni interfaz. Los puertos `Clock`, `IdGenerator` y `ActorProvider` permiten controlar tiempo, identidad y autoría en las pruebas. La separación también evita que la elección posterior de persistencia determine las reglas.
 
-### Puertos y adaptadores
+**Alternativas no adoptadas.** Acoplar las entidades a JPA o a un framework de aplicación introduciría dependencias innecesarias para esta entrega. Tampoco se usa un Singleton o un Service Locator para obtener servicios: ocultarían las dependencias y dificultarían aislar escenarios.
 
-Se aplica una arquitectura de puertos y adaptadores. Los casos de uso dependen de
-interfaces ubicadas en los paquetes `application/**/port`, por ejemplo:
+**Consecuencias.** Hay más contratos y composición explícita. Los adaptadores en memoria solo demuestran los casos de uso; no ofrecen persistencia durable, aislamiento ni transacciones. Incorporar infraestructura exigirá definir esas garantías, además de implementar interfaces.
 
-- `AssetRepository`, `PartyRepository` y `AssetDirectory` para el catálogo.
-- `SchemaRepository` y `SchemaCatalog` para esquemas.
-- `InspectionRepository`, `InspectionQuery` y `FindingRegistry` para inspecciones.
-- `FindingRepository` y `FindingQuery` para hallazgos.
-- `CertificateRepository` para certificados.
-- `Clock`, `IdGenerator`, `ActorProvider`, `DomainEventPublisher` y `AuditTrail` para servicios externos.
+## 2. Modelar invariantes con entidades y objetos de valor
 
-La razón es que las reglas del negocio no deben conocer cómo se guardan datos, cómo se
-generan identificadores o cómo se obtiene la hora. En producción esas interfaces podrían
-tener adaptadores de base de datos, web o mensajería sin modificar el dominio.
+**Decisión y aplicación.** `Asset`, `InspectionSchema`, `Inspection`, `Finding` y `Certificate` tienen identidad y operaciones de negocio. Los identificadores específicos, `CorrectionPlan`, `ValidityPeriod` y los registros de evaluación son objetos de valor. Las relaciones entre agregados se expresan principalmente por identificadores. `Finding` contiene su acción correctiva, siguiendo la relación uno a uno adoptada en RF7–RF8.
 
-En los tests, `FullSystem` funciona como composition root y conecta los casos de uso con
-`InMemoryCatalogue`, `InMemorySchemaRepository`, `InMemoryInspectionRepository`,
-`InMemoryFindingRepository`, `InMemoryCertificateRepository`, `TestClock` y los demás
-adaptadores de prueba.
+**Motivo.** Las operaciones expresan intención y concentran validaciones: iniciar, cerrar, confirmar una planificación o resolver causas de suspensión. Los tipos de identificador evitan mezclar referencias por accidente. Separar el hallazgo de la ejecución correctiva preserva el hecho detectado: reparar el activo no cambia retroactivamente el resultado de la inspección.
 
-### Separación entre dominio y aplicación
+**Alternativas no adoptadas.** Un modelo anémico con setters trasladaría las invariantes a todos los consumidores. Tampoco se creó un agregado único para activo, inspecciones, hallazgos y certificados: sus ciclos de vida y necesidades de consulta son diferentes.
 
-El paquete `domain` contiene entidades, objetos de valor, reglas, políticas y eventos.
-El paquete `application` contiene casos de uso y servicios que coordinan repositorios,
-dominio, auditoría y eventos.
+**Consecuencias y límite actual.** Las operaciones entre agregados necesitan coordinación. Las copias de colecciones protegen su estructura, pero no vuelven inmutables los objetos contenidos: `Inspection.requireRecord()`, `Finding.correctiveAction()` y `Certificate.suspensions()` exponen objetos mutables. El encapsulamiento no está completo y no debe presentarse como garantía de que toda modificación atraviesa el caso de uso auditado. Las características de `Asset` se representan con un mapa inmutable, sin una jerarquía por tipo de activo; falta restringir sus atributos por tipo para cumplir S1, aunque el catálogo concreto de atributos siga pendiente.
 
-Un caso de uso no duplica reglas internas de una entidad. Por ejemplo, `CloseInspection`
-coordina la carga de la inspección y el evaluador, pero `Inspection` es quien controla
-sus estados y `Certificate` es quien controla suspensión, reactivación y vencimiento.
+## 3. Conservar versiones publicadas y capturas históricas
 
-### Agregados y encapsulamiento
+**Decisión y aplicación.** `InspectionSchema` separa un borrador editable de sus versiones publicadas. La publicación valida el contenido y conserva una nueva `SchemaVersion`. `StartInspection` fija la última versión publicada aplicable y captura un `AssetSnapshot`. Cierre y rectificación consultan la versión fijada, no la última disponible.
 
-Los agregados principales son `InspectionSchema`, `Asset`, `Inspection`, `Finding` y
-`Certificate`. Cada uno protege sus invariantes y expone operaciones de negocio en lugar
-de permitir modificaciones arbitrarias de sus colecciones internas.
+**Motivo.** RF3 exige reproducir las reglas vigentes al iniciar. El PRD distingue asignación e inicio: una publicación entre ambos momentos debe participar de la selección. La captura del activo conserva ubicación, características y responsable aunque el catálogo cambie. El responsable histórico de la inspección y el responsable actual al generar un hallazgo pueden diferir por S5.
 
-Las listas, mapas y conjuntos expuestos se devuelven como copias inmutables. Los
-identificadores son objetos de valor (`AssetId`, `InspectionId`, `CriterionId`, etc.) y
-las relaciones entre agregados se conservan principalmente por identificador para evitar
-que un agregado modifique accidentalmente el estado de otro.
+**Alternativas descartadas.** Consultar siempre el esquema o activo actual alteraría la interpretación de los antecedentes. Copiar el esquema completo en cada inspección preservaría la historia, pero duplicaría contenido ya identificado por una versión compartida. Se conserva la referencia a la versión y una captura de los datos mutables del activo.
 
-## 3. Modelo de dominio
+**Consecuencias.** Las versiones referenciadas deben seguir siendo recuperables. Las implementaciones actuales de reglas son inmutables; una futura implementación de `EvaluationRule` deberá respetar esa condición, que la interfaz por sí sola no impone. La auditoría complementa las versiones: registrar quién publicó no sustituye conservar las reglas publicadas.
 
-### Catálogo de activos
+## 4. Componer criterios con estrategias de evaluación
 
-`Asset` representa el activo inspeccionable y contiene:
+**Decisión y aplicación.** `Criterion` contiene una `EvaluationRule`: Strategy permite intercambiar rango numérico, sí/no u opciones sin crear una subclase de criterio para cada regla. `CriterionEvaluator` combina el resultado de esa estrategia con la comprobación de evidencias obligatorias. Cada resultado no aprobado conserva motivos y severidad.
 
-- identificador estable y nombre;
-- `AssetType` (`LABORATORY`, `FACTORY`, `FACILITY`, `EQUIPMENT`);
-- responsable (`ResponsiblePartyRef`);
-- ubicación;
-- características.
+**Motivo.** S2 acota las reglas iniciales. RF3 exige una respuesta inequívoca para cada dato admitido; por eso se comprueban cobertura y límites de las bandas al publicar. La carga valida admisibilidad, mientras la evaluación ordinaria ocurre al cerrar. Esto permite registros progresivos sin producir rechazos anticipados por información todavía incompleta.
 
-`Party` representa personas u organizaciones. El catálogo permite registrar y consultar
-activos, cambiar responsable y relocalizar. Esos cambios producen información de auditoría.
+**Alternativas descartadas.** Un motor externo de reglas o un lenguaje de expresiones agregaría validación, ejecución y diagnóstico que las tres estrategias actuales no necesitan. No se aplica Composite para combinar reglas ni para anidar secciones arbitrariamente: el PRD define una regla por criterio y una estructura de secciones y criterios.
 
-Al iniciar una inspección se captura un `AssetSnapshot`. Así, una inspección conserva el
-tipo, nombre, ubicación, características y responsable que existían en ese momento,
-aunque el activo cambie después.
+**Consecuencias.** Agregar una regla exige una implementación Java y sus pruebas de admisibilidad, publicación y evaluación. La severidad de faltantes obligatorios está fijada en `EvaluationReason.MISSING_MANDATORY_DATA`; no es configurable por esquema. Las evidencias se identifican actualmente por etiqueta dentro del criterio: esa elección exige evitar ambigüedades, y la validación de etiquetas repetidas todavía está incompleta.
 
-Casos de uso principales: `RegisterParty`, `RegisterAsset`, `SearchAssets`,
-`RelocateAsset` y `ChangeAssetResponsible`.
+## 5. Expresar ciclos de vida con estados explícitos
 
-### Esquemas, secciones y criterios
+**Decisión y aplicación.** Inspecciones, acciones y certificados usan enums y métodos con condiciones de transición. No se aplica el patrón State mediante una clase por estado. En acciones correctivas, `deadlineBreached` conserva el incumplimiento del plazo independientemente del avance de la ejecución; el vencimiento no impide ejecutar y verificar tarde.
 
-`InspectionSchema` es el agregado raíz de un esquema. Puede aplicarse a uno o varios tipos
-de activo y conserva sus versiones publicadas. El contenido se modifica mediante un único
-`SchemaDraft` abierto y luego se publica como `SchemaVersion` inmutable.
+**Motivo.** Los ciclos iniciales tienen pocos estados y sus reglas caben en las entidades. Separar el incumplimiento del plazo del progreso evita perderlo cuando una acción finalmente se cierra. En certificados, las causas de suspensión se conservan individualmente para impedir la reactivación mientras quede alguna pendiente.
 
-La estructura es:
+**Alternativas descartadas.** Una jerarquía State agregaría clases y delegación para transiciones todavía pequeñas. Un único booleano de suspensión no permitiría explicar ni resolver varias causas. Tratar una acción vencida como terminal impediría la corrección tardía acordada en RF8.
 
-```text
-InspectionSchema
-    -> SchemaDraft o SchemaVersion
-             -> Section
-                        -> Criterion
-                                 -> EvaluationRule
-                                 -> EvidenceRequirement
-```
+**Consecuencias.** Al crecer las transiciones habrá que revisar si los condicionales siguen siendo manejables. El tiempo se recibe explícitamente y los casos de uso de barrido materializan vencimientos; no hay planificador externo en esta entrega. Las operaciones que dependen de vigencia deben ser coherentes con la fecha real aunque el barrido aún no se haya ejecutado; esa coherencia todavía tiene brechas en certificados.
 
-Un `Criterion` tiene una regla de evaluación y requisitos de evidencia. Las reglas
-implementadas son:
+## 6. Separar cierre, elegibilidad y emisión
 
-- `NumericRangeRule`, para mediciones con unidad, límites y bandas.
-- `YesNoRule`, para respuestas afirmativas o negativas.
-- `MappedOptionsRule`, para opciones con resultados asociados.
+**Decisión y aplicación.** `CloseInspection` evalúa y registra no conformidades. `CertificationContextAssembler` reúne los datos necesarios para `CertificateIssuancePolicy`, que evalúa una lista de `IssuanceRequirement` y devuelve todos los bloqueos. `IssueCertificate` registra la decisión y crea el certificado; `RenewCertificate` agrega la coordinación de renovación. `CertificateValidityPolicy` separa el cálculo de vigencia.
 
-Cada regla produce exactamente uno de estos resultados:
+**Motivo.** Un resultado observado o rechazado es un antecedente; la elegibilidad también depende del seguimiento correctivo actual. El PRD exige una solicitud explícita de emisión y distingue cierre de aprobación. La política puede explicar simultáneamente varios impedimentos sin conocer repositorios.
 
-- `APPROVED`: el criterio cumple.
-- `OBSERVED`: hay una desviación que requiere corrección, pero no bloquea por sí sola la certificación.
-- `REJECTED`: existe un incumplimiento que bloquea hasta su corrección y verificación.
+**Alternativas descartadas.** Emitir al cerrar confundiría decisiones distintas y no permitiría completar correcciones antes de solicitar emisión. Concentrar las consultas en `Certificate` acoplaría una entidad a otros agregados. No se usa Chain of Responsibility con interrupción en el primer fallo: se necesitan todos los motivos del bloqueo.
 
-Antes de publicar, el draft valida las reglas. Las reglas numéricas deben cubrir sin
-ambigüedades el dominio admitido, sin superposiciones ni huecos. Las reglas de sí/no y
-opciones deben definir el resultado de cada respuesta válida.
+**Consecuencias.** Hay un paso de ensamblado y varios objetos de requisito. Las decisiones de emisión son variantes explícitas (`Issued`, `Blocked`, `AlreadyIssued`), sin crear un certificado rechazado. La composición incluye una restricción de un certificado no vencido por activo, adicional al máximo de uno por inspección acordado en el PRD; esa restricción requiere conciliación con el producto. La duración es inyectable y los tests eligen doce meses; no establece una duración universal acordada.
 
-### Versionado
+## 7. Coordinar efectos entre agregados mediante eventos
 
-Una `SchemaVersion` publicada es inmutable. Para cambiar un esquema se abre un nuevo
-draft basado en la última versión, se edita y se publica otra versión.
+**Decisión y aplicación.** Los casos de uso publican eventos como `CorrectiveActionExpired`, `CorrectiveActionClosed`, `CorrectiveActionVoided` y `CriterionResultRevised`. `CertificationReactions` los consume para suspender certificados o resolver sus causas. Los tests usan un despachador síncrono en memoria, una aplicación del mecanismo de publicación/suscripción.
 
-Al iniciar una inspección, `StartInspection` obtiene la última versión publicada aplicable
-al tipo del activo y la guarda como `frozenSchemaVersionId`. También captura el snapshot
-del activo. Desde ese momento, las publicaciones posteriores no modifican la inspección.
+**Motivo.** El seguimiento de una acción o la rectificación de una inspección no necesita conocer cómo se modifica un certificado. Los eventos comunican hechos de negocio y mantienen las reacciones en el componente que conoce la certificación.
 
-Esto satisface el requisito de que una inspección conserve las reglas vigentes cuando fue
-iniciada.
+**Alternativas no adoptadas.** Invocar la certificación desde cada entidad introduciría dependencias entre ciclos de vida. Un broker, una saga o un outbox durable exceden las necesidades de infraestructura de esta entrega.
 
-### Inspecciones
+**Consecuencias y límite actual.** La composición debe registrar el consumidor; publicar por sí solo no ejecuta la reacción. No hay garantías de entrega durable, rollback o atomicidad entre guardados, auditoría y eventos. Esto tampoco justifica dejar cambios parciales ante errores de validación: la rectificación actual necesita resolver ese problema incluso en memoria. La idempotencia de algunas operaciones no equivale a una garantía transaccional.
 
-`Inspection` tiene los estados `ASSIGNED`, `IN_PROGRESS` y `CLOSED`.
+## 8. Conservar correcciones y auditoría sin Event Sourcing
 
-El flujo es:
+**Decisión y aplicación.** `Rectification` identifica autor, motivo, fecha y cambios anteriores/posteriores. Los registros de criterio conservan evaluaciones sucesivas. `AuditRecorder` agrega entradas sobre cambios y decisiones de los casos de uso. Anular la exigencia correctiva se representa con `VoidedObligation`, separada de ejecutar o verificar una reparación.
 
-1. `AssignInspection` designa activo, inspector y fecha prevista.
-2. `StartInspection` fija la versión del esquema y captura el activo.
-3. `RecordAnswer`, `AttachEvidence` y `RecordNote` registran la ejecución progresiva.
-4. `CloseInspection` evalúa todos los criterios y cierra la inspección.
-5. Una inspección cerrada solo puede cambiar mediante `RectifyClosedInspection`.
+**Motivo.** La consigna prohíbe alterar libremente inspecciones cerradas. RF10 también distingue un error del registro original de una reparación posterior. Una rectificación que elimina el incumplimiento no debe inventar una verificación satisfactoria para cerrar su historia.
 
-El alcance de una inspección es el esquema completo. No se admiten inspecciones parciales.
-Durante la ejecución se puede cargar información incompleta; los faltantes se determinan
-al cerrar.
+**Alternativas descartadas.** Sobrescribir valores sin antecedente impediría reconstruir decisiones. Event Sourcing exigiría reconstruir agregados desde un historial completo de eventos, además de versionarlos y reproducirlos. Aquí el estado actual reside en entidades y la historia lo complementa.
 
-### Evaluación
+**Consecuencias y límite actual.** Estado, rectificaciones, hallazgos y auditoría deben mantenerse consistentes. La implementación conserva el plan al revisar un incumplimiento persistente, pero RF10 todavía deja pendiente esa política: no constituye una decisión de producto acordada. El tratamiento de acciones ya cerradas y hallazgos previamente anulados necesita definición y corrección. Además, algunas entradas actuales registran descripciones o estados genéricos insuficientes para reconstruir los cambios exigidos; disponer de un puerto de auditoría no demuestra por sí solo su cumplimiento.
 
-`CriterionEvaluator` recibe un criterio, su registro de respuestas/evidencias y la versión
-congelada del esquema. Evalúa:
+## 9. Producir informes estructurados con consultas específicas
 
-- ausencia de respuesta;
-- respuesta incompatible con la regla;
-- resultado de la regla;
-- evidencia obligatoria faltante.
+**Decisión y aplicación.** Los generadores de acta, resumen y certificado construyen valores de salida. `ReportedValue` permite distinguir valores originales y rectificados. Los contratos de consulta ofrecen los datos necesarios sin imponer almacenamiento separado.
 
-La ausencia de respuesta o de evidencia obligatoria produce `REJECTED` con un motivo
-explícito. La severidad se obtiene del resultado concreto de la regla y de los motivos,
-por lo que puede variar según el dato ingresado.
+**Motivo.** RF11 admite salidas estructuradas o texto. Separar la proyección del documento de las reglas permite probar contenido e historia y añadir una representación visual posteriormente.
 
-La evaluación ordinaria ocurre al cerrar, no durante cada carga. Un segundo intento de
-cierre es idempotente: devuelve las evaluaciones actuales y no duplica hallazgos.
+**Alternativas descartadas.** Generar PDF en el dominio introduciría formato y herramientas visuales ajenos al alcance. Tampoco se aplica CQRS completo con bases o modelos persistidos distintos: hay separación de algunos contratos, sin la sincronización adicional de dos almacenes.
 
-### Hallazgos y acciones correctivas
+**Consecuencias.** Los informes se construyen al consultar; su estado y compromisos pueden cambiar entre consultas. No existe una copia archivada del documento emitido. Las proyecciones deben conservar la atribución correcta de sucesivas rectificaciones y distinguir sus antecedentes; hay brechas actuales en esa atribución y en el resumen de hallazgos.
 
-Cada criterio `OBSERVED` o `REJECTED` genera un `Finding`; los criterios aprobados no
-generan hallazgos. El hallazgo conserva:
+## 10. Verificar comportamiento con tiempo y adaptadores controlados
 
-- inspección, activo y criterio;
-- resultado, severidad y motivos;
-- evidencia presentada o faltante;
-- responsable del activo al momento del cierre;
-- una acción correctiva asociada.
+**Decisión y aplicación.** JUnit y AssertJ prueban reglas y ciclos de vida. Las pruebas de integración componen casos de uso con repositorios en memoria, reloj controlable y eventos síncronos. Maven separa unitarios (`mvn test`) de la verificación completa (`mvn verify`, que agrega integración y JaCoCo). El proyecto compila para Java 25.
 
-`FindingService` implementa `FindingRegistry` y conecta el cierre o una rectificación
-con la creación y modificación de hallazgos. Al crear un hallazgo también se crea su
-`CorrectiveAction` en estado pendiente de planificación.
+**Motivo.** La consigna pide casos relevantes del negocio. Controlar el tiempo permite verificar vencimientos y reactivaciones sin esperas; componer los casos de uso permite comprobar consecuencias entre inspecciones, acciones y certificados.
 
-La acción correctiva puede:
+**Alternativas no adoptadas.** Una base real o pruebas de interfaz no aportan a las reglas de esta entrega. Sustituir todas las colaboraciones por mocks tampoco mostraría si la emisión y sus reacciones funcionan juntas.
 
-1. planificarse con trabajo, ejecutor y fecha límite;
-2. recibir uno o más reportes de ejecución con evidencia;
-3. recibir verificaciones satisfactorias o no satisfactorias;
-4. cerrarse luego de una verificación satisfactoria;
-5. marcarse vencida si pasa la fecha sin cierre;
-6. quedar sin efecto si una rectificación elimina el incumplimiento original.
-
-Una verificación fallida no borra el historial: la acción queda abierta para otro intento.
-Una acción vencida puede cerrarse posteriormente, pero el incumplimiento del plazo queda
-conservado.
-
-### Certificados
-
-`CertificateIssuancePolicy` evalúa un `CertificationContext` construido por
-`CertificationContextAssembler`. La emisión se bloquea si:
-
-- la inspección no está cerrada;
-- existe un rechazo sin corrección verificada;
-- existe una acción requerida sin planificar;
-- existe una acción abierta vencida;
-- el activo ya posee otro certificado vigente.
-
-Las observaciones permiten emitir, siempre que sus acciones estén planificadas. La
-emisión es explícita mediante `IssueCertificate`; cerrar la inspección no emite un
-certificado automáticamente. Una segunda solicitud sobre la misma inspección informa
-que ya fue emitido y no crea otro certificado.
-
-`Certificate` puede estar `VALID`, `SUSPENDED` o `EXPIRED`.
-
-- El vencimiento de una acción asociada a un certificado lo suspende.
-- Una rectificación que revela un rechazo suspende el certificado inmediatamente.
-- La verificación y cierre de la acción resuelve su causa de suspensión.
-- El certificado se reactiva solo si no quedan causas pendientes y sigue vigente.
-- La reactivación conserva la fecha de vencimiento original.
-- `RenewCertificate` exige que el certificado anterior haya vencido y crea uno nuevo
-    respaldado por una inspección nueva, conservando `previousCertificateId`.
-
-### Rectificaciones
-
-Una inspección cerrada no se edita directamente. El inspector asignado puede crear una
-rectificación con motivo, fecha, autor y correcciones. Se admiten correcciones de:
-
-- respuestas o mediciones;
-- referencias de evidencias;
-- notas descriptivas.
-
-No se puede cambiar el activo ni la versión del esquema. Se conserva el valor original,
-el corregido y la razón del cambio.
-
-La rectificación reevalúa solo los criterios afectados usando la versión original:
-
-- si elimina un incumplimiento, se deja sin efecto la obligación y la acción, sin inventar
-    una ejecución ni una verificación;
-- si revela un incumplimiento nuevo, se crea el hallazgo y la acción;
-- si el incumplimiento continúa, se revisa el hallazgo existente y se conserva su plan;
-- si aparece un rechazo en una inspección certificada, se publica un evento que suspende
-    el certificado.
-
-### Auditoría y eventos
-
-`AuditRecorder` registra elemento afectado, acción, actor, fecha, detalle y motivo. La
-auditoría cubre activos, esquemas, inspecciones, hallazgos, acciones y certificados.
-
-Los eventos de dominio desacoplan efectos secundarios. Entre los eventos implementados se
-encuentran `CorrectiveActionExpired`, `CorrectiveActionClosed`, `CorrectiveActionVoided`
-y `CriterionResultRevised`.
-
-`CertificationReactions` consume esos eventos y actualiza certificados:
-
-- vencimiento de acción -> suspensión;
-- rechazo descubierto por rectificación -> suspensión;
-- acción cerrada -> resolución de la causa correspondiente;
-- obligación anulada -> resolución de la causa correspondiente.
-
-La auditoría automática identifica estas transiciones como realizadas por el sistema.
-
-### Informes
-
-Los informes son salidas estructuradas del dominio y no documentos visuales. Se generan:
-
-- `InspectionAct`: acta con activo, inspector, versión del esquema, respuestas,
-    evidencias, resultados, notas y rectificaciones;
-- `FindingsSummary`: hallazgos, motivos, severidad, responsable, acciones y verificaciones;
-- `CertificateReport`: certificado, activo, inspección de respaldo, versión, vigencia,
-    estado y compromisos pendientes;
-- `IssuanceAttemptReport`: resultado y bloqueos de un intento de emisión.
-
-## 4. Flujos principales
-
-### Cierre de inspección
-
-```mermaid
-sequenceDiagram
-        participant UC as CloseInspection
-        participant I as Inspection
-        participant S as SchemaCatalog
-        participant E as CriterionEvaluator
-        participant F as FindingService
-        participant A as AuditRecorder
-
-        UC->>I: obtiene inspección
-        UC->>S: obtiene versión congelada
-        loop cada criterio
-                UC->>E: evalúa criterio y registro
-                E-->>UC: CriterionEvaluation
-        end
-        UC->>I: close(evaluaciones)
-        UC->>F: registra no conformidades
-        F-->>F: crea hallazgos y acciones
-        UC->>A: registra INSPECTION_CLOSED
-```
-
-### Emisión y suspensión
-
-```mermaid
-sequenceDiagram
-        participant UC as IssueCertificate
-        participant C as CertificationContextAssembler
-        participant P as CertificateIssuancePolicy
-        participant R as CertificateRepository
-        participant E as DomainEventPublisher
-        participant X as CertificationReactions
-
-        UC->>C: arma contexto
-        C-->>UC: inspección, hallazgos y certificados
-        UC->>P: calcula bloqueos
-        alt hay bloqueos
-                P-->>UC: IssuanceDecision.Blocked
-        else sin bloqueos
-                UC->>R: guarda Certificate VALID
-        end
-        E->>X: acción vencida o rechazo rectificado
-        X->>R: obtiene certificado de respaldo
-        X->>R: guarda certificado SUSPENDED
-```
-
-## 5. Correspondencia con la consigna
-
-| Requisito | Implementación principal |
-|---|---|
-| Catálogo de activos | `Asset`, `Party`, casos de uso de `application/catalogue` |
-| Esquemas | `InspectionSchema`, `SchemaDraft`, `Section`, `Criterion` |
-| Versionado | `SchemaVersion`, `frozenSchemaVersionId` en `Inspection` |
-| Asignación | `AssignInspection`, `ReassignInspection` |
-| Ejecución | `RecordAnswer`, `AttachEvidence`, `RecordNote` |
-| Evaluación | `CriterionEvaluator`, `CriterionEvaluation` |
-| Hallazgos | `Finding`, `FindingService` |
-| Acciones correctivas | `CorrectiveAction` y casos de uso de `application/finding` |
-| Certificación | `Certificate`, `CertificateIssuancePolicy`, emisión, renovación, suspensión y vencimiento |
-| Auditoría | `AuditRecorder`, `AuditEntry`, eventos de dominio |
-| Informes | casos de uso de `application/report` y modelos de `domain/report` |
-
-## 6. Tests y estrategia de verificación
-
-Se usan JUnit 5 y AssertJ. Mockito queda disponible para pruebas unitarias puntuales.
-
-Los tests unitarios (`*Test.java`) cubren entidades, reglas y casos de uso aislados.
-Los tests de integración (`*IT.java`) ejecutan varios casos de uso juntos mediante
-adaptadores en memoria y `FullSystem`.
-
-Los escenarios integrados principales son:
-
-- `CertificationLifecycleIT`: emisión, bloqueos, acciones, suspensión, reactivación,
-    doble emisión, inspección abierta, evidencia faltante y cierre idempotente;
-- `RectificationIT`: rectificaciones que eliminan, mantienen o revelan incumplimientos,
-    suspensión, notas y referencias de evidencias;
-- `RenewalIT`: vencimiento, renovación, vínculo con certificado anterior y acciones de
-    inspecciones previas;
-- `AuditTrailIT`: historial de decisiones y transiciones;
-- `ReportingIT`: acta, resumen de hallazgos y certificado.
-
-Maven separa las suites por convención:
-
-```bash
-mvn test       # unitarios: **/*Test.java
-mvn verify     # unitarios, integración **/*IT.java y reporte JaCoCo
-```
-
-La configuración de Maven exige Java 25 mediante Enforcer. Surefire ejecuta unitarios,
-Failsafe ejecuta integración y JaCoCo genera el reporte de cobertura durante `verify`.
-
-## 7. Alternativas descartadas y consecuencias
-
-### Persistencia real en esta entrega
-
-Se descartó incorporar JPA, una base de datos o un framework web. La consigna exige el
-módulo de dominio y no una aplicación desplegable. La consecuencia es que los adaptadores
-actuales no persisten entre ejecuciones; a cambio, las reglas quedan desacopladas y son
-fáciles de probar.
-
-### Modelo anémico con setters públicos
-
-Se descartó representar entidades como simples estructuras modificables desde cualquier
-lugar. Eso permitiría estados imposibles, como cerrar dos veces con resultados distintos,
-modificar una inspección cerrada sin rectificación o emitir certificados duplicados.
-La consecuencia es que las operaciones requieren atravesar agregados y casos de uso,
-pero las invariantes quedan centralizadas.
-
-### Recalcular inspecciones con la última versión
-
-Se descartó consultar siempre la última versión del esquema. Eso rompería el requisito de
-reconstruir una inspección histórica. La consecuencia es que se conserva la versión y el
-snapshot usados, aunque el catálogo y el esquema cambien.
-
-### Herencia para cada tipo de activo o criterio
-
-Se descartó crear una jerarquía de clases para laboratorios, fábricas, equipos y cada tipo
-de criterio. Los tipos se modelan como valores y las reglas como una interfaz con
-implementaciones concretas. Esto reduce duplicación y permite agregar reglas sin modificar
-la entidad `Criterion`; la consecuencia es que algunas validaciones se expresan por
-composición en lugar de polimorfismo de entidades.
-
-### Motor de reglas externo
-
-Se descartó incorporar un motor de reglas o un lenguaje de expresiones para esta entrega.
-Las reglas actuales son pocas y explícitas. La consecuencia es menor flexibilidad para
-reglas complejas, pero mayor trazabilidad y facilidad de prueba.
-
-### Event sourcing completo
-
-Se usan eventos de dominio para efectos secundarios, pero no se eligió event sourcing.
-El estado actual se guarda en agregados y la auditoría conserva las operaciones relevantes.
-Esto alcanza para los requisitos de la entrega; la consecuencia es que los eventos no son
-la única fuente de verdad ni permiten reconstruir todo el estado por replay.
-
-### CQRS completo
-
-Se separaron algunos contratos de comandos y consultas (`InspectionRepository` e
-`InspectionQuery`, `FindingRepository` y `FindingQuery`), pero no se implementaron dos
-modelos de almacenamiento ni pipelines separados. Se obtiene una interfaz clara para
-consultas sin introducir complejidad que la entrega no necesita.
-
-### Certificación automática al cerrar
-
-Se descartó emitir certificados automáticamente desde `CloseInspection`. Cerrar una
-inspección y decidir certificar son decisiones distintas; la emisión explícita permite
-que los bloqueos y la intención queden auditados y que las acciones posteriores se
-completen antes de solicitarla.
-
-## 8. Decisiones fuera del alcance
-
-Quedan para una etapa posterior:
-
-- API, frontend y autenticación;
-- persistencia productiva y transacciones;
-- almacenamiento real de fotografías y documentos;
-- notificaciones y tareas programadas externas;
-- duración configurable de certificados;
-- reglas compuestas más allá de las tres implementadas;
-- autorización por roles y permisos.
-
-Estas ausencias no impiden demostrar el dominio requerido por la Entrega 1. Los puertos
-existentes permiten incorporar esos adaptadores sin trasladar infraestructura al núcleo
-del negocio.
+**Consecuencias.** Los tests no prueban concurrencia, persistencia ni fallos de entrega. Los adaptadores conservan referencias a objetos mutables: una excepción puede dejar cambios visibles aun sin llamar a `save`. La cobertura cuantitativa debe complementarse con escenarios de error, múltiples rectificaciones y exactitud de auditoría; una suite verde no garantiza todas las invariantes.
