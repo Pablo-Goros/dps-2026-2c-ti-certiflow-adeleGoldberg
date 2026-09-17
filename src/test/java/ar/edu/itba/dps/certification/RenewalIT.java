@@ -1,5 +1,14 @@
 package ar.edu.itba.dps.certification;
 
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
@@ -8,21 +17,14 @@ import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
-import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import java.time.LocalDate;
-import java.util.List;
 
 class RenewalIT {
 
@@ -112,6 +114,26 @@ class RenewalIT {
         assertThatThrownBy(() -> system.renewCertificate.renew(inspectAndClose("5")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("no certificate to renew");
+    }
+
+    @Test
+    @DisplayName("a voided obligation is ignored by the overdue action sweep")
+    void aVoidedObligationDoesNotExpireLater() {
+        InspectionId inspectionId = inspectAndClose("30");
+        Finding finding = system.findings.findByInspection(inspectionId).getFirst();
+        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+                LocalDate.parse("2026-04-01"));
+
+        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "the reading was corrected",
+                List.of(new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
+                        Measurement.of("5", "c"))));
+
+        system.clock.advanceDays(45);
+        List<Finding> expired = system.expireActions.sweep();
+
+        assertThat(expired).isEmpty();
+        assertThat(system.findings.require(finding.id()).obligationVoided()).isTrue();
     }
 
     private Certificate issueFor(InspectionId inspectionId) {

@@ -1,5 +1,15 @@
 package ar.edu.itba.dps.certification;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
@@ -16,20 +26,14 @@ import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectificati
 import ar.edu.itba.dps.certification.domain.report.InspectionAct;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import static ar.edu.itba.dps.certification.support.Decisions.blockers;
+import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
-import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
-import static org.assertj.core.api.Assertions.assertThat;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
 
 class RectificationIT {
 
@@ -167,6 +171,40 @@ class RectificationIT {
         assertThat(system.inspections.require(inspectionId).rectifications()).singleElement()
                 .satisfies(rectification -> assertThat(rectification.changes()).singleElement()
                         .isInstanceOf(RectificationChange.EvidenceReferenceChanged.class));
+    }
+
+    @Test
+    @DisplayName("missing mandatory evidence creates a finding and blocks issuance")
+    void missingMandatoryEvidenceCreatesFindingAndBlocksIssuance() {
+        InspectionId inspectionId = assignAndStart();
+        system.recordAnswer.record(inspectionId, DomainWorld.TEMPERATURE, Measurement.of("5", "c"));
+        system.recordAnswer.record(inspectionId, DomainWorld.DOCUMENTATION, YesNoAnswer.yes());
+
+        system.closeInspection.close(inspectionId);
+
+        Finding finding = system.findings.findByInspection(inspectionId).getFirst();
+        assertThat(finding.result()).isEqualTo(CriterionResult.REJECTED);
+        assertThat(finding.shortfalls()).isNotEmpty();
+        assertThat(blockers(system.issueCertificate.issue(inspectionId))).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("a voided obligation cannot be revised again by a later rectification")
+    void aVoidedFindingCannotBeRevised() {
+        InspectionId inspectionId = inspectAndClose("30");
+        Finding finding = system.findings.findByInspection(inspectionId).getFirst();
+        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+                LocalDate.parse("2026-04-01"));
+
+        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "the reading was corrected", List.of(new Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("5", "c"))));
+
+        assertThat(system.findings.require(finding.id()).obligationVoided()).isTrue();
+        assertThatThrownBy(() -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "attempt to reopen the issue", List.of(new Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("30", "c")))))
+                .isInstanceOf(DomainException.class);
     }
 
     private void rectifyTemperatureTo(String temperature) {

@@ -1,5 +1,15 @@
 package ar.edu.itba.dps.certification;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
@@ -9,22 +19,15 @@ import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlock
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
-import ar.edu.itba.dps.certification.support.DomainWorld;
-import ar.edu.itba.dps.certification.support.FullSystem;
 import static ar.edu.itba.dps.certification.support.Decisions.alreadyIssuedCertificate;
 import static ar.edu.itba.dps.certification.support.Decisions.blockers;
 import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
-import static org.assertj.core.api.Assertions.assertThat;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.List;
+import ar.edu.itba.dps.certification.support.DomainWorld;
+import ar.edu.itba.dps.certification.support.FullSystem;
 
 class CertificationLifecycleIT {
 
@@ -151,6 +154,18 @@ class CertificationLifecycleIT {
     }
 
     @Test
+    @DisplayName("closing an already closed inspection is idempotent and does not duplicate findings")
+    void closingAnAlreadyClosedInspectionIsIdempotent() {
+        InspectionId inspectionId = inspectAndClose("30", true);
+
+        assertThat(system.findings.findByInspection(inspectionId)).hasSize(1);
+
+        system.closeInspection.close(inspectionId);
+
+        assertThat(system.findings.findByInspection(inspectionId)).hasSize(1);
+    }
+
+    @Test
     @DisplayName("an inspection that is still open cannot be certified")
     void anOpenInspectionCannotBeCertified() {
         InspectionId inspectionId = system.assignInspection
@@ -163,6 +178,20 @@ class CertificationLifecycleIT {
         assertThat(blockers(decision))
                 .anyMatch(IssuanceBlocker.InspectionNotClosed.class::isInstance);
         assertThat(system.certificates.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("only the assigned inspector may rectify a closed inspection")
+    void onlyTheAssignedInspectorCanRectify() {
+        InspectionId inspectionId = inspectAndClose("30", true);
+        Party otherInspector = system.person("Laura Gomez");
+
+        assertThatThrownBy(() -> system.rectifyClosedInspection.rectify(inspectionId, otherInspector.id(),
+                "someone else tries to change the result",
+                List.of(new ar.edu.itba.dps.certification.domain.inspection.rectification.Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("5", "c")))))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("only the assigned inspector");
     }
 
     private InspectionId inspectAndClose(String temperature, boolean documentationInOrder) {
