@@ -131,6 +131,27 @@ class SchemaPublicationTest {
                 .hasMessageContaining("same label");
     }
 
+    @Test
+    @DisplayName("a section with no criteria is not a section")
+    void aSectionMustHoldAtLeastOneCriterion() {
+        assertThatThrownBy(() -> Section.of("Safety", 1))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("criteria of section 'Safety'");
+    }
+
+    @Test
+    @DisplayName("a draft with no sections cannot be published")
+    void anEmptyDraftIsNotPublishable() {
+        InspectionSchema schema = aSchema();
+        schema.openDraft();
+
+        PublicationResult result = schema.publish(PUBLISHED_AT);
+
+        assertThat(result.published()).isFalse();
+        assertThat(result.violations()).containsExactly("a version must declare at least one section");
+        assertThat(schema.draft()).isPresent();
+    }
+
     private InspectionSchema aSchema() {
         return new InspectionSchema(SchemaId.of("schema-1"), "Laboratory inspection",
                 Set.of(AssetType.LABORATORY));

@@ -56,14 +56,9 @@ public final class SchemaDraft {
     }
 
     private List<String> contentIsPresent() {
-        List<String> violations = new ArrayList<>();
-        if (sections.isEmpty()) {
-            violations.add("a version must declare at least one section");
-        }
-        if (criteria().isEmpty()) {
-            violations.add("a version must declare at least one criterion");
-        }
-        return violations;
+        return sections.isEmpty()
+                ? List.of("a version must declare at least one section")
+                : List.of();
     }
 
     private List<String> criterionIdsAreUnique() {
