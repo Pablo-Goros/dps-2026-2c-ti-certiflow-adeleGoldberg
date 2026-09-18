@@ -7,7 +7,10 @@ import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.CriterionResultRevised;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
+import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectification;
+import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.Section;
@@ -200,6 +203,44 @@ class RectifyClosedInspectionTest {
         assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).answer().orElseThrow()
                 .describe()).isEqualTo("5 c");
         assertThat(inspection.rectifications()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a rectified evaluation must reference the rectification that produced it")
+    void aRectifiedEvaluationMustReferenceItsRectification() {
+        closeWith("30");
+        Rectification rectification = world.rectifyClosedInspection.rectify(inspectionId,
+                inspector.id(), "typo in the reading", List.of(new Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("5", "c"))));
+        Inspection inspection = world.inspections.require(inspectionId);
+        CriterionEvaluation mismatched = CriterionEvaluation.approved(world.clock.now())
+                .asRectificationOf(RectificationId.of("another-rectification"), world.clock.now());
+
+        assertThatThrownBy(() -> inspection.recordEvaluationProducedBy(rectification,
+                DomainWorld.TEMPERATURE, mismatched))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("must reference rectification");
+
+        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).evaluations()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("the same rectification cannot produce two evaluations for one criterion")
+    void aRectificationCannotProduceTwoEvaluationsForOneCriterion() {
+        closeWith("30");
+        Rectification rectification = world.rectifyClosedInspection.rectify(inspectionId,
+                inspector.id(), "typo in the reading", List.of(new Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("5", "c"))));
+        Inspection inspection = world.inspections.require(inspectionId);
+        CriterionEvaluation duplicated = CriterionEvaluation.approved(world.clock.now())
+                .asRectificationOf(rectification.id(), world.clock.now());
+
+        assertThatThrownBy(() -> inspection.recordEvaluationProducedBy(rectification,
+                DomainWorld.TEMPERATURE, duplicated))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("already produced an evaluation");
+
+        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).evaluations()).hasSize(2);
     }
 
     private void rectifyTemperatureTo(String temperature) {
