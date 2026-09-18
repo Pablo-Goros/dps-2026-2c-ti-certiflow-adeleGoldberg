@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectificati
 import ar.edu.itba.dps.certification.domain.report.InspectionAct;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
@@ -232,6 +234,30 @@ class RectificationIT {
         assertThat(after.result()).isEqualTo(CriterionResult.OBSERVED);
         assertThat(after.revisions()).isEmpty();
         assertThat(after.correctiveActions()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("an invalid correction does not partially apply a multi-change rectification")
+    void anInvalidRectificationIsAtomic() {
+        InspectionId inspectionId = assignAndStart();
+        system.recordAnswer.record(inspectionId, DomainWorld.TEMPERATURE, Measurement.of("5", "c"));
+        system.recordAnswer.record(inspectionId, DomainWorld.DOCUMENTATION, YesNoAnswer.yes());
+        system.attachEvidence.attach(inspectionId, DomainWorld.DOCUMENTATION,
+                DomainWorld.SAFETY_MANUAL, "file://manual.pdf");
+        InspectionNote note = system.recordNote.record(inspectionId, Optional.empty(),
+                "door was blocked");
+        system.closeInspection.close(inspectionId);
+
+        assertThatThrownBy(() -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "one correction is invalid", List.of(
+                        new Correction.NoteCorrection(note.id(), "corrected note"),
+                        new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
+                                Measurement.of("5", "f")))))
+                .isInstanceOf(DomainException.class);
+
+        assertThat(system.inspections.require(inspectionId).requireNote(note.id()).text())
+                .isEqualTo("door was blocked");
+        assertThat(system.inspections.require(inspectionId).rectifications()).isEmpty();
     }
 
     private void rectifyTemperatureTo(String temperature) {

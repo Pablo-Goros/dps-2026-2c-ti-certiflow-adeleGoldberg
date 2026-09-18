@@ -1,5 +1,13 @@
 package ar.edu.itba.dps.certification;
 
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
@@ -13,18 +21,10 @@ import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
-import ar.edu.itba.dps.certification.support.DomainWorld;
-import ar.edu.itba.dps.certification.support.FullSystem;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.time.LocalDate;
-import java.util.List;
-
 import static ar.edu.itba.dps.certification.support.Decisions.blockers;
 import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
-import static org.assertj.core.api.Assertions.assertThat;
+import ar.edu.itba.dps.certification.support.DomainWorld;
+import ar.edu.itba.dps.certification.support.FullSystem;
 
 class RecurringNonConformityIT {
 
@@ -114,6 +114,33 @@ class RecurringNonConformityIT {
         assertThat(certificate.unresolvedCauses()).isEmpty();
         assertThat(system.findings.require(finding.id()).correctiveActions()).hasSize(2);
         assertThat(system.findings.require(finding.id()).blocksCertification()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a second recurrence after reactivation creates a third action without losing history")
+    void aSecondRecurrenceCreatesAnotherAction() {
+        InspectionId id = inspectAndClose("20");
+        Finding finding = system.findings.findByInspection(id).getFirst();
+        correctAndClose(finding, "ventilar");
+        Certificate certificate = issuedCertificate(system.issueCertificate.issue(id));
+
+        rectify(id, "30");
+        correctAndClose(finding, "recalibrar el sensor");
+        assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
+
+        rectify(id, "20");
+        rectify(id, "30");
+
+        Finding after = system.findings.require(finding.id());
+        assertThat(after.correctiveActions()).hasSize(3);
+        assertThat(after.correctiveActions().get(0).status())
+                .isEqualTo(CorrectiveActionStatus.CLOSED);
+        assertThat(after.correctiveActions().get(1).status())
+                .isEqualTo(CorrectiveActionStatus.CLOSED);
+        assertThat(after.correctiveAction().status())
+                .isEqualTo(CorrectiveActionStatus.PENDING_PLANNING);
+        assertThat(after.blocksCertification()).isTrue();
+        assertThat(certificate.status()).isEqualTo(CertificateStatus.SUSPENDED);
     }
 
     @Test

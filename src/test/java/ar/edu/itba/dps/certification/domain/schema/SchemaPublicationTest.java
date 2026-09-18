@@ -1,21 +1,22 @@
 package ar.edu.itba.dps.certification.domain.schema;
 
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceType;
-import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
-import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
-import ar.edu.itba.dps.certification.domain.schema.rule.NumericBand;
-import ar.edu.itba.dps.certification.domain.schema.rule.NumericRangeRule;
-import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.DisplayName;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
+import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceType;
+import ar.edu.itba.dps.certification.domain.schema.rule.NumericBand;
+import ar.edu.itba.dps.certification.domain.schema.rule.NumericRangeRule;
+import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
 
 class SchemaPublicationTest {
 
@@ -137,6 +138,25 @@ class SchemaPublicationTest {
         assertThatThrownBy(() -> Section.of("Safety", 1))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("criteria of section 'Safety'");
+    }
+
+    @Test
+    @DisplayName("duplicate criterion ids across sections block publication")
+    void duplicateCriterionIdsAcrossSectionsAreRejected() {
+        InspectionSchema schema = aSchema();
+        schema.openDraft();
+        Criterion first = criterion(validNumericRule());
+        Criterion duplicate = new Criterion(first.id(), validNumericRule(), List.of());
+        schema.requireDraft().addSection(Section.of("Safety", 1, first));
+        schema.requireDraft().addSection(Section.of("Hygiene", 2, duplicate));
+
+        PublicationResult result = schema.publish(PUBLISHED_AT);
+
+        assertThat(result.published()).isFalse();
+        assertThat(result.violations())
+                .anyMatch(violation -> violation.contains("criterion " + first.id()
+                        + " is declared more than once"));
+        assertThat(schema.draft()).isPresent();
     }
 
     @Test

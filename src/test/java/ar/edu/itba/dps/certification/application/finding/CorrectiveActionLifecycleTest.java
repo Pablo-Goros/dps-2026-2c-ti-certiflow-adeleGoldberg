@@ -1,7 +1,14 @@
 package ar.edu.itba.dps.certification.application.finding;
 
-import ar.edu.itba.dps.certification.support.FixedActor;
-import ar.edu.itba.dps.certification.support.InMemoryAuditTrail;
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.application.finding.usecase.ExpireOverdueCorrectiveActions;
 import ar.edu.itba.dps.certification.application.finding.usecase.PlanCorrectiveAction;
@@ -23,18 +30,12 @@ import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.FixedActor;
+import ar.edu.itba.dps.certification.support.InMemoryAuditTrail;
 import ar.edu.itba.dps.certification.support.InMemoryFindingRepository;
 import ar.edu.itba.dps.certification.support.InMemoryInspectionRepository;
 import ar.edu.itba.dps.certification.support.RecordingEventPublisher;
 import ar.edu.itba.dps.certification.support.TestClock;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import java.time.LocalDate;
-import java.util.List;
 
 class CorrectiveActionLifecycleTest {
 
@@ -151,6 +152,42 @@ class CorrectiveActionLifecycleTest {
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("no reported execution");
     }
+
+        @Test
+        @DisplayName("a closed action cannot receive another execution or verification")
+        void aClosedActionIsTerminal() {
+        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg"),
+            EXECUTOR);
+        verify.verify(findingId, true, "measured within range", INSPECTOR);
+
+        assertThatThrownBy(() -> reportExecution.report(findingId, "second attempt",
+            List.of("file://second.jpg"), EXECUTOR))
+            .isInstanceOf(DomainException.class)
+            .hasMessageContaining("while it is CLOSED");
+        assertThatThrownBy(() -> verify.verify(findingId, true, "verify again", INSPECTOR))
+            .isInstanceOf(DomainException.class)
+            .hasMessageContaining("no reported execution");
+        assertThat(findings.require(findingId).correctiveAction().executions()).hasSize(1);
+        assertThat(findings.require(findingId).correctiveAction().verifications()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("a voided action cannot be planned or executed again")
+        void aVoidedActionIsTerminal() {
+        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        Finding finding = findings.require(findingId);
+        finding.voidObligation(RectificationId.of("rect-1"), "measurement corrected", clock.now());
+
+        assertThatThrownBy(() -> plan.plan(findingId, "different work", EXECUTOR, DUE_DATE))
+            .isInstanceOf(DomainException.class)
+            .hasMessageContaining("already been planned");
+        assertThatThrownBy(() -> reportExecution.report(findingId, "late attempt",
+            List.of("file://photo.jpg"), EXECUTOR))
+            .isInstanceOf(DomainException.class)
+            .hasMessageContaining("while it is VOIDED");
+        assertThat(finding.correctiveAction().executions()).isEmpty();
+        }
 
     @Test
     @DisplayName("the expiry sweep fires once per action and does not repeat on later runs")
