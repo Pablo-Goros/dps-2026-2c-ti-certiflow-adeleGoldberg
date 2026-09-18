@@ -240,9 +240,29 @@ public final class Inspection {
         };
     }
 
-    public void appendRectifiedEvaluation(CriterionId criterionId, CriterionEvaluation evaluation) {
+    public void recordEvaluationProducedBy(Rectification rectification, CriterionId criterionId,
+                                           CriterionEvaluation evaluation) {
         Validate.ensure(status.closed(), "only a closed inspection carries rectified evaluations");
-        requireRecord(criterionId).appendRectifiedEvaluation(evaluation);
+        Validate.required(rectification, "rectification");
+        Validate.required(criterionId, "criterion id");
+        Validate.required(evaluation, "criterion evaluation");
+
+        Validate.ensure(rectifications.stream().anyMatch(existing -> existing.id().equals(rectification.id())),
+                "rectification " + rectification.id() + " is not recorded on inspection " + id);
+        Validate.ensure(rectification.affectedCriteria().contains(criterionId),
+                "rectification " + rectification.id() + " did not affect criterion " + criterionId);
+        Validate.ensure(evaluation.rectificationId().filter(rectification.id()::equals).isPresent(),
+                "evaluation must reference rectification " + rectification.id());
+
+        CriterionRecord record = requireRecord(criterionId);
+        Validate.ensure(record.evaluations().stream()
+                        .noneMatch(existing -> existing.rectificationId()
+                                .filter(rectification.id()::equals)
+                                .isPresent()),
+                "rectification " + rectification.id()
+                        + " already produced an evaluation for criterion " + criterionId);
+
+        record.appendRectifiedEvaluation(evaluation);
     }
 
     public CriterionRecord requireRecord(CriterionId criterionId) {

@@ -92,7 +92,7 @@ public final class RectifyClosedInspection {
                     rectification.id(), rectification.reason());
             return;
         }
-        inspection.appendRectifiedEvaluation(criterionId, recomputed);
+        inspection.recordEvaluationProducedBy(rectification, criterionId, recomputed);
 
         if (!previous.result().approved() && recomputed.result().approved()) {
             findings.voidObligation(inspection.id(), criterionId, rectification.id(), rectification.reason());

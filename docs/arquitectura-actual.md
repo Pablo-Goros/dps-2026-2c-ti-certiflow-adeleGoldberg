@@ -187,7 +187,7 @@ classDiagram
         +start(version, snapshot, at)
         +close(at, evaluations) InspectionClosureResult
         +rectify(id, author, at, reason, corrections) Rectification
-        +appendRectifiedEvaluation(criterion, evaluation)
+        +recordEvaluationProducedBy(criterion, evaluation)
     }
     class CriterionRecord {
         <<entity>>
