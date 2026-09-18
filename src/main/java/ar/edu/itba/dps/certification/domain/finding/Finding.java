@@ -136,6 +136,7 @@ public final class Finding {
             correctiveActions.add(new CorrectiveAction(
                     Validate.required(replacementAction, "replacement corrective action id")));
         }
+        voided = null;
     }
 
     public void correctPresentedEvidence(List<String> corrected) {

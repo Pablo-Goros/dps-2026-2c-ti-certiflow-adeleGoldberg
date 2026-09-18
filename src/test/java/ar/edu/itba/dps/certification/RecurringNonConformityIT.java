@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 import java.util.List;
 
+import static ar.edu.itba.dps.certification.support.Decisions.blockers;
 import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,12 +69,13 @@ class RecurringNonConformityIT {
         rectify(id, "30");
 
         Finding after = system.findings.require(finding.id());
-        assertThat(after.voided()).isPresent();
         assertThat(after.correctiveActions()).hasSize(2);
         assertThat(after.correctiveActions().getFirst().status())
                 .isEqualTo(CorrectiveActionStatus.VOIDED);
+        assertThat(after.correctiveActions().getFirst().voided()).isPresent();
         assertThat(after.correctiveAction().status())
                 .isEqualTo(CorrectiveActionStatus.PENDING_PLANNING);
+        assertThat(after.obligationVoided()).isFalse();
     }
 
     @Test
@@ -153,6 +155,27 @@ class RecurringNonConformityIT {
 
         assertThat(system.findings.require(finding.id()).blocksCertification()).isFalse();
         assertThat(issuedCertificate(system.issueCertificate.issue(id))).isNotNull();
+    }
+
+    @Test
+    @DisplayName("an observation that comes back still demands a plan before a certificate is issued")
+    void arevivedObservationStillDemandsAPlan() {
+        InspectionId id = inspectAndClose("20");
+        Finding finding = system.findings.findByInspection(id).getFirst();
+        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+                LocalDate.parse("2026-06-01"));
+        rectify(id, "5");
+        assertThat(system.findings.require(finding.id()).obligationVoided()).isTrue();
+
+        rectify(id, "20");
+
+        Finding after = system.findings.require(finding.id());
+        assertThat(after.result()).isEqualTo(CriterionResult.OBSERVED);
+        assertThat(after.obligationVoided()).isFalse();
+        assertThat(after.correctiveAction().status())
+                .isEqualTo(CorrectiveActionStatus.PENDING_PLANNING);
+        assertThat(system.findingQuery.unplannedActionsOf(id)).containsExactly(after);
+        assertThat(blockers(system.issueCertificate.issue(id))).isNotEmpty();
     }
 
     private void rectify(InspectionId id, String temp) {
