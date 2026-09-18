@@ -147,4 +147,21 @@ class CertificateSuspensionTest {
             assertThat(record.resolution()).contains("verified and closed");
         });
     }
+
+    @Test
+    @DisplayName("resolving a returned suspension record does not mutate the certificate")
+    void resolvingAReturnedSuspensionRecordDoesNotMutateTheCertificate() {
+        certificate.suspend(FIRST_CAUSE, DURING);
+
+        var leakedRecord = certificate.suspensions().getFirst();
+        var resolvedCopy = leakedRecord.resolved("resolved outside the aggregate", DURING);
+
+        assertThat(resolvedCopy.unresolved()).isFalse();
+        assertThat(certificate.status()).isEqualTo(CertificateStatus.SUSPENDED);
+        assertThat(certificate.unresolvedCauses()).containsExactly(FIRST_CAUSE);
+        assertThat(certificate.suspensions()).singleElement().satisfies(record -> {
+            assertThat(record.unresolved()).isTrue();
+            assertThat(record.resolution()).isEmpty();
+        });
+    }
 }
