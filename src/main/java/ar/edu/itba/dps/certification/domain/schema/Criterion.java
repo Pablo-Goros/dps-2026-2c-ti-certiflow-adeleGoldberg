@@ -18,6 +18,10 @@ public record Criterion(
         Validate.required(rule, "evaluation rule");
         Validate.required(evidenceRequirements, "evidence requirements");
         evidenceRequirements = List.copyOf(evidenceRequirements);
+        Validate.ensure(evidenceRequirements.stream().map(EvidenceRequirement::label).distinct()
+                        .count() == evidenceRequirements.size(),
+                "criterion " + id + " declares two evidence requirements with the same label, "
+                        + "so an attachment could not be matched to one of them");
     }
 
     public static Criterion of(String criterionId, EvaluationRule rule) {

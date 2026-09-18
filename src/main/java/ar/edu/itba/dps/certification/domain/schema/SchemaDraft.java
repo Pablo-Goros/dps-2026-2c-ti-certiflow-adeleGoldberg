@@ -1,5 +1,6 @@
 package ar.edu.itba.dps.certification.domain.schema;
 
+import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.util.ArrayList;

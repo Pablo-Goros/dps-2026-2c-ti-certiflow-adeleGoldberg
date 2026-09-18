@@ -59,7 +59,7 @@ public final class CloseInspection {
         Map<CriterionId, CriterionEvaluation> evaluations = new LinkedHashMap<>();
         for (Criterion criterion : version.criteria()) {
             evaluations.put(criterion.id(), evaluator.evaluate(criterion,
-                    inspection.requireRecord(criterion.id()), version, closedAt));
+                    inspection.requireRecord(criterion.id()), closedAt));
         }
 
         InspectionClosureResult result = inspection.close(closedAt, evaluations);

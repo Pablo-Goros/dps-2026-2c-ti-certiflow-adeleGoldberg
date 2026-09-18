@@ -83,8 +83,7 @@ public final class RectifyClosedInspection {
             Rectification rectification, Instant at) {
         Criterion criterion = originalVersion.requireCriterion(criterionId);
         CriterionEvaluation previous = inspection.requireRecord(criterionId).currentEvaluation().orElseThrow();
-        CriterionEvaluation recomputed = evaluator
-                .evaluate(criterion, inspection.requireRecord(criterionId), originalVersion, at)
+        CriterionEvaluation recomputed = evaluator.evaluate(criterion, inspection.requireRecord(criterionId), at)
                 .asRectificationOf(rectification.id(), at);
 
         if (unchanged(previous, recomputed)) {

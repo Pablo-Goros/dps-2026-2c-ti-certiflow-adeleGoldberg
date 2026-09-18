@@ -5,7 +5,6 @@ import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
-import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceShortfall;
 import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
@@ -21,10 +20,9 @@ import java.util.Optional;
 public final class CriterionEvaluator {
 
     public CriterionEvaluation evaluate(Criterion criterion, CriterionRecord record,
-            SchemaVersion version, Instant evaluatedAt) {
+            Instant evaluatedAt) {
         Validate.required(criterion, "criterion");
         Validate.required(record, "criterion record");
-        Validate.required(version, "schema version");
         Validate.required(evaluatedAt, "evaluation instant");
 
         List<EvaluationReason> reasons = new ArrayList<>();

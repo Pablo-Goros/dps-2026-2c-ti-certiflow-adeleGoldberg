@@ -1,5 +1,9 @@
 package ar.edu.itba.dps.certification.domain.evaluation;
 
+import ar.edu.itba.dps.certification.domain.schema.rule.YesNoRule;
+import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
+import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
+import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
@@ -65,7 +69,7 @@ class CriterionEvaluatorTest {
         CriterionRecord record = new CriterionRecord(DomainWorld.TEMPERATURE);
 
         CriterionEvaluation evaluation = evaluator.evaluate(
-                version.requireCriterion(DomainWorld.TEMPERATURE), record, version, evaluatedAt);
+                version.requireCriterion(DomainWorld.TEMPERATURE), record, evaluatedAt);
 
         assertThat(evaluation.result()).isEqualTo(CriterionResult.REJECTED);
         assertThat(evaluation.reasons()).singleElement()
@@ -80,7 +84,7 @@ class CriterionEvaluatorTest {
                 YesNoAnswer.no(), List.of());
 
         CriterionEvaluation evaluation = evaluator.evaluate(
-                version.requireCriterion(DomainWorld.DOCUMENTATION), record, version, evaluatedAt);
+                version.requireCriterion(DomainWorld.DOCUMENTATION), record, evaluatedAt);
 
         assertThat(evaluation.result()).isEqualTo(CriterionResult.REJECTED);
         assertThat(evaluation.reasons()).hasSize(2);
@@ -99,7 +103,7 @@ class CriterionEvaluatorTest {
                         EvidenceType.DOCUMENT, "file://manual.pdf", evaluatedAt)));
 
         CriterionEvaluation evaluation = evaluator.evaluate(
-                version.requireCriterion(DomainWorld.DOCUMENTATION), record, version, evaluatedAt);
+                version.requireCriterion(DomainWorld.DOCUMENTATION), record, evaluatedAt);
 
         assertThat(evaluation.result()).isEqualTo(CriterionResult.OBSERVED);
         assertThat(evaluation.reasons()).singleElement()
@@ -107,10 +111,30 @@ class CriterionEvaluatorTest {
         assertThat(evaluation.severity()).isEqualTo(Severity.LOW);
     }
 
+    @Test
+    @DisplayName("each mandatory evidence requirement is counted on its own")
+    void everyMandatoryRequirementIsCountedSeparately() {
+        Criterion criterion = new Criterion(DomainWorld.DOCUMENTATION,
+                new YesNoRule(RuleOutcome.approved("DOC_OK", "documentation is current"),
+                        RuleOutcome.observed("DOC_PARTIAL", Severity.LOW, "incomplete")),
+                List.of(EvidenceRequirement.mandatory(EvidenceType.DOCUMENT, "safety manual"),
+                        EvidenceRequirement.mandatory(EvidenceType.PHOTOGRAPH, "signage photo")));
+        CriterionRecord record = new CriterionRecord(DomainWorld.DOCUMENTATION, YesNoAnswer.yes(),
+                List.of(new EvidenceRecord("ev-1", "safety manual", EvidenceType.DOCUMENT,
+                        "file://manual.pdf", evaluatedAt)));
+
+        CriterionEvaluation evaluation = evaluator.evaluate(criterion, record, evaluatedAt);
+
+        assertThat(evaluation.result()).isEqualTo(CriterionResult.REJECTED);
+        assertThat(evaluation.reasons()).singleElement()
+                .isInstanceOfSatisfying(EvaluationReason.MissingEvidence.class, missing ->
+                        assertThat(missing.shortfall().label()).isEqualTo("signage photo"));
+    }
+
     private CriterionEvaluation evaluate(
             CriterionId criterionId,
             Answer answer) {
         CriterionRecord record = new CriterionRecord(criterionId, answer, List.of());
-        return evaluator.evaluate(version.requireCriterion(criterionId), record, version, evaluatedAt);
+        return evaluator.evaluate(version.requireCriterion(criterionId), record, evaluatedAt);
     }
 }

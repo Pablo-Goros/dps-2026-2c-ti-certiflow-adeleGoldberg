@@ -1,10 +1,14 @@
 package ar.edu.itba.dps.certification.domain.schema;
 
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceType;
+import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.schema.rule.NumericBand;
 import ar.edu.itba.dps.certification.domain.schema.rule.NumericRangeRule;
 import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -115,6 +119,16 @@ class SchemaPublicationTest {
         PublicationResult result = schema.publish(PUBLISHED_AT);
         assertThat(result.published()).isFalse();
         return result.violations();
+    }
+
+    @Test
+    @DisplayName("a criterion cannot be built with two evidence requirements sharing a label")
+    void ambiguousEvidenceLabelsAreRejected() {
+        assertThatThrownBy(() -> new Criterion(CriterionId.of("PH"), validNumericRule(),
+                List.of(EvidenceRequirement.mandatory(EvidenceType.DOCUMENT, "proof"),
+                        EvidenceRequirement.mandatory(EvidenceType.PHOTOGRAPH, "proof"))))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("same label");
     }
 
     private InspectionSchema aSchema() {
