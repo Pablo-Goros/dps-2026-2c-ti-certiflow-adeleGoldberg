@@ -3,10 +3,10 @@ package ar.edu.itba.dps.certification.application.inspection;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
+import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.CriterionResultRevised;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.domain.inspection.record.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
@@ -78,8 +78,7 @@ class RectifyClosedInspectionTest {
 
         rectifyTemperatureTo("30");
 
-        assertThat(world.findings.revealed).singleElement()
-                .satisfies(call -> assertThat(call.criterionId()).isEqualTo(DomainWorld.TEMPERATURE));
+        assertThat(world.findings.revealed).singleElement().satisfies(call -> assertThat(call.criterionId()).isEqualTo(DomainWorld.TEMPERATURE));
         assertThat(world.events.ofType(CriterionResultRevised.class)).singleElement()
                 .satisfies(event -> assertThat(event.becameRejected()).isTrue());
     }
@@ -166,6 +165,41 @@ class RectifyClosedInspectionTest {
         world.recordAnswer.record(inspectionId, DomainWorld.TEMPERATURE,
                 Measurement.of(temperature, "c"));
         world.closeInspection.close(inspectionId);
+    }
+
+    @Test
+    @DisplayName("a rectification refused for a blank reason leaves the inspection untouched")
+    void aRefusedRectificationLeavesNoTrace() {
+        closeWith("5");
+
+        assertThatThrownBy(() -> world.rectifyClosedInspection.rectify(inspectionId,
+                inspector.id(), "   ", List.of(new Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("30", "c")))))
+                .isInstanceOf(DomainException.class);
+
+        Inspection inspection = world.inspections.require(inspectionId);
+        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).answer().orElseThrow()
+                .describe()).isEqualTo("5 c");
+        assertThat(inspection.rectifications()).isEmpty();
+        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).evaluations()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a rectification carrying an inadmissible answer stores nothing")
+    void anInadmissibleAnswerIsRefusedWithoutBeingStored() {
+        closeWith("5");
+
+        assertThatThrownBy(() -> world.rectifyClosedInspection.rectify(inspectionId,
+                inspector.id(), "the probe was misread", List.of(
+                        new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
+                                YesNoAnswer.yes()))))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("answer refused");
+
+        Inspection inspection = world.inspections.require(inspectionId);
+        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).answer().orElseThrow()
+                .describe()).isEqualTo("5 c");
+        assertThat(inspection.rectifications()).isEmpty();
     }
 
     private void rectifyTemperatureTo(String temperature) {

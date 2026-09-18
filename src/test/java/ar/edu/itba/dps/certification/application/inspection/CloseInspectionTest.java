@@ -117,6 +117,22 @@ class CloseInspectionTest {
                 .isEqualTo(CriterionResult.APPROVED);
     }
 
+    @Test
+    @DisplayName("a closed inspection exposes its records read-only and refuses further capture")
+    void aClosedInspectionIsNotMutableThroughItsRecords() {
+        answerEverythingSatisfactorily();
+        world.closeInspection.close(inspectionId);
+        Inspection inspection = world.inspections.require(inspectionId);
+
+        assertThatThrownBy(() -> inspection.recordAnswer(DomainWorld.TEMPERATURE,
+                Measurement.of("30", "c")))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("CLOSED");
+
+        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).answer().orElseThrow()
+                .describe()).isEqualTo("5 c");
+    }
+
     private void answerEverythingSatisfactorily() {
         world.recordAnswer.record(inspectionId, DomainWorld.TEMPERATURE, Measurement.of("5", "c"));
         world.recordAnswer.record(inspectionId, DomainWorld.DOCUMENTATION, YesNoAnswer.yes());

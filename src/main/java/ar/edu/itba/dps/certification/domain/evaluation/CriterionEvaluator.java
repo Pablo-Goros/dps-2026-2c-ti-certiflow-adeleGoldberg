@@ -1,7 +1,7 @@
 package ar.edu.itba.dps.certification.domain.evaluation;
 
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
-import ar.edu.itba.dps.certification.domain.inspection.record.CriterionRecord;
+import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;

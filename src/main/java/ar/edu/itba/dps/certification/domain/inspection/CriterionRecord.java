@@ -1,5 +1,7 @@
-package ar.edu.itba.dps.certification.domain.inspection.record;
+package ar.edu.itba.dps.certification.domain.inspection;
 
+import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
+import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
@@ -22,6 +24,13 @@ public final class CriterionRecord {
         this.criterionId = Validate.required(criterionId, "criterion id");
     }
 
+    public CriterionRecord(CriterionId criterionId, Answer answer,
+            List<EvidenceRecord> capturedEvidence) {
+        this(criterionId);
+        this.answer = answer;
+        this.evidence.addAll(Validate.required(capturedEvidence, "captured evidence"));
+    }
+
     public CriterionId criterionId() {
         return criterionId;
     }
@@ -30,11 +39,11 @@ public final class CriterionRecord {
         return Optional.ofNullable(answer);
     }
 
-    public void recordAnswer(Answer newAnswer) {
+    void recordAnswer(Answer newAnswer) {
         answer = Validate.required(newAnswer, "answer");
     }
 
-    public void clearAnswer() {
+    void clearAnswer() {
         answer = null;
     }
 
@@ -42,20 +51,20 @@ public final class CriterionRecord {
         return List.copyOf(evidence);
     }
 
-    public void attach(EvidenceRecord record) {
+    void attach(EvidenceRecord record) {
         Validate.required(record, "evidence record");
         Validate.ensure(evidence.stream().noneMatch(existing -> existing.id().equals(record.id())),
                 "evidence " + record.id() + " is already attached");
         evidence.add(record);
     }
 
-    public EvidenceRecord detach(String evidenceId) {
+    EvidenceRecord detach(String evidenceId) {
         EvidenceRecord found = requireEvidence(evidenceId);
         evidence.remove(found);
         return found;
     }
 
-    public EvidenceRecord replaceReference(String evidenceId, String newReference) {
+    EvidenceRecord replaceReference(String evidenceId, String newReference) {
         EvidenceRecord found = requireEvidence(evidenceId);
         EvidenceRecord replacement = found.withReference(newReference);
         evidence.set(evidence.indexOf(found), replacement);
@@ -78,7 +87,7 @@ public final class CriterionRecord {
         return Map.copyOf(counts);
     }
 
-    public void recordClosureEvaluation(CriterionEvaluation evaluation) {
+    void recordClosureEvaluation(CriterionEvaluation evaluation) {
         Validate.required(evaluation, "evaluation");
         Validate.ensure(!evaluation.fromRectification(),
                 "a closure evaluation cannot carry a rectification id");
@@ -87,7 +96,7 @@ public final class CriterionRecord {
         evaluations.add(evaluation);
     }
 
-    public void appendRectifiedEvaluation(CriterionEvaluation evaluation) {
+    void appendRectifiedEvaluation(CriterionEvaluation evaluation) {
         Validate.required(evaluation, "evaluation");
         Validate.ensure(evaluation.fromRectification(),
                 "a rectified evaluation must carry the rectification that produced it");

@@ -3,7 +3,6 @@ package ar.edu.itba.dps.certification.domain.inspection;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
-import ar.edu.itba.dps.certification.domain.inspection.record.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
@@ -159,13 +158,21 @@ public final class Inspection {
         return new InspectionClosureResult(id, at, false, evaluations);
     }
 
-    public Rectification rectify(RectificationId rectificationId, PartyId author, Instant at,
-            String reason, List<Correction> corrections) {
+    public Rectification rectify(SchemaVersion version, RectificationId rectificationId,
+            PartyId author, Instant at, String reason, List<Correction> corrections) {
         Validate.ensure(status.closed(), "only a closed inspection can be rectified");
         Validate.required(author, "rectification author");
         Validate.ensure(author.equals(inspector),
                 "only the assigned inspector may rectify inspection " + id);
+        Validate.required(rectificationId, "rectification id");
+        Validate.required(at, "rectification instant");
+        Validate.requiredText(reason, "rectification reason");
         Validate.requiredNonEmpty(corrections, "corrections");
+        Validate.required(version, "schema version");
+        Validate.ensure(version.id().equals(frozenSchemaVersionId),
+                "a rectification must be checked against the version frozen at start");
+        corrections.forEach(correction -> rejectIfInapplicable(version, correction));
+
         List<RectificationChange> changes = new ArrayList<>();
         for (Correction correction : corrections) {
             changes.add(apply(correction));
@@ -174,6 +181,24 @@ public final class Inspection {
                 new Rectification(rectificationId, author, at, reason, changes);
         rectifications.add(rectification);
         return rectification;
+    }
+
+    private void rejectIfInapplicable(SchemaVersion version, Correction correction) {
+        switch (correction) {
+            case Correction.AnswerCorrection answerCorrection -> {
+                requireRecord(answerCorrection.criterionId());
+                version.requireCriterion(answerCorrection.criterionId()).rule()
+                        .admissibilityViolation(answerCorrection.answer())
+                        .ifPresent(violation -> {
+                            throw new DomainException("answer refused for criterion "
+                                    + answerCorrection.criterionId() + ": " + violation);
+                        });
+            }
+            case Correction.EvidenceReferenceCorrection evidenceCorrection ->
+                    requireRecord(evidenceCorrection.criterionId())
+                            .requireEvidence(evidenceCorrection.evidenceId());
+            case Correction.NoteCorrection noteCorrection -> requireNote(noteCorrection.noteId());
+        }
     }
 
     private RectificationChange apply(Correction correction) {

@@ -61,11 +61,10 @@ public final class RectifyClosedInspection {
         Inspection inspection = inspections.require(inspectionId);
         Instant at = clock.now();
         RectificationId rectificationId = new RectificationId(ids.newIdentifier());
-        Rectification rectification =
-                inspection.rectify(rectificationId, author, at, reason, corrections);
-
         SchemaVersion originalVersion =
                 schemas.requireVersion(inspection.requireFrozenSchemaVersionId());
+        Rectification rectification = inspection.rectify(originalVersion, rectificationId, author,
+                at, reason, corrections);
         for (CriterionId criterionId : rectification.affectedCriteria()) {
             reevaluate(inspection, originalVersion, criterionId, rectification, at);
         }

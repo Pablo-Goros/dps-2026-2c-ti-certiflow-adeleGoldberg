@@ -1,8 +1,8 @@
 package ar.edu.itba.dps.certification.domain.evaluation;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
-import ar.edu.itba.dps.certification.domain.inspection.record.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import java.time.Instant;
+import java.util.List;
 
 class CriterionEvaluatorTest {
 
@@ -75,8 +76,8 @@ class CriterionEvaluatorTest {
     @Test
     @DisplayName("missing mandatory evidence forces rejection and keeps the rule verdict as a motive")
     void missingEvidenceForcesRejectionWithoutDiscardingTheRuleVerdict() {
-        CriterionRecord record = new CriterionRecord(DomainWorld.DOCUMENTATION);
-        record.recordAnswer(YesNoAnswer.no());
+        CriterionRecord record = new CriterionRecord(DomainWorld.DOCUMENTATION,
+                YesNoAnswer.no(), List.of());
 
         CriterionEvaluation evaluation = evaluator.evaluate(
                 version.requireCriterion(DomainWorld.DOCUMENTATION), record, version, evaluatedAt);
@@ -93,10 +94,9 @@ class CriterionEvaluatorTest {
     @Test
     @DisplayName("an observed rule verdict stands on its own once its evidence is present")
     void satisfiedEvidenceLeavesTheRuleVerdictAlone() {
-        CriterionRecord record = new CriterionRecord(DomainWorld.DOCUMENTATION);
-        record.recordAnswer(YesNoAnswer.no());
-        record.attach(new EvidenceRecord("ev-1", DomainWorld.SAFETY_MANUAL, EvidenceType.DOCUMENT,
-                "file://manual.pdf", evaluatedAt));
+        CriterionRecord record = new CriterionRecord(DomainWorld.DOCUMENTATION,
+                YesNoAnswer.no(), List.of(new EvidenceRecord("ev-1", DomainWorld.SAFETY_MANUAL,
+                        EvidenceType.DOCUMENT, "file://manual.pdf", evaluatedAt)));
 
         CriterionEvaluation evaluation = evaluator.evaluate(
                 version.requireCriterion(DomainWorld.DOCUMENTATION), record, version, evaluatedAt);
@@ -110,8 +110,7 @@ class CriterionEvaluatorTest {
     private CriterionEvaluation evaluate(
             CriterionId criterionId,
             Answer answer) {
-        CriterionRecord record = new CriterionRecord(criterionId);
-        record.recordAnswer(answer);
+        CriterionRecord record = new CriterionRecord(criterionId, answer, List.of());
         return evaluator.evaluate(version.requireCriterion(criterionId), record, version, evaluatedAt);
     }
 }

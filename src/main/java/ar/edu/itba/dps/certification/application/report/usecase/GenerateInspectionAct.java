@@ -5,7 +5,7 @@ import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
-import ar.edu.itba.dps.certification.domain.inspection.record.CriterionRecord;
+import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
