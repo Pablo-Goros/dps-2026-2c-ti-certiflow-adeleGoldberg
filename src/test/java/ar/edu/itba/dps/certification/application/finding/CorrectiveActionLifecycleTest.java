@@ -267,6 +267,72 @@ class CorrectiveActionLifecycleTest {
         assertThat(findings.require(findingId).correctiveAction().executions()).isEmpty();
     }
 
+    @Test
+    @DisplayName("an invalid finding revision leaves the finding untouched")
+    void anInvalidFindingRevisionLeavesTheFindingUntouched() {
+        Finding finding = findings.require(findingId);
+
+        assertThatThrownBy(() -> finding.revise(CriterionResult.OBSERVED, List.of(),
+                Severity.LOW, List.of("file://new.jpg"), RectificationId.of("rect-1"),
+                "reading corrected", clock.now(), CorrectiveActionId.of("action-2")))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("reasons");
+
+        Finding after = findings.require(findingId);
+        assertThat(after.result()).isEqualTo(CriterionResult.REJECTED);
+        assertThat(after.severity()).isEqualTo(Severity.CRITICAL);
+        assertThat(after.reasons()).hasSize(1);
+        assertThat(after.presentedEvidence()).isEmpty();
+        assertThat(after.revisions()).isEmpty();
+        assertThat(after.correctiveActions()).hasSize(1);
+        assertThat(after.correctiveAction().id()).isEqualTo(CorrectiveActionId.of("action-1"));
+    }
+
+    @Test
+    @DisplayName("an approved criterion cannot revise a finding because it must void the obligation")
+    void anApprovedCriterionCannotReviseAFinding() {
+        Finding finding = findings.require(findingId);
+
+        assertThatThrownBy(() -> finding.revise(CriterionResult.APPROVED,
+                List.of(new EvaluationReason.RuleVerdict(
+                        RuleOutcome.rejected("TEMP_HIGH", Severity.CRITICAL, "too hot"))),
+                Severity.CRITICAL, List.of("file://new.jpg"), RectificationId.of("rect-1"),
+                "reading corrected", clock.now(), CorrectiveActionId.of("action-2")))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("voids the obligation");
+
+        Finding after = findings.require(findingId);
+        assertThat(after.result()).isEqualTo(CriterionResult.REJECTED);
+        assertThat(after.revisions()).isEmpty();
+        assertThat(after.correctiveActions()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a failed revision on a closed action does not open a replacement action")
+    void aFailedRevisionOnAClosedActionDoesNotOpenAReplacementAction() {
+        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg"),
+                EXECUTOR);
+        verify.verify(findingId, true, "measured within range", INSPECTOR);
+        Finding finding = findings.require(findingId);
+        assertThat(finding.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.CLOSED);
+
+        assertThatThrownBy(() -> finding.revise(CriterionResult.OBSERVED,
+                List.of(new EvaluationReason.RuleVerdict(
+                        RuleOutcome.observed("TEMP_WARM", Severity.LOW, "still warm"))),
+                Severity.LOW, List.of("file://new.jpg"), RectificationId.of("rect-1"),
+                "reading corrected", clock.now(), null))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("replacement corrective action id");
+
+        Finding after = findings.require(findingId);
+        assertThat(after.result()).isEqualTo(CriterionResult.REJECTED);
+        assertThat(after.severity()).isEqualTo(Severity.CRITICAL);
+        assertThat(after.revisions()).isEmpty();
+        assertThat(after.correctiveActions()).hasSize(1);
+        assertThat(after.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.CLOSED);
+    }
+
     private FindingId givenAFinding() {
         Finding finding = new Finding(
                 FindingId.of("finding-1"),
