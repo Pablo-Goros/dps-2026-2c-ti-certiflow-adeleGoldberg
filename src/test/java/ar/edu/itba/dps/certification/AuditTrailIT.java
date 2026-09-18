@@ -103,15 +103,49 @@ class AuditTrailIT {
                 .singleElement().satisfies(entry -> {
                         assertThat(entry.reason()).contains("the probe was misread");
 
-                        assertThat(entry.detail()).isInstanceOfSatisfying(AuditDetail.DataChanged.class, dataChanged -> {
-
-                            assertThat(dataChanged.changes()).singleElement().satisfies(change -> {
-                                assertThat(change.field()).contains("temperature");
-                                assertThat(change.previousValue()).isEqualTo("30");
-                                assertThat(change.currentValue()).isEqualTo(Measurement.of("5", "c").describe());
-                            });
-                        });
+                        assertThat(entry.detail()).isInstanceOfSatisfying(AuditDetail.DataChanged.class, dataChanged ->
+                                assertThat(dataChanged.changes()).singleElement().satisfies(change -> {
+                                    assertThat(change.field()).isEqualTo("answer." + DomainWorld.TEMPERATURE);
+                                    assertThat(change.previousValue()).isEqualTo("30 c");
+                                    assertThat(change.currentValue()).isEqualTo("5 c");
+                                }));
                     });
+    }
+
+    @Test
+    @DisplayName("rectifying notes and evidence references records structured field changes")
+    void rectifyingNotesAndEvidenceReferencesRecordsStructuredChanges() {
+        InspectionId inspectionId = system.assignInspection
+                .assign(asset.id(), inspector.id(), LocalDate.parse("2026-03-05")).id();
+        system.startInspection.start(inspectionId);
+        system.recordAnswer.record(inspectionId, DomainWorld.TEMPERATURE, Measurement.of("5", "c"));
+        system.recordAnswer.record(inspectionId, DomainWorld.DOCUMENTATION, YesNoAnswer.yes());
+        var evidence = system.attachEvidence.attach(inspectionId, DomainWorld.DOCUMENTATION,
+                DomainWorld.SAFETY_MANUAL, "file://wrong-manual.pdf");
+        var note = system.recordNote.record(inspectionId, Optional.empty(), "door was blocked");
+        system.closeInspection.close(inspectionId);
+
+        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "the evidence and note pointed to the wrong facts", List.of(
+                        new Correction.EvidenceReferenceCorrection(DomainWorld.DOCUMENTATION,
+                                evidence.id(), "file://manual.pdf"),
+                        new Correction.NoteCorrection(note.id(), "corridor door was blocked")));
+
+        assertThat(system.auditTrail.withAction(AuditAction.INSPECTION_RECTIFIED))
+                .singleElement().satisfies(entry ->
+                        assertThat(entry.detail()).isInstanceOfSatisfying(AuditDetail.DataChanged.class, dataChanged ->
+                                assertThat(dataChanged.changes()).satisfiesExactlyInAnyOrder(
+                                        change -> {
+                                            assertThat(change.field()).isEqualTo("evidence."
+                                                    + DomainWorld.DOCUMENTATION + "." + evidence.id());
+                                            assertThat(change.previousValue()).isEqualTo("file://wrong-manual.pdf");
+                                            assertThat(change.currentValue()).isEqualTo("file://manual.pdf");
+                                        },
+                                        change -> {
+                                            assertThat(change.field()).isEqualTo("note." + note.id());
+                                            assertThat(change.previousValue()).isEqualTo("door was blocked");
+                                            assertThat(change.currentValue()).isEqualTo("corridor door was blocked");
+                                        })));
     }
 
     @Test
