@@ -1,6 +1,7 @@
 package ar.edu.itba.dps.certification.domain.schema;
 
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.util.ArrayList;
@@ -28,8 +29,14 @@ public final class SchemaDraft {
         sections.add(section);
     }
 
-    public void removeSection(String name) {
-        sections.removeIf(section -> section.name().equals(name));
+    public Section removeSection(String name) {
+        Section removed = sections.stream()
+                .filter(section -> section.name().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new DomainException("section '" + name
+                        + "' is not part of the draft"));
+        sections.remove(removed);
+        return removed;
     }
 
     public List<Section> sections() {

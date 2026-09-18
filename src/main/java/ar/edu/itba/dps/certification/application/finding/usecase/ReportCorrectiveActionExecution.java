@@ -8,6 +8,7 @@ import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.FindingId;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 
@@ -30,12 +31,13 @@ public final class ReportCorrectiveActionExecution {
             PartyId reportedBy) {
         Finding finding = findings.require(findingId);
         Instant at = clock.now();
+        CorrectiveActionStatus previousStatus = finding.correctiveAction().status();
         finding.correctiveAction()
                 .reportExecution(new ExecutionReport(statement, evidenceReferences, reportedBy, at));
         findings.save(finding);
         audit.record(AuditedElementRef.correctiveAction(finding.correctiveAction().id().value()),
                 AuditAction.CORRECTIVE_ACTION_EXECUTION_REPORTED,
-                AuditDetail.stateChanged("PLANNED", "EXECUTION_REPORTED"));
+                AuditDetail.stateChanged(previousStatus, finding.correctiveAction().status()));
         return finding;
     }
 }

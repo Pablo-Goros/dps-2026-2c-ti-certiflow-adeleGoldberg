@@ -7,6 +7,7 @@ import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
+import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionCause;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionClosed;
@@ -64,13 +65,14 @@ public final class CertificationReactions implements DomainEventHandler {
             return;
         }
         Certificate certificate = backed.get();
+        CertificateStatus previousStatus = certificate.status();
         if (!certificate.suspend(cause, at)) {
             return;
         }
         certificates.save(certificate);
         audit.recordAutomatic(AuditedElementRef.certificate(certificate.id().value()),
                 AuditAction.CERTIFICATE_SUSPENDED,
-                AuditDetail.stateChanged("VALID", "SUSPENDED"), cause.describe());
+                AuditDetail.stateChanged(previousStatus, certificate.status()), cause.describe());
     }
 
     private void resolveFor(InspectionId inspectionId, Predicate<SuspensionCause> matches,

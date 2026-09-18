@@ -11,6 +11,8 @@ import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 
+import java.util.stream.Collectors;
+
 public final class EditDraft {
 
     private final SchemaRepository schemas;
@@ -25,15 +27,21 @@ public final class EditDraft {
         InspectionSchema schema = schemas.require(schemaId);
         SchemaDraft draft = schema.requireDraft();
         draft.addSection(section);
-        return audited(schema, draft, FieldChange.of("section." + section.name(), null,
-                section.criteria().size() + " criteria"));
+        return audited(schema, draft,
+                FieldChange.of("section." + section.name(), null, describe(section)));
     }
 
     public SchemaDraft removeSection(SchemaId schemaId, String sectionName) {
         InspectionSchema schema = schemas.require(schemaId);
         SchemaDraft draft = schema.requireDraft();
-        draft.removeSection(sectionName);
-        return audited(schema, draft, FieldChange.of("section." + sectionName, "present", null));
+        Section removed = draft.removeSection(sectionName);
+        return audited(schema, draft, FieldChange.of("section." + removed.name(),
+                describe(removed), null));
+    }
+
+    private String describe(Section section) {
+        return section.criteria().stream().map(criterion -> criterion.id().value())
+                .collect(Collectors.joining(", ", "criteria [", "]"));
     }
 
     private SchemaDraft audited(InspectionSchema schema, SchemaDraft draft, FieldChange change) {

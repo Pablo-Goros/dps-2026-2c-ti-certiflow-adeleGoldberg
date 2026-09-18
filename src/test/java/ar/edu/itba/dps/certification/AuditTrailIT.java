@@ -6,6 +6,8 @@ import ar.edu.itba.dps.certification.domain.audit.AuditEntry;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.certification.Certificate;
+import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
@@ -14,9 +16,11 @@ import ar.edu.itba.dps.certification.domain.shared.Actor;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
+import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
+import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -149,6 +153,86 @@ class AuditTrailIT {
                 AuditDetail.created("whatever")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("requires a reason");
+    }
+
+    @Test
+    @DisplayName("a second suspension cause does not claim the certificate was valid")
+    void aSecondCauseDoesNotFabricateATransition() {
+        InspectionId inspectionId = inspectAndClose("20");
+        Finding finding = system.findings.findByInspection(inspectionId).getFirst();
+        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+                LocalDate.parse("2026-04-01"));
+        Certificate certificate = issuedCertificate(system.issueCertificate.issue(inspectionId));
+        system.clock.advanceDays(45);
+        system.expireActions.sweep();
+
+        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "the probe was misread", List.of(new Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("30", "c"))));
+
+        assertThat(system.certificates.require(certificate.id()).unresolvedCauses()).hasSize(2);
+        assertThat(system.auditTrail.withAction(AuditAction.CERTIFICATE_SUSPENDED))
+                .hasSize(2)
+                .satisfies(entries -> {
+                    assertThat(entries.getFirst().detail())
+                            .isEqualTo(AuditDetail.stateChanged(CertificateStatus.VALID,
+                                    CertificateStatus.SUSPENDED));
+                    assertThat(entries.getLast().detail())
+                            .isEqualTo(AuditDetail.stateChanged(CertificateStatus.SUSPENDED,
+                                    CertificateStatus.SUSPENDED));
+                });
+    }
+
+    @Test
+    @DisplayName("a revised finding records the evaluation it had, not the word previous")
+    void aRevisedFindingRecordsTheEvaluationItHad() {
+        InspectionId inspectionId = inspectAndClose("30");
+
+        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "the probe was misread", List.of(new Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("20", "c"))));
+
+        assertThat(system.auditTrail.withAction(AuditAction.FINDING_REVISED))
+                .singleElement().satisfies(entry -> assertThat(entry.detail())
+                        .isInstanceOfSatisfying(AuditDetail.StateChanged.class, changed -> {
+                            assertThat(changed.previousState()).isEqualTo("REJECTED (CRITICAL)");
+                            assertThat(changed.newState()).isEqualTo("OBSERVED (LOW)");
+                        }));
+    }
+
+    @Test
+    @DisplayName("removing a section records what the section held")
+    void removingASectionRecordsWhatItHeld() {
+        InspectionSchema schema = system.schemas
+                .findByApplicableAssetType(AssetType.LABORATORY).orElseThrow();
+        system.openDraft.open(schema.id());
+
+        system.editDraft.removeSection(schema.id(), "Safety");
+
+        assertThat(system.auditTrail.withAction(AuditAction.SCHEMA_DRAFT_EDITED))
+                .last().satisfies(entry -> assertThat(entry.detail())
+                        .isInstanceOfSatisfying(AuditDetail.DataChanged.class, changed ->
+                                assertThat(changed.changes()).singleElement().satisfies(change -> {
+                                    assertThat(change.previousValue())
+                                            .isEqualTo("criteria [TEMP, DOC]");
+                                    assertThat(change.currentValue()).isNull();
+                                })));
+    }
+
+    @Test
+    @DisplayName("removing a section that is not in the draft is refused rather than audited")
+    void removingAnAbsentSectionIsRefused() {
+        InspectionSchema schema = system.schemas
+                .findByApplicableAssetType(AssetType.LABORATORY).orElseThrow();
+        system.openDraft.open(schema.id());
+        int recordedBefore = system.auditTrail.withAction(AuditAction.SCHEMA_DRAFT_EDITED).size();
+
+        assertThatThrownBy(() -> system.editDraft.removeSection(schema.id(), "Hygiene"))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("is not part of the draft");
+
+        assertThat(system.auditTrail.withAction(AuditAction.SCHEMA_DRAFT_EDITED))
+                .hasSize(recordedBefore);
     }
 
     private InspectionId inspectAndClose(String temperature) {

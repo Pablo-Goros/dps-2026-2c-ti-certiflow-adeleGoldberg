@@ -14,6 +14,7 @@ import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionVoided;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
@@ -72,13 +73,13 @@ public final class FindingService implements FindingRegistry {
         }
         Finding finding = existing.get();
         Instant at = clock.now();
+        String previousEvaluation = describe(finding);
         finding.revise(nonConformity.evaluation().result(), nonConformity.evaluation().reasons(),
                 nonConformity.evaluation().severity(), nonConformity.presentedEvidence(),
                 rectificationId, reason, at, new CorrectiveActionId(ids.newIdentifier()));
         findings.save(finding);
         audit.record(AuditedElementRef.finding(finding.id().value()), AuditAction.FINDING_REVISED,
-                AuditDetail.stateChanged("previous evaluation",
-                        finding.result() + " (" + finding.severity() + ")"), reason);
+                AuditDetail.stateChanged(previousEvaluation, describe(finding)), reason);
     }
 
     @Override
@@ -114,6 +115,7 @@ public final class FindingService implements FindingRegistry {
             return;
         }
         Instant at = clock.now();
+        CorrectiveActionStatus previousStatus = finding.correctiveAction().status();
         finding.voidObligation(rectificationId, reason, at);
         findings.save(finding);
         audit.record(AuditedElementRef.finding(finding.id().value()),
@@ -122,9 +124,14 @@ public final class FindingService implements FindingRegistry {
                         "left without effect by rectification " + rectificationId), reason);
         audit.record(AuditedElementRef.correctiveAction(finding.correctiveAction().id().value()),
                 AuditAction.CORRECTIVE_ACTION_VOIDED,
-                AuditDetail.stateChanged("open", finding.correctiveAction().status()), reason);
+                AuditDetail.stateChanged(previousStatus, finding.correctiveAction().status()),
+                reason);
         events.publish(new CorrectiveActionVoided(inspectionId, finding.id(),
                 finding.correctiveAction().id(), criterionId, rectificationId, at));
+    }
+
+    private String describe(Finding finding) {
+        return finding.result() + " (" + finding.severity() + ")";
     }
 
     private void create(InspectionId inspectionId, AssetId assetId, PartyId responsible,
