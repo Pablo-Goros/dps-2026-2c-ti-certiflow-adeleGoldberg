@@ -25,7 +25,7 @@ public final class PlanCorrectiveAction {
     public Finding plan(FindingId findingId, String work, PartyId executor, LocalDate dueDate) {
         Finding finding = findings.require(findingId);
         CorrectionPlan plan = new CorrectionPlan(work, executor, dueDate);
-        finding.correctiveAction().confirmPlan(plan);
+        finding.planCorrection(plan);
         findings.save(finding);
         audit.record(AuditedElementRef.correctiveAction(finding.correctiveAction().id().value()),
                 AuditAction.CORRECTIVE_ACTION_PLANNED,

@@ -1,6 +1,11 @@
-package ar.edu.itba.dps.certification.domain.finding.action;
+package ar.edu.itba.dps.certification.domain.finding;
 
-import ar.edu.itba.dps.certification.domain.finding.VoidedObligation;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
+import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
+import ar.edu.itba.dps.certification.domain.finding.action.Verification;
+
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
@@ -57,7 +62,7 @@ public final class CorrectiveAction {
         return deadlineBreached;
     }
 
-    public void confirmPlan(CorrectionPlan newPlan) {
+    void confirmPlan(CorrectionPlan newPlan) {
         Validate.required(newPlan, "correction plan");
         if (status != CorrectiveActionStatus.PENDING_PLANNING) {
             throw new DomainException("corrective action " + id
@@ -67,7 +72,7 @@ public final class CorrectiveAction {
         this.status = CorrectiveActionStatus.PLANNED;
     }
 
-    public void reportExecution(ExecutionReport report) {
+    void reportExecution(ExecutionReport report) {
         Validate.required(report, "execution report");
         if (!status.planned()) {
             throw new DomainException("cannot report execution of corrective action " + id
@@ -80,7 +85,7 @@ public final class CorrectiveAction {
         status = CorrectiveActionStatus.EXECUTION_REPORTED;
     }
 
-    public boolean verify(Verification verification, LocalDate today) {
+    boolean verify(Verification verification, LocalDate today) {
         Validate.required(verification, "verification");
         if (status != CorrectiveActionStatus.EXECUTION_REPORTED) {
             throw new DomainException("corrective action " + id
@@ -97,7 +102,7 @@ public final class CorrectiveAction {
         return true;
     }
 
-    public boolean expireIfOverdue(LocalDate today) {
+    boolean expireIfOverdue(LocalDate today) {
         Validate.required(today, "today");
         if (status.terminal() || plan == null || !plan.overdueOn(today)) {
             return false;
@@ -107,7 +112,7 @@ public final class CorrectiveAction {
         return newlyBreached;
     }
 
-    public void voidObligation(VoidedObligation voidRecord) {
+    void voidObligation(VoidedObligation voidRecord) {
         Validate.required(voidRecord, "voided obligation");
         if (voided != null) {
             return;

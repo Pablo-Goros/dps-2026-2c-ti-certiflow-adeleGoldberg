@@ -1,9 +1,10 @@
 package ar.edu.itba.dps.certification.domain.finding;
 
 import java.time.LocalDate;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
+import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
 import ar.edu.itba.dps.certification.domain.finding.action.Verification;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
-import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveAction;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
@@ -162,6 +163,18 @@ public final class Finding {
     private boolean correctionCoversCurrentResult() {
         return revisionsWhenCorrectionConcluded != null
                 && revisionsWhenCorrectionConcluded == revisions.size();
+    }
+
+    public void planCorrection(CorrectionPlan plan) {
+        correctiveAction().confirmPlan(plan);
+    }
+
+    public void reportCorrectionExecution(ExecutionReport report) {
+        correctiveAction().reportExecution(report);
+    }
+
+    public boolean expireCorrectionIfOverdue(LocalDate today) {
+        return correctiveAction().expireIfOverdue(today);
     }
 
     public boolean concludeCorrection(Verification verification, LocalDate today) {

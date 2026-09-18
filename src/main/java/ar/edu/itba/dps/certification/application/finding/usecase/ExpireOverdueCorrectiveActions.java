@@ -32,7 +32,7 @@ public final class ExpireOverdueCorrectiveActions {
         Instant at = clock.now();
         List<Finding> expired = new ArrayList<>();
         for (Finding finding : findings.findWithOpenActions()) {
-            if (!finding.correctiveAction().expireIfOverdue(clock.today())) {
+            if (!finding.expireCorrectionIfOverdue(clock.today())) {
                 continue;
             }
             findings.save(finding);

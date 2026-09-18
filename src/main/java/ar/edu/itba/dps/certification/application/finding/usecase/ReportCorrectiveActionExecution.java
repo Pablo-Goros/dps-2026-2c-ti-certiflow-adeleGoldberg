@@ -32,8 +32,8 @@ public final class ReportCorrectiveActionExecution {
         Finding finding = findings.require(findingId);
         Instant at = clock.now();
         CorrectiveActionStatus previousStatus = finding.correctiveAction().status();
-        finding.correctiveAction()
-                .reportExecution(new ExecutionReport(statement, evidenceReferences, reportedBy, at));
+        finding.reportCorrectionExecution(
+                new ExecutionReport(statement, evidenceReferences, reportedBy, at));
         findings.save(finding);
         audit.record(AuditedElementRef.correctiveAction(finding.correctiveAction().id().value()),
                 AuditAction.CORRECTIVE_ACTION_EXECUTION_REPORTED,

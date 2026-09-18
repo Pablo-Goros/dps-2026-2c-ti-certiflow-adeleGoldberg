@@ -3,7 +3,7 @@ package ar.edu.itba.dps.certification.application.report.usecase;
 import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
-import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveAction;
+import ar.edu.itba.dps.certification.domain.finding.CorrectiveAction;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.report.FindingsSummary;
