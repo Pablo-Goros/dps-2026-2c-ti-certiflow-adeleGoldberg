@@ -4,6 +4,56 @@ El proyecto corresponde a la Entrega 1: un módulo de dominio Java con modelos, 
 
 Además de las decisiones técnicas, se explicitan las interpretaciones adoptadas por el equipo para precisar comportamientos que el enunciado deja abiertos. Estas interpretaciones delimitan el alcance del modelo; no son requisitos adicionales impuestos por la consigna.
 
+## Registro enumerado de decisiones
+
+La siguiente tabla resume las decisiones principales. Las secciones posteriores desarrollan
+el razonamiento y las consecuencias de cada una.
+
+| ID | Patrón o principio aplicado | Dónde se aplica | Por qué se aplica | Alternativa descartada | Consecuencia |
+|---|---|---|---|---|---|
+| D1 | Arquitectura hexagonal / inversión de dependencias | Interfaces `application/**/port`, casos de uso y adaptadores de `src/test` | Aislar el negocio de persistencia, web, reloj e identidad | JPA, framework web o repositorios concretos dentro del dominio | Hay más interfaces y una composition root explícita; los adaptadores en memoria no dan durabilidad ni transacciones |
+| D2 | Agregados y encapsulamiento de DDD | `Asset`, `InspectionSchema`, `Inspection`, `Finding`, `Certificate` | Concentrar invariantes y separar ciclos de vida | Modelo anémico con setters o un agregado único | Las operaciones pasan por métodos de negocio y la coordinación requiere casos de uso |
+| D3 | Value Object e identidad explícita | `AssetId`, `InspectionId`, `SchemaVersionId`, `CriterionId`, `ValidityPeriod`, `CorrectionPlan` | Evitar mezclar identificadores y validar conceptos del dominio | `String`, `Date` y `Map` sin semántica | Más tipos pequeños y conversiones explícitas, con errores inválidos detectados antes |
+| D4 | Repository y Query Port | `*Repository`, `*Query`, `AssetDirectory`, `SchemaCatalog` | Separar comandos, consultas y almacenamiento | Acceso directo a colecciones o dependencias de infraestructura | Se puede cambiar el adaptador; la consistencia transaccional queda fuera de esta entrega |
+| D5 | Application Service / casos de uso | Paquetes `application/**/usecase` y servicios como `FindingService` | Orquestar varios agregados sin trasladar reglas al controlador o repositorio | Lógica en entidades externas, controladores o una clase fachada gigante | Los flujos son explícitos y testeables, aunque existen más clases de coordinación |
+| D6 | Strategy | `EvaluationRule`, `NumericRangeRule`, `YesNoRule`, `MappedOptionsRule` | Agregar reglas de evaluación sin modificar `Criterion` | Subclases de `Criterion`, `if/else` centralizados o motor externo | Cada regla debe validar admisibilidad, publicación y evaluación, y necesita sus propios tests |
+| D7 | Domain Service | `CriterionEvaluator` | Combinar la regla del criterio con respuestas y evidencia de una inspección | Poner la evaluación completa en `CriterionRecord` o en `CloseInspection` | La evaluación es reutilizable y aislada; el servicio no posee estado propio |
+| D8 | Policy / Specification-like requirements | `CertificateIssuancePolicy`, `IssuanceRequirement`, `IssuanceBlocker`, `CertificationContext` | Calcular todos los bloqueos de emisión de forma extensible y explicable | `if` encadenados o cortar en el primer error | Se informa una decisión rica (`Issued`, `Blocked`, `AlreadyIssued`), pero hay más objetos para una decisión simple |
+| D9 | State explícito sin jerarquía State | Enums de `InspectionStatus`, `CorrectiveActionStatus`, `CertificateStatus` y métodos de transición | Proteger transiciones con invariantes sin sobrediseñar ciclos pequeños | Clase por estado o setters públicos | Menos clases, pero cada operación debe verificar su estado permitido |
+| D10 | Publish/Subscribe con eventos de dominio | `DomainEventPublisher`, eventos de `finding/event` e `Inspection.CriterionResultRevised`, `CertificationReactions` | Desacoplar acciones e inspecciones de suspensión/reactivación de certificados | Invocar `Certificate` directamente desde cada caso de uso o usar un broker | El despacho de esta entrega es síncrono y en memoria; no hay entrega durable ni atomicidad distribuida |
+| D11 | Snapshot y versionado inmutable | `AssetSnapshot`, `SchemaVersion`, `Inspection.frozenSchemaVersionId` | Reconstruir qué activo y reglas existían al iniciar una inspección | Leer siempre el activo y esquema actuales o copiar todo el esquema por inspección | Se conserva historia sin duplicar esquemas; las versiones referenciadas deben permanecer disponibles |
+| D12 | Historia explícita y rectificación | `Rectification`, `CriterionEvaluation`, `FindingRevision`, `VoidedObligation`, informes | Corregir hechos sin sobrescribir el original y sin confundir reparación con rectificación | Editar una inspección cerrada, borrar datos o aplicar Event Sourcing completo | Se mantienen estado actual e historial; aumenta el costo de conservar y proyectar cambios |
+| D13 | Agregado con colección histórica de acciones | `Finding.correctiveActions()` y `Finding.correctiveAction()` | Mantener una acción vigente sin borrar acciones concluidas cuando reaparece una no conformidad | Reabrir la acción vieja o crear otro hallazgo para el mismo criterio | Hay un hallazgo por criterio y varias acciones históricas; la acción vigente se distingue de sus antecedentes |
+| D14 | Composition Root y Test Doubles | `FullSystem`, `InMemory*`, `TestClock`, `SequentialIds`, `FixedActor` | Probar flujos completos determinísticamente sin infraestructura | Tests solo con mocks, base real o reloj del sistema | Se prueban integraciones reales entre casos de uso; no se cubren persistencia ni concurrencia |
+| D15 | Proyecciones de consulta / DTO de dominio | `InspectionAct`, `FindingsSummary`, `CertificateReport`, `ReportedValue` | Separar información del dominio de su formato de presentación | Generar PDF o mezclar reporting con entidades | Las salidas son estructuradas y testeables; una capa externa deberá elegir JSON, HTML o PDF |
+| D16 | Validación antes de mutar | `Validate`, rectificaciones y constructores de entidades/valores | Evitar cambios parciales cuando una operación inválida afecta varias partes | Mutar y validar paso a paso, o depender de transacciones inexistentes | Se obtiene atomicidad lógica en memoria; la persistencia futura deberá agregar transacciones reales |
+
+### Patrones deliberadamente no aplicados
+
+Además de las alternativas específicas de la tabla, se decidió no aplicar estos patrones
+porque no aportan valor en el alcance actual:
+
+- **Singleton**: ocultaría dependencias y dificultaría aislar tests. Se prefieren objetos
+	construidos por composición y dependencias por constructor.
+- **Service Locator**: produciría dependencias implícitas y haría menos visible qué necesita
+	cada caso de uso.
+- **Composite**: un criterio tiene una regla en esta entrega; no hay reglas compuestas ni
+	secciones anidadas arbitrariamente.
+- **Chain of Responsibility**: la emisión necesita devolver todos los bloqueos, no detenerse
+	en el primero.
+- **Event Sourcing**: la auditoría registra cambios y decisiones, pero el estado actual no
+	se reconstruye reproduciendo eventos. Event Sourcing agregaría requisitos de replay,
+	versionado de eventos y consistencia que no exige la Entrega 1.
+- **CQRS completo**: se separan algunos puertos de comando y consulta, pero no se mantienen
+	dos modelos persistidos. Mantenerlos sincronizados sería complejidad sin beneficio para
+	un módulo sin persistencia real.
+- **Saga, Outbox o broker externo**: los eventos se despachan de forma síncrona en memoria.
+	La entrega no requiere procesos distribuidos ni reintentos durables.
+- **Motor externo de reglas**: las tres familias de reglas actuales se pueden validar y
+	probar directamente en Java; incorporar un DSL dificultaría diagnóstico y trazabilidad.
+- **ORM o Active Record**: las entidades no contienen anotaciones ni operaciones de
+	persistencia, preservando el aislamiento del dominio.
+
 ## 1. Separación entre dominio y aplicación
 
 Se aplica **inversión de dependencias mediante puertos y adaptadores**. Las entidades, reglas y políticas de `domain` contienen el comportamiento del negocio. Los casos de uso de `application` coordinan repositorios, auditoría y eventos a través de interfaces recibidas por constructor. En las pruebas, `FullSystem` compone el sistema con adaptadores en memoria.
