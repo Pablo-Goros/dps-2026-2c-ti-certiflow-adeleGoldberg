@@ -32,6 +32,8 @@ public final class Certificate {
         this.backingInspectionId = Validate.required(backingInspectionId, "backing inspection id");
         this.schemaVersionId = Validate.required(schemaVersionId, "schema version id");
         this.validity = Validate.required(validity, "validity period");
+        Validate.ensure(!this.id.equals(previousCertificateId),
+                "certificate " + id + " cannot succeed itself");
         this.previousCertificateId = previousCertificateId;
     }
 
@@ -77,7 +79,7 @@ public final class Certificate {
     public boolean suspend(SuspensionCause cause, Instant at) {
         Validate.required(cause, "suspension cause");
         Validate.required(at, "suspension instant");
-        if (status.expired()) {
+        if (expiredAt(at)) {
             return false;
         }
         if (hasUnresolved(cause)) {
@@ -103,13 +105,14 @@ public final class Certificate {
     }
 
     public boolean reactivateIfFullyResolved(Instant at) {
+        Validate.required(at, "instant");
         if (status != CertificateStatus.SUSPENDED) {
             return false;
         }
         if (!unresolvedCauses().isEmpty()) {
             return false;
         }
-        if (validity.expiredAt(at)) {
+        if (expiredAt(at)) {
             return false;
         }
         status = CertificateStatus.VALID;
@@ -127,6 +130,10 @@ public final class Certificate {
 
     public boolean coversMoment(Instant moment) {
         return !status.expired() && validity.coversMoment(moment);
+    }
+
+    private boolean expiredAt(Instant at) {
+        return status.expired() || validity.expiredAt(at);
     }
 
     private boolean hasUnresolved(SuspensionCause cause) {

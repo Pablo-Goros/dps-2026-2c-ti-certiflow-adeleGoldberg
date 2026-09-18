@@ -17,6 +17,7 @@ import ar.edu.itba.dps.certification.domain.certification.issuance.CertificateIs
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
 import java.util.List;
@@ -50,9 +51,14 @@ public final class IssueCertificate {
         return issue(inspectionId, Optional.empty());
     }
 
-    public IssuanceDecision issue(InspectionId inspectionId,
+    IssuanceDecision issue(InspectionId inspectionId,
             Optional<CertificateId> previousCertificateId) {
+        Validate.required(previousCertificateId, "previous certificate reference");
         InspectionSummary inspection = inspections.summaryOf(inspectionId);
+        previousCertificateId.ifPresent(previous -> Validate.ensure(
+                certificates.require(previous).assetId().equals(inspection.assetId()),
+                "certificate " + previous + " belongs to another asset and cannot precede a "
+                        + "certificate for asset " + inspection.assetId()));
 
         Optional<Certificate> existing = certificates.findByBackingInspection(inspectionId);
         if (existing.isPresent()) {

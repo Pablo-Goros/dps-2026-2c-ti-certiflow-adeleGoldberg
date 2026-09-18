@@ -8,7 +8,9 @@ import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectificati
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -96,6 +98,41 @@ class CertificateSuspensionTest {
 
         assertThat(certificate.suspend(FIRST_CAUSE, AFTER_EXPIRY)).isFalse();
         assertThat(certificate.status()).isEqualTo(CertificateStatus.EXPIRED);
+    }
+
+    @Test
+    @DisplayName("a certificate past its expiry instant cannot be suspended before the sweep marks it")
+    void aCertificatePastItsExpiryIsNotSuspendedWhileStillUnmarked() {
+        assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
+
+        assertThat(certificate.suspend(FIRST_CAUSE, AFTER_EXPIRY)).isFalse();
+
+        assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
+        assertThat(certificate.suspensions()).isEmpty();
+        assertThat(certificate.expireIfDue(AFTER_EXPIRY)).isTrue();
+    }
+
+    @Test
+    @DisplayName("a certificate does not cover a moment before it was issued")
+    void aCertificateDoesNotCoverAMomentBeforeItsIssuance() {
+        assertThat(certificate.coversMoment(ISSUED_AT.minusSeconds(1))).isFalse();
+        assertThat(certificate.coversMoment(ISSUED_AT)).isTrue();
+        assertThat(certificate.coversMoment(DURING)).isTrue();
+        assertThat(certificate.coversMoment(EXPIRES_AT)).isFalse();
+    }
+
+    @Test
+    @DisplayName("a certificate cannot be recorded as its own predecessor")
+    void aCertificateCannotSucceedItself() {
+        assertThatThrownBy(() -> new Certificate(
+                CertificateId.of("cert-1"),
+                AssetId.of("asset-1"),
+                InspectionId.of("inspection-1"),
+                new SchemaVersionId(SchemaId.of("schema-1"), 1),
+                new ValidityPeriod(ISSUED_AT, EXPIRES_AT),
+                CertificateId.of("cert-1")))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("cannot succeed itself");
     }
 
     @Test

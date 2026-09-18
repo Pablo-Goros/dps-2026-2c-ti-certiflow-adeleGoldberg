@@ -17,6 +17,6 @@ public record ValidityPeriod(Instant issuedAt, Instant expiresAt) {
     }
 
     public boolean coversMoment(Instant moment) {
-        return !expiredAt(moment);
+        return !moment.isBefore(issuedAt) && !expiredAt(moment);
     }
 }
