@@ -123,19 +123,41 @@ public final class Finding {
     public void revise(CriterionResult newResult, List<EvaluationReason> newReasons,
             Severity newSeverity, List<String> newPresentedEvidence, RectificationId rectificationId,
             String reason, Instant revisedAt, CorrectiveActionId replacementAction) {
-        Validate.ensure(!newResult.approved(),
+        CriterionResult validatedResult = Validate.required(newResult, "result");
+
+        Validate.ensure(!validatedResult.approved(),
                 "a rectification that approves the criterion voids the obligation instead of revising it");
-        this.result = Validate.required(newResult, "result");
-        this.reasons = Validate.requiredNonEmpty(newReasons, "reasons");
-        this.severity = Validate.required(newSeverity, "severity");
-        this.presentedEvidence = List.copyOf(
+
+        List<EvaluationReason> validatedReasons =
+                Validate.requiredNonEmpty(newReasons, "reasons");
+        Severity validatedSeverity = Validate.required(newSeverity, "severity");
+        List<String> validatedEvidence = List.copyOf(
                 Validate.required(newPresentedEvidence, "presented evidence"));
-        revisions.add(new FindingRevision(newResult, newReasons, newSeverity, rectificationId, reason,
-                revisedAt));
+
+        FindingRevision revision = new FindingRevision(
+                validatedResult,
+                validatedReasons,
+                validatedSeverity,
+                rectificationId,
+                reason,
+                revisedAt);
+
+        CorrectiveAction newAction = null;
         if (correctiveAction().status().terminal()) {
-            correctiveActions.add(new CorrectiveAction(
-                    Validate.required(replacementAction, "replacement corrective action id")));
+            newAction = new CorrectiveAction(
+                    Validate.required(replacementAction, "replacement corrective action id"));
         }
+
+        this.result = validatedResult;
+        this.reasons = validatedReasons;
+        this.severity = validatedSeverity;
+        this.presentedEvidence = validatedEvidence;
+        revisions.add(revision);
+
+        if (newAction != null) {
+            correctiveActions.add(newAction);
+        }
+
         voided = null;
     }
 
