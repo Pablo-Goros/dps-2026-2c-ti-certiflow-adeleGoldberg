@@ -99,7 +99,7 @@ public final class FullSystem {
     public final ReportCorrectiveActionExecution reportExecution =
             new ReportCorrectiveActionExecution(findings, clock, audit);
     public final VerifyCorrectiveAction verifyCorrectiveAction =
-            new VerifyCorrectiveAction(findings, clock, events, audit);
+            new VerifyCorrectiveAction(findings, inspections, clock, events, audit);
     public final ExpireOverdueCorrectiveActions expireActions =
             new ExpireOverdueCorrectiveActions(findings, clock, events, audit);
 

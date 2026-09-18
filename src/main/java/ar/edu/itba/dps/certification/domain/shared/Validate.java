@@ -22,6 +22,11 @@ public final class Validate {
         return value.strip();
     }
 
+    public static List<String> requiredTexts(Collection<String> values, String name) {
+        requiredNonEmpty(values, name);
+        return values.stream().map(value -> requiredText(value, name + " entry")).toList();
+    }
+
     public static <T> List<T> requiredNonEmpty(Collection<T> values, String name) {
         required(values, name);
         if (values.isEmpty()) {

@@ -14,7 +14,7 @@ public record ExecutionReport(
 
     public ExecutionReport {
         statement = Validate.requiredText(statement, "execution statement");
-        evidenceReferences = Validate.requiredNonEmpty(evidenceReferences, "execution evidence");
+        evidenceReferences = Validate.requiredTexts(evidenceReferences, "execution evidence");
         Validate.required(reportedBy, "executor");
         Validate.required(reportedAt, "execution instant");
     }

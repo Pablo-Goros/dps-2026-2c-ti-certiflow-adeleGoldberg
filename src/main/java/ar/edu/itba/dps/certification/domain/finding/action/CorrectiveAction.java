@@ -73,6 +73,9 @@ public final class CorrectiveAction {
             throw new DomainException("cannot report execution of corrective action " + id
                     + " while it is " + status);
         }
+        Validate.ensure(report.reportedBy().equals(plan.executor()),
+                "corrective action " + id + " was assigned to " + plan.executor()
+                        + ", so " + report.reportedBy() + " cannot report its execution");
         executions.add(report);
         status = CorrectiveActionStatus.EXECUTION_REPORTED;
     }

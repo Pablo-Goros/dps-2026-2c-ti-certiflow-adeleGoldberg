@@ -13,6 +13,7 @@ import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired;
+import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
@@ -23,6 +24,7 @@ import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.support.InMemoryFindingRepository;
+import ar.edu.itba.dps.certification.support.InMemoryInspectionRepository;
 import ar.edu.itba.dps.certification.support.RecordingEventPublisher;
 import ar.edu.itba.dps.certification.support.TestClock;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +41,7 @@ class CorrectiveActionLifecycleTest {
     private static final LocalDate DUE_DATE = LocalDate.parse("2026-03-10");
     private static final PartyId EXECUTOR = PartyId.of("executor");
     private static final PartyId INSPECTOR = PartyId.of("inspector");
+    private static final InspectionId INSPECTION = InspectionId.of("inspection-1");
 
     private TestClock clock;
     private InMemoryFindingRepository findings;
@@ -56,9 +59,12 @@ class CorrectiveActionLifecycleTest {
         AuditRecorder audit = new AuditRecorder(new InMemoryAuditTrail(),
                 new FixedActor("inspector"), clock);
         events = new RecordingEventPublisher();
+        InMemoryInspectionRepository inspections = new InMemoryInspectionRepository();
+        inspections.save(new Inspection(INSPECTION, AssetId.of("asset-1"), INSPECTOR,
+                LocalDate.parse("2026-03-01")));
         plan = new PlanCorrectiveAction(findings, audit);
         reportExecution = new ReportCorrectiveActionExecution(findings, clock, audit);
-        verify = new VerifyCorrectiveAction(findings, clock, events, audit);
+        verify = new VerifyCorrectiveAction(findings, inspections, clock, events, audit);
         expire = new ExpireOverdueCorrectiveActions(findings, clock, events, audit);
         findingId = givenAFinding();
     }
@@ -186,10 +192,48 @@ class CorrectiveActionLifecycleTest {
         assertThat(finding.correctiveAction().blocksCertification()).isFalse();
     }
 
+    @Test
+    @DisplayName("only the executor named in the plan can report the execution")
+    void onlyThePlannedExecutorReportsTheExecution() {
+        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+
+        assertThatThrownBy(() -> reportExecution.report(findingId, "I did it",
+                List.of("file://photo.jpg"), PartyId.of("somebody-else")))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("cannot report its execution");
+        assertThat(findings.require(findingId).correctiveAction().executions()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("only the inspector of the backing inspection can verify the correction")
+    void onlyTheInspectorVerifiesTheCorrection() {
+        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg"),
+                EXECUTOR);
+
+        assertThatThrownBy(() -> verify.verify(findingId, true, "it works", EXECUTOR))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("only the inspector");
+        assertThat(findings.require(findingId).correctiveAction().status())
+                .isEqualTo(CorrectiveActionStatus.EXECUTION_REPORTED);
+    }
+
+    @Test
+    @DisplayName("a blank evidence reference is not evidence")
+    void blankEvidenceIsRejected() {
+        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+
+        assertThatThrownBy(() -> reportExecution.report(findingId, "thermostat replaced",
+                List.of("file://photo.jpg", "   "), EXECUTOR))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("execution evidence entry");
+        assertThat(findings.require(findingId).correctiveAction().executions()).isEmpty();
+    }
+
     private FindingId givenAFinding() {
         Finding finding = new Finding(
                 FindingId.of("finding-1"),
-                InspectionId.of("inspection-1"),
+                INSPECTION,
                 CriterionId.of("TEMP"),
                 AssetId.of("asset-1"),
                 PartyId.of("responsible"),
