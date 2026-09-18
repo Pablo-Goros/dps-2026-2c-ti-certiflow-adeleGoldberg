@@ -73,7 +73,10 @@ public final class RectifyClosedInspection {
         audit.record(AuditedElementRef.inspection(inspection.id().value()),
                 AuditAction.INSPECTION_RECTIFIED,
                 AuditDetail.dataChanged(rectification.changes().stream()
-                        .map(change -> new FieldChange("rectified", null, change.describe()))
+                        .map(change -> new FieldChange(
+                                change.field(),
+                                change.previousValue(),
+                                change.currentValue()))
                         .toList()),
                 rectification.reason());
         return rectification;

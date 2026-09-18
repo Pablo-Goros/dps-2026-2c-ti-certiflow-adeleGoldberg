@@ -11,6 +11,12 @@ public sealed interface RectificationChange {
 
     String describe();
 
+    String field();
+
+    String previousValue();
+
+    String currentValue();
+
     record AnswerCorrected(CriterionId criterionId, String previousValue, String currentValue)
             implements RectificationChange {
 
@@ -26,6 +32,21 @@ public sealed interface RectificationChange {
         @Override
         public String describe() {
             return "answer of " + criterionId + ": " + previousValue + " -> " + currentValue;
+        }
+
+        @Override
+        public String field() {
+            return "answer." + criterionId;
+        }
+
+        @Override
+        public String previousValue() {
+            return previousValue;
+        }
+
+        @Override
+        public String currentValue() {
+            return currentValue;
         }
     }
 
@@ -47,6 +68,10 @@ public sealed interface RectificationChange {
             return "evidence " + evidenceId + " of " + criterionId + ": " + previousValue + " -> "
                     + currentValue;
         }
+        @Override
+        public String field() {
+            return "evidence." + criterionId + "." + evidenceId;
+        }
     }
 
     record NoteCorrected(String noteId, String previousValue, String currentValue)
@@ -66,6 +91,11 @@ public sealed interface RectificationChange {
         @Override
         public String describe() {
             return "note " + noteId + ": " + previousValue + " -> " + currentValue;
+        }
+
+        @Override
+        public String field() {
+            return "note." + noteId;
         }
     }
 }

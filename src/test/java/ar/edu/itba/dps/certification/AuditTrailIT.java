@@ -91,7 +91,7 @@ class AuditTrailIT {
     }
 
     @Test
-    @DisplayName("a rectification is recorded with its mandatory reason")
+    @DisplayName("a rectification is recorded with its mandatory reason and structured changes")
     void aRectificationCarriesItsReason() {
         InspectionId inspectionId = inspectAndClose("30");
 
@@ -100,8 +100,18 @@ class AuditTrailIT {
                         Measurement.of("5", "c"))));
 
         assertThat(system.auditTrail.withAction(AuditAction.INSPECTION_RECTIFIED))
-                .singleElement().satisfies(entry ->
-                        assertThat(entry.reason()).contains("the probe was misread"));
+                .singleElement().satisfies(entry -> {
+                        assertThat(entry.reason()).contains("the probe was misread");
+
+                        assertThat(entry.detail()).isInstanceOfSatisfying(AuditDetail.DataChanged.class, dataChanged -> {
+
+                            assertThat(dataChanged.changes()).singleElement().satisfies(change -> {
+                                assertThat(change.field()).contains("temperature");
+                                assertThat(change.previousValue()).isEqualTo("30");
+                                assertThat(change.currentValue()).isEqualTo(Measurement.of("5", "c").describe());
+                            });
+                        });
+                    });
     }
 
     @Test
