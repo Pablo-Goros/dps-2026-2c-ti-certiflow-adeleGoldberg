@@ -23,7 +23,11 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.AssignInspec
 import ar.edu.itba.dps.certification.application.inspection.usecase.AttachEvidence;
 import ar.edu.itba.dps.certification.application.inspection.usecase.CloseInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RecordAnswer;
+import ar.edu.itba.dps.certification.application.inspection.usecase.CorrectNote;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RecordNote;
+import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveAnswer;
+import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveEvidence;
+import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveNote;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
 import ar.edu.itba.dps.certification.application.schema.PublishedSchemaCatalog;
@@ -86,6 +90,10 @@ public final class FullSystem {
             new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit);
     public final RecordAnswer recordAnswer = new RecordAnswer(inspections, schemaCatalog, audit);
     public final RecordNote recordNote = new RecordNote(inspections, ids, clock, audit);
+    public final CorrectNote correctNote = new CorrectNote(inspections, audit);
+    public final RemoveNote removeNote = new RemoveNote(inspections, audit);
+    public final RemoveAnswer removeAnswer = new RemoveAnswer(inspections, audit);
+    public final RemoveEvidence removeEvidence = new RemoveEvidence(inspections, audit);
     public final AttachEvidence attachEvidence =
             new AttachEvidence(inspections, schemaCatalog, ids, clock, audit);
     public final CloseInspection closeInspection = new CloseInspection(inspections, schemaCatalog,

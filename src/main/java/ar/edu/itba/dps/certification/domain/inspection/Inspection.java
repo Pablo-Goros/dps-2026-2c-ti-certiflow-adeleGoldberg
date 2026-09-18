@@ -143,6 +143,20 @@ public final class Inspection {
         notes.add(note);
     }
 
+    public InspectionNote correctNote(String noteId, String text) {
+        requireInProgress("correct a note");
+        InspectionNote previous = requireNote(noteId);
+        notes.set(notes.indexOf(previous), previous.withText(text));
+        return previous;
+    }
+
+    public InspectionNote removeNote(String noteId) {
+        requireInProgress("remove a note");
+        InspectionNote removed = requireNote(noteId);
+        notes.remove(removed);
+        return removed;
+    }
+
     public InspectionClosureResult close(Instant at, Map<CriterionId, CriterionEvaluation> evaluations) {
         Validate.required(at, "closure instant");
         Validate.required(evaluations, "evaluations");
