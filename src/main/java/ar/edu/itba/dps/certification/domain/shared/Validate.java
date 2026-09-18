@@ -2,6 +2,7 @@ package ar.edu.itba.dps.certification.domain.shared;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 public final class Validate {
 
@@ -33,6 +34,15 @@ public final class Validate {
             throw new DomainException(name + " must contain at least one element");
         }
         return List.copyOf(values);
+    }
+
+    public static Map<String, String> requiredTextEntries(Map<String, String> entries, String name) {
+        required(entries, name);
+        entries.forEach((key, value) -> {
+            requiredText(key, name + " name");
+            requiredText(value, "value of " + name + " '" + key + "'");
+        });
+        return Map.copyOf(entries);
     }
 
     public static int requiredPositive(int value, String name) {

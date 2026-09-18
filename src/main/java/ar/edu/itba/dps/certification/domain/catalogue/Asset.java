@@ -20,7 +20,7 @@ public final class Asset {
         this.id = Validate.required(id, "asset id");
         this.name = Validate.requiredText(name, "asset name");
         this.assetType = Validate.required(assetType, "asset type id");
-        this.characteristics = Map.copyOf(Validate.required(characteristics, "characteristics"));
+        this.characteristics = Validate.requiredTextEntries(characteristics, "characteristic");
         this.responsible = Validate.required(responsible, "asset responsible");
         this.location = Validate.requiredText(location, "asset location");
     }
