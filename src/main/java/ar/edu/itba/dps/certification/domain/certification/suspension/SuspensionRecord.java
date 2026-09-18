@@ -5,43 +5,31 @@ import ar.edu.itba.dps.certification.domain.shared.Validate;
 import java.time.Instant;
 import java.util.Optional;
 
-public final class SuspensionRecord {
-
-    private final SuspensionCause cause;
-    private final Instant raisedAt;
-    private Instant resolvedAt;
-    private String resolution;
+public record SuspensionRecord (SuspensionCause cause, Instant raisedAt, Optional<Instant> resolvedAt, Optional<String> resolution) {
 
     public SuspensionRecord(SuspensionCause cause, Instant raisedAt) {
-        this.cause = Validate.required(cause, "suspension cause");
-        this.raisedAt = Validate.required(raisedAt, "suspension instant");
+        this(cause, raisedAt, Optional.empty(), Optional.empty());
     }
 
-    public SuspensionCause cause() {
-        return cause;
-    }
-
-    public Instant raisedAt() {
-        return raisedAt;
-    }
-
-    public Optional<Instant> resolvedAt() {
-        return Optional.ofNullable(resolvedAt);
-    }
-
-    public Optional<String> resolution() {
-        return Optional.ofNullable(resolution);
+    public SuspensionRecord {
+        Validate.required(cause, "suspension cause");
+        Validate.required(raisedAt, "suspension instant");
+        Validate.required(resolvedAt, "resolution instant");
+        Validate.required(resolution, "resolution");
     }
 
     public boolean unresolved() {
-        return resolvedAt == null;
+        return resolvedAt.isEmpty();
     }
 
-    public void resolve(String how, Instant at) {
-        if (resolvedAt != null) {
-            return;
+    public SuspensionRecord resolved(String how, Instant at) {
+        if (!unresolved()) {
+            return this;
         }
-        this.resolution = Validate.requiredText(how, "resolution");
-        this.resolvedAt = Validate.required(at, "resolution instant");
+        return new SuspensionRecord(
+                cause,
+                raisedAt,
+                Optional.of(Validate.required(at, "resolution instant")),
+                Optional.of(Validate.requiredText(how, "resolution")));
     }
 }

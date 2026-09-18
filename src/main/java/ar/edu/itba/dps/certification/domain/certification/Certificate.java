@@ -97,10 +97,15 @@ public final class Certificate {
 
     public boolean resolveCauses(Predicate<SuspensionCause> matches, String how, Instant at) {
         Validate.required(matches, "cause matcher");
-        suspensions.stream()
-                .filter(SuspensionRecord::unresolved)
-                .filter(record -> matches.test(record.cause()))
-                .forEach(record -> record.resolve(how, at));
+        Validate.requiredText(how, "resolution");
+        Validate.required(at, "resolution instant");
+
+        suspensions.replaceAll(record ->
+                (record.unresolved() && matches.test(record.cause()))
+                        ? record.resolved(how, at)
+                        : record
+        );
+
         return reactivateIfFullyResolved(at);
     }
 
