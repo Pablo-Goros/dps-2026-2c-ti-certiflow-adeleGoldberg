@@ -87,6 +87,9 @@ public final class RectifyClosedInspection {
                 .asRectificationOf(rectification.id(), at);
 
         if (unchanged(previous, recomputed)) {
+            findings.correctPresentedEvidence(inspection.id(), criterionId,
+                    presentedEvidence(inspection, criterionId),
+                    rectification.id(), rectification.reason());
             return;
         }
         inspection.appendRectifiedEvaluation(criterionId, recomputed);
@@ -110,9 +113,13 @@ public final class RectifyClosedInspection {
 
     private NonConformity nonConformity(Inspection inspection, CriterionId criterionId,
             CriterionEvaluation evaluation) {
-        return new NonConformity(criterionId, evaluation, inspection.requireRecord(criterionId).evidence().stream()
+        return new NonConformity(criterionId, evaluation, presentedEvidence(inspection, criterionId));
+    }
+
+    private List<String> presentedEvidence(Inspection inspection, CriterionId criterionId) {
+        return inspection.requireRecord(criterionId).evidence().stream()
                 .map(EvidenceRecord::reference)
-                .toList());
+                .toList();
     }
 
     private boolean unchanged(CriterionEvaluation previous, CriterionEvaluation recomputed) {

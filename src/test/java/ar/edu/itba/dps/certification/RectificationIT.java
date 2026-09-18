@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,13 +19,13 @@ import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionC
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationChange;
 import ar.edu.itba.dps.certification.domain.report.InspectionAct;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
@@ -209,6 +208,30 @@ class RectificationIT {
         assertThat(after.result()).isEqualTo(CriterionResult.REJECTED);
         assertThat(after.revisions()).isNotEmpty();
         assertThat(after.blocksCertification()).isTrue();
+    }
+
+    @Test
+    @DisplayName("correcting an evidence reference updates the finding that presented it")
+    void correctingAnEvidenceReferenceReachesTheFinding() {
+        InspectionId inspectionId = assignAndStart();
+        system.recordAnswer.record(inspectionId, DomainWorld.TEMPERATURE, Measurement.of("5", "c"));
+        system.recordAnswer.record(inspectionId, DomainWorld.DOCUMENTATION, YesNoAnswer.no());
+        EvidenceRecord evidence = system.attachEvidence.attach(inspectionId,
+                DomainWorld.DOCUMENTATION, DomainWorld.SAFETY_MANUAL, "file://wrong-manual.pdf");
+        system.closeInspection.close(inspectionId);
+        Finding finding = system.findings.findByInspection(inspectionId).getFirst();
+        assertThat(finding.presentedEvidence()).containsExactly("file://wrong-manual.pdf");
+
+        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "the manual link pointed at the wrong document",
+                List.of(new Correction.EvidenceReferenceCorrection(DomainWorld.DOCUMENTATION,
+                        evidence.id(), "file://correct-manual.pdf")));
+
+        Finding after = system.findings.require(finding.id());
+        assertThat(after.presentedEvidence()).containsExactly("file://correct-manual.pdf");
+        assertThat(after.result()).isEqualTo(CriterionResult.OBSERVED);
+        assertThat(after.revisions()).isEmpty();
+        assertThat(after.correctiveActions()).hasSize(1);
     }
 
     private void rectifyTemperatureTo(String temperature) {

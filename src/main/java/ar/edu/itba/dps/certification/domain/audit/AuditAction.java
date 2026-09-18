@@ -24,6 +24,7 @@ public enum AuditAction {
 
     FINDING_CREATED(false),
     FINDING_REVISED(true),
+    FINDING_EVIDENCE_CORRECTED(true),
     FINDING_OBLIGATION_VOIDED(true),
 
     CORRECTIVE_ACTION_PLANNED(false),

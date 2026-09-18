@@ -83,17 +83,24 @@ public final class GenerateInspectionAct {
 
     private ReportedValue<String> answerOf(Inspection inspection, CriterionRecord record) {
         String current = record.answer().map(Answer::describe).orElse(NOT_RECORDED);
+        String original = null;
+        Rectification latest = null;
         for (Rectification rectification : inspection.rectifications()) {
             for (RectificationChange change : rectification.changes()) {
                 if (change instanceof RectificationChange.AnswerCorrected corrected
                         && corrected.criterionId().equals(record.criterionId())) {
-                    return ReportedValue.rectified(
-                            corrected.previousValue() == null ? NOT_RECORDED : corrected.previousValue(),
-                            current, rectification.id(), rectification.reason());
+                    if (latest == null) {
+                        original = corrected.previousValue() == null
+                                ? NOT_RECORDED : corrected.previousValue();
+                    }
+                    latest = rectification;
                 }
             }
         }
-        return ReportedValue.original(current);
+        if (latest == null) {
+            return ReportedValue.original(current);
+        }
+        return ReportedValue.rectified(original, current, latest.id(), latest.reason());
     }
 
     private Optional<ReportedValue<String>> resultOf(CriterionRecord record) {
@@ -122,16 +129,23 @@ public final class GenerateInspectionAct {
     }
 
     private ReportedValue<String> noteTextOf(Inspection inspection, InspectionNote note) {
+        String original = null;
+        Rectification latest = null;
         for (Rectification rectification : inspection.rectifications()) {
             for (RectificationChange change : rectification.changes()) {
                 if (change instanceof RectificationChange.NoteCorrected corrected
                         && corrected.noteId().equals(note.id())) {
-                    return ReportedValue.rectified(corrected.previousValue(), note.text(),
-                            rectification.id(), rectification.reason());
+                    if (latest == null) {
+                        original = corrected.previousValue();
+                    }
+                    latest = rectification;
                 }
             }
         }
-        return ReportedValue.original(note.text());
+        if (latest == null) {
+            return ReportedValue.original(note.text());
+        }
+        return ReportedValue.rectified(original, note.text(), latest.id(), latest.reason());
     }
 
     private List<InspectionAct.RectificationEntry> rectificationsOf(Inspection inspection) {

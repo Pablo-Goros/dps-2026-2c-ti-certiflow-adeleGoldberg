@@ -137,6 +137,10 @@ public final class Finding {
         }
     }
 
+    public void correctPresentedEvidence(List<String> corrected) {
+        this.presentedEvidence = List.copyOf(Validate.required(corrected, "presented evidence"));
+    }
+
     public void voidObligation(RectificationId rectificationId, String reason, Instant voidedAt) {
         if (voided != null) {
             return;

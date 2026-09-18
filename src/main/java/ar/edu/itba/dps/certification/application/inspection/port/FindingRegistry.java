@@ -19,6 +19,9 @@ public interface FindingRegistry {
     void reviseNonConformity(InspectionId inspectionId, NonConformity nonConformity,
             RectificationId rectificationId, String reason);
 
+    void correctPresentedEvidence(InspectionId inspectionId, CriterionId criterionId,
+            List<String> presentedEvidence, RectificationId rectificationId, String reason);
+
     void voidObligation(InspectionId inspectionId, CriterionId criterionId,
             RectificationId rectificationId, String reason);
 }

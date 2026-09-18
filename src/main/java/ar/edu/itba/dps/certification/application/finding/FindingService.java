@@ -18,6 +18,7 @@ import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionVoided
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
+import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 
 import java.time.Instant;
@@ -78,6 +79,27 @@ public final class FindingService implements FindingRegistry {
         audit.record(AuditedElementRef.finding(finding.id().value()), AuditAction.FINDING_REVISED,
                 AuditDetail.stateChanged("previous evaluation",
                         finding.result() + " (" + finding.severity() + ")"), reason);
+    }
+
+    @Override
+    public void correctPresentedEvidence(InspectionId inspectionId, CriterionId criterionId,
+            List<String> presentedEvidence, RectificationId rectificationId, String reason) {
+        Optional<Finding> existing = findings.findByCriterion(inspectionId, criterionId);
+        if (existing.isEmpty()) {
+            return;
+        }
+        Finding finding = existing.get();
+        if (finding.presentedEvidence().equals(presentedEvidence)) {
+            return;
+        }
+        List<String> previous = finding.presentedEvidence();
+        finding.correctPresentedEvidence(presentedEvidence);
+        findings.save(finding);
+        audit.record(AuditedElementRef.finding(finding.id().value()),
+                AuditAction.FINDING_EVIDENCE_CORRECTED,
+                AuditDetail.dataChanged(new FieldChange("presented evidence",
+                        String.join(", ", previous), String.join(", ", presentedEvidence))),
+                reason);
     }
 
     @Override

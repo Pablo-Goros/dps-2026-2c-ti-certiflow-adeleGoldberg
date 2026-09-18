@@ -26,6 +26,10 @@ public final class RecordingFindingRegistry implements FindingRegistry {
             CriterionEvaluation evaluation, RectificationId rectificationId) {
     }
 
+    public record EvidenceCall(InspectionId inspectionId, CriterionId criterionId,
+            List<String> presentedEvidence, RectificationId rectificationId) {
+    }
+
     public record VoidedCall(InspectionId inspectionId, CriterionId criterionId,
             RectificationId rectificationId) {
     }
@@ -33,6 +37,7 @@ public final class RecordingFindingRegistry implements FindingRegistry {
     public final List<ClosureCall> closures = new ArrayList<>();
     public final List<RevealedCall> revealed = new ArrayList<>();
     public final List<RevisedCall> revised = new ArrayList<>();
+    public final List<EvidenceCall> evidenceCorrections = new ArrayList<>();
     public final List<VoidedCall> voided = new ArrayList<>();
 
     @Override
@@ -52,6 +57,13 @@ public final class RecordingFindingRegistry implements FindingRegistry {
     public void reviseNonConformity(InspectionId inspectionId, NonConformity nonConformity,
             RectificationId rectificationId, String reason) {
         revised.add(new RevisedCall(inspectionId, nonConformity.criterionId(), nonConformity.evaluation(),
+                rectificationId));
+    }
+
+    @Override
+    public void correctPresentedEvidence(InspectionId inspectionId, CriterionId criterionId,
+            List<String> presentedEvidence, RectificationId rectificationId, String reason) {
+        evidenceCorrections.add(new EvidenceCall(inspectionId, criterionId, presentedEvidence,
                 rectificationId));
     }
 

@@ -170,6 +170,30 @@ class ReportingIT {
         assertThat(report.unresolvedSuspensionCauses()).isEmpty();
     }
 
+    @Test
+    @DisplayName("the act attributes a twice-rectified answer to the rectification that produced it")
+    void successiveRectificationsAreAttributedToTheLastOne() {
+        InspectionId inspectionId = inspectAndClose("30");
+        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "the probe read one digit too high", List.of(new Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("20", "c"))));
+        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "the calibration sheet gave the final figure", List.of(new Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("12", "c"))));
+
+        InspectionAct act = generateAct.generate(inspectionId);
+
+        assertThat(lineFor(act, "TEMP").answer()).isInstanceOfSatisfying(
+                ReportedValue.Rectified.class, value -> {
+                    assertThat(value.originalValue()).isEqualTo("30 c");
+                    assertThat(value.correctedValue()).isEqualTo("12 c");
+                    assertThat(value.reason()).isEqualTo("the calibration sheet gave the final figure");
+                    assertThat(value.rectificationId())
+                            .isEqualTo(act.rectifications().getLast().id());
+                });
+        assertThat(act.rectifications()).hasSize(2);
+    }
+
     private InspectionAct.ActCriterionLine lineFor(InspectionAct act, String criterionId) {
         return act.sections().stream()
                 .flatMap(section -> section.lines().stream())
