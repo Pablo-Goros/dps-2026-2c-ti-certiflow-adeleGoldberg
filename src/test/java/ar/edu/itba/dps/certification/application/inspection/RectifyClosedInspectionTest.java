@@ -10,6 +10,7 @@ import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectification;
+import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationChange;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
@@ -222,6 +223,47 @@ class RectifyClosedInspectionTest {
                 .hasMessageContaining("must reference rectification");
 
         assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).evaluations()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("a rectified evaluation cannot be attached to a rectification outside the inspection history")
+    void aRectifiedEvaluationRequiresARecordedRectification() {
+        closeWith("30");
+        Inspection inspection = world.inspections.require(inspectionId);
+        Rectification external = new Rectification(RectificationId.of("external-rectification"),
+                inspector.id(), world.clock.now(), "external change", List.of(
+                new RectificationChange.AnswerCorrected(DomainWorld.TEMPERATURE, "30 c", "5 c")));
+        CriterionEvaluation evaluation = CriterionEvaluation.approved(world.clock.now())
+                .asRectificationOf(external.id(), world.clock.now());
+
+        assertThatThrownBy(() -> inspection.recordEvaluationProducedBy(external,
+                DomainWorld.TEMPERATURE, evaluation))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("is not recorded");
+
+        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).evaluations()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a rectified evaluation can only be recorded for a criterion affected by the rectification")
+    void aRectifiedEvaluationRequiresAnAffectedCriterion() {
+        closeWith("30");
+        Inspection inspection = world.inspections.require(inspectionId);
+        String evidenceId = inspection.requireRecord(DomainWorld.DOCUMENTATION)
+                .evidence().getFirst().id();
+        Rectification rectification = world.rectifyClosedInspection.rectify(inspectionId,
+                inspector.id(), "wrong evidence reference", List.of(
+                        new Correction.EvidenceReferenceCorrection(DomainWorld.DOCUMENTATION,
+                                evidenceId, "file://correct-manual.pdf")));
+        CriterionEvaluation evaluation = CriterionEvaluation.approved(world.clock.now())
+                .asRectificationOf(rectification.id(), world.clock.now());
+
+        assertThatThrownBy(() -> inspection.recordEvaluationProducedBy(rectification,
+                DomainWorld.TEMPERATURE, evaluation))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("did not affect criterion");
+
+        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).evaluations()).hasSize(1);
     }
 
     @Test
