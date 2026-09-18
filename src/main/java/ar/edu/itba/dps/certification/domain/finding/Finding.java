@@ -1,5 +1,7 @@
 package ar.edu.itba.dps.certification.domain.finding;
 
+import java.time.LocalDate;
+import ar.edu.itba.dps.certification.domain.finding.action.Verification;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveAction;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
@@ -10,7 +12,6 @@ import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceShortfall;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
@@ -27,13 +28,14 @@ public final class Finding {
     private final AssetId assetId;
     private final PartyId responsible;
     private final Instant createdAt;
-    private final CorrectiveAction correctiveAction;
+    private final List<CorrectiveAction> correctiveActions = new ArrayList<>();
     private final List<FindingRevision> revisions = new ArrayList<>();
     private CriterionResult result;
     private List<EvaluationReason> reasons;
     private Severity severity;
     private List<String> presentedEvidence;
     private VoidedObligation voided;
+    private Integer revisionsWhenCorrectionConcluded;
 
     public Finding(FindingId id, InspectionId inspectionId, CriterionId criterionId,
             AssetId assetId, PartyId responsible, CriterionResult result,
@@ -49,8 +51,8 @@ public final class Finding {
         this.reasons = Validate.requiredNonEmpty(reasons, "reasons");
         this.severity = Validate.required(severity, "severity");
         this.presentedEvidence = List.copyOf(Validate.required(presentedEvidence, "presented evidence"));
-        this.correctiveAction = new CorrectiveAction(
-                Validate.required(correctiveActionId, "corrective action id"));
+        this.correctiveActions.add(new CorrectiveAction(
+                Validate.required(correctiveActionId, "corrective action id")));
         this.createdAt = Validate.required(createdAt, "creation instant");
     }
 
@@ -102,7 +104,11 @@ public final class Finding {
     }
 
     public CorrectiveAction correctiveAction() {
-        return correctiveAction;
+        return correctiveActions.getLast();
+    }
+
+    public List<CorrectiveAction> correctiveActions() {
+        return List.copyOf(correctiveActions);
     }
 
     public List<FindingRevision> revisions() {
@@ -115,10 +121,7 @@ public final class Finding {
 
     public void revise(CriterionResult newResult, List<EvaluationReason> newReasons,
             Severity newSeverity, List<String> newPresentedEvidence, RectificationId rectificationId,
-            String reason, Instant revisedAt) {
-        if (voided != null) {
-            throw new DomainException("finding " + id + " has been left without effect and cannot be revised");
-        }
+            String reason, Instant revisedAt, CorrectiveActionId replacementAction) {
         Validate.ensure(!newResult.approved(),
                 "a rectification that approves the criterion voids the obligation instead of revising it");
         this.result = Validate.required(newResult, "result");
@@ -128,6 +131,10 @@ public final class Finding {
                 Validate.required(newPresentedEvidence, "presented evidence"));
         revisions.add(new FindingRevision(newResult, newReasons, newSeverity, rectificationId, reason,
                 revisedAt));
+        if (correctiveAction().status().terminal()) {
+            correctiveActions.add(new CorrectiveAction(
+                    Validate.required(replacementAction, "replacement corrective action id")));
+        }
     }
 
     public void voidObligation(RectificationId rectificationId, String reason, Instant voidedAt) {
@@ -136,7 +143,8 @@ public final class Finding {
         }
         VoidedObligation record = new VoidedObligation(rectificationId, reason, voidedAt);
         this.voided = record;
-        correctiveAction.voidObligation(record);
+        correctiveAction().voidObligation(record);
+        revisionsWhenCorrectionConcluded = revisions.size();
     }
 
     public boolean obligationVoided() {
@@ -144,7 +152,20 @@ public final class Finding {
     }
 
     public boolean blocksCertification() {
-        return result == CriterionResult.REJECTED && correctiveAction.blocksCertification();
+        return result == CriterionResult.REJECTED && !correctionCoversCurrentResult();
+    }
+
+    private boolean correctionCoversCurrentResult() {
+        return revisionsWhenCorrectionConcluded != null
+                && revisionsWhenCorrectionConcluded == revisions.size();
+    }
+
+    public boolean concludeCorrection(Verification verification, LocalDate today) {
+        boolean closed = correctiveAction().verify(verification, today);
+        if (closed) {
+            revisionsWhenCorrectionConcluded = revisions.size();
+        }
+        return closed;
     }
 
     @Override

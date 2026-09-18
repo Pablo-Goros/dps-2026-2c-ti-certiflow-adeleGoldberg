@@ -189,22 +189,26 @@ class RectificationIT {
     }
 
     @Test
-    @DisplayName("a voided obligation cannot be revised again by a later rectification")
-    void aVoidedFindingCannotBeRevised() {
+    @DisplayName("a voided non-conformity that comes back is recorded again on the same finding")
+    void aVoidedFindingIsRevisedWhenTheNonConformityComesBack() {
         InspectionId inspectionId = inspectAndClose("30");
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
         system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
-
         system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
                 "the reading was corrected", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("5", "c"))));
-
         assertThat(system.findings.require(finding.id()).obligationVoided()).isTrue();
-        assertThatThrownBy(() -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
-                "attempt to reopen the issue", List.of(new Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("30", "c")))))
-                .isInstanceOf(DomainException.class);
+
+        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                "the first reading was the right one", List.of(new Correction.AnswerCorrection(
+                        DomainWorld.TEMPERATURE, Measurement.of("30", "c"))));
+
+        Finding after = system.findings.require(finding.id());
+        assertThat(system.findings.findByInspection(inspectionId)).hasSize(1);
+        assertThat(after.result()).isEqualTo(CriterionResult.REJECTED);
+        assertThat(after.revisions()).isNotEmpty();
+        assertThat(after.blocksCertification()).isTrue();
     }
 
     private void rectifyTemperatureTo(String temperature) {

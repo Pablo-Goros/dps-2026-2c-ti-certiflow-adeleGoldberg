@@ -73,7 +73,7 @@ public final class FindingService implements FindingRegistry {
         Instant at = clock.now();
         finding.revise(nonConformity.evaluation().result(), nonConformity.evaluation().reasons(),
                 nonConformity.evaluation().severity(), nonConformity.presentedEvidence(),
-                rectificationId, reason, at);
+                rectificationId, reason, at, new CorrectiveActionId(ids.newIdentifier()));
         findings.save(finding);
         audit.record(AuditedElementRef.finding(finding.id().value()), AuditAction.FINDING_REVISED,
                 AuditDetail.stateChanged("previous evaluation",
