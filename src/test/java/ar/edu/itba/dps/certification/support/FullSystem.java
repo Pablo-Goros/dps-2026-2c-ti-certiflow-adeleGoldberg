@@ -7,7 +7,6 @@ import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetRe
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RelocateAsset;
-import ar.edu.itba.dps.certification.application.certification.CertificationContextAssembler;
 import ar.edu.itba.dps.certification.application.certification.CertificationReactions;
 import ar.edu.itba.dps.certification.application.certification.usecase.EvaluateIssuanceEligibility;
 import ar.edu.itba.dps.certification.application.certification.usecase.ExpireDueCertificates;
@@ -70,40 +69,41 @@ public final class FullSystem {
     public final RepositoryFindingQuery findingQuery = new RepositoryFindingQuery(findings);
     public final FindingService findingService =
             new FindingService(findings, ids, clock, audit);
-    public final CertificationContextAssembler assembler =
-            new CertificationContextAssembler(findingQuery, certificates, clock);
+    public final ar.edu.itba.dps.certification.domain.schema.SchemaApplicability schemaApplicability =
+            new ar.edu.itba.dps.certification.domain.schema.SchemaApplicability(schemas);
     public final RegisterParty registerParty = new RegisterParty(catalogue.parties, ids, audit);
     public final RegisterAsset registerAsset = new RegisterAsset(catalogue.assets, catalogue.parties, ids, audit);
     public final RelocateAsset relocateAsset = new RelocateAsset(catalogue.assets, audit);
     public final ChangeAssetResponsible changeAssetResponsible =
             new ChangeAssetResponsible(catalogue.assets, catalogue.parties, audit);
 
-    public final CreateSchema createSchema = new CreateSchema(schemas, ids, audit);
+    public final CreateSchema createSchema = new CreateSchema(schemas, schemaApplicability, ids, audit);
     public final OpenDraft openDraft = new OpenDraft(schemas, audit);
     public final EditDraft editDraft = new EditDraft(schemas, audit);
     public final PublishSchemaVersion publishSchemaVersion =
             new PublishSchemaVersion(schemas, clock, audit);
 
     public final AssignInspection assignInspection =
-            new AssignInspection(inspections, assetDirectory, ids, audit);
+            new AssignInspection(inspections, assetDirectory, catalogue.parties, ids, audit);
     public final StartInspection startInspection =
-            new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit);
-    public final RecordAnswer recordAnswer = new RecordAnswer(inspections, audit);
+            new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit, actors);
+    public final RecordAnswer recordAnswer = new RecordAnswer(inspections, audit, actors);
     public final RecordNote recordNote = new RecordNote(inspections, ids, clock, audit, actors);
-    public final CorrectNote correctNote = new CorrectNote(inspections, audit);
-    public final RemoveNote removeNote = new RemoveNote(inspections, audit);
-    public final RemoveAnswer removeAnswer = new RemoveAnswer(inspections, audit);
-    public final RemoveEvidence removeEvidence = new RemoveEvidence(inspections, audit);
+    public final CorrectNote correctNote = new CorrectNote(inspections, audit, actors);
+    public final RemoveNote removeNote = new RemoveNote(inspections, audit, actors);
+    public final RemoveAnswer removeAnswer = new RemoveAnswer(inspections, audit, actors);
+    public final RemoveEvidence removeEvidence = new RemoveEvidence(inspections, audit, actors);
     public final AttachEvidence attachEvidence =
-            new AttachEvidence(inspections, schemaCatalog, ids, clock, audit);
+            new AttachEvidence(inspections, ids, clock, audit, actors);
     public final CloseInspection closeInspection = new CloseInspection(inspections,
-            assetDirectory, findingService, clock, audit);
+            assetDirectory, findingService, clock, audit, actors);
     public final RectifyClosedInspection rectifyClosedInspection =
-            new RectifyClosedInspection(inspections, assetDirectory,
-                    findingService, events, ids, clock, audit, actors);
+            new RectifyClosedInspection(inspections, findingService,
+                    new ar.edu.itba.dps.certification.domain.inspection.RectificationConsequences(findingService, assetDirectory),
+                    events, ids, clock, audit, actors);
 
     public final PlanCorrectiveAction planCorrectiveAction =
-            new PlanCorrectiveAction(findings, audit, clock);
+            new PlanCorrectiveAction(findings, audit, clock, actors);
     public final ReportCorrectiveActionExecution reportExecution =
             new ReportCorrectiveActionExecution(findings, clock, audit, actors);
     public final VerifyCorrectiveAction verifyCorrectiveAction =
@@ -121,10 +121,23 @@ public final class FullSystem {
     public final ExpireDueCertificates expireCertificates =
             new ExpireDueCertificates(certificates, clock, audit);
     public final EvaluateIssuanceEligibility evaluateEligibility =
-            new EvaluateIssuanceEligibility(inspections, assembler, issuancePolicy);
+            new EvaluateIssuanceEligibility(certificateFactory);
 
     public FullSystem() {
-        events.register(new CertificationReactions(certificates, audit));
+        events.register(new CertificationReactions(certificates, new ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle(certificates), audit));
+    }
+
+    /** Makes the given party the authenticated user for the following operations. */
+    public void actAs(Party party) {
+        actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(party.id(), party.name()));
+    }
+
+    /** Plans the current corrective action of a finding as its responsible, who owns that decision (RF8). */
+    public ar.edu.itba.dps.certification.domain.finding.Finding planAsResponsible(
+            ar.edu.itba.dps.certification.domain.finding.FindingId findingId, String work,
+            ar.edu.itba.dps.certification.domain.shared.PartyId executor, java.time.LocalDate dueDate) {
+        var responsible = findings.require(findingId).responsible();
+        return actingAs(responsible, () -> planCorrectiveAction.plan(findingId, work, executor, dueDate));
     }
 
     public <T> T actingAs(ar.edu.itba.dps.certification.domain.shared.PartyId user,

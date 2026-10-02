@@ -46,7 +46,7 @@ public final class CertificateLifecycle {
     }
 
     private Optional<Change> onResultRevised(CriterionResultRevised revised) {
-        if (!revised.becameRejected()) {
+        if (!revised.resultsInRejection()) {
             return Optional.empty();
         }
         return suspendFor(revised.inspectionId(), new SuspensionCause.RectifiedRejection(

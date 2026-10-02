@@ -27,6 +27,13 @@ public final class Party {
         return kind;
     }
 
+    /** An inspection is carried out and signed by a person; an organization cannot be its inspector. */
+    public PartyId asInspector() {
+        Validate.ensure(kind == PartyKind.PERSON,
+                "party " + id + " is an organization and cannot be assigned as inspector");
+        return id;
+    }
+
     public ResponsiblePartyRef reference() {
         return new ResponsiblePartyRef(id, name);
     }

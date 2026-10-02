@@ -27,6 +27,11 @@ public record CriterionResultRevised(
         Validate.required(occurredAt, "instant");
     }
 
+    /** The rectified evaluation is a rejection, whether new or reappearing with other reasons. */
+    public boolean resultsInRejection() {
+        return currentResult == CriterionResult.REJECTED;
+    }
+
     public boolean becameRejected() {
         return currentResult == CriterionResult.REJECTED
                 && previousResult != CriterionResult.REJECTED;

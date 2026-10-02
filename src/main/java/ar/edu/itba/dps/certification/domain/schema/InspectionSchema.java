@@ -20,7 +20,8 @@ public final class InspectionSchema {
     private final List<SchemaVersion> publishedVersions = new ArrayList<>();
     private SchemaDraft draft;
 
-    public InspectionSchema(SchemaId id, String name, Set<AssetType> applicableAssetTypes) {
+    /** Package-private: schemas are created through {@link SchemaApplicability}, which owns "one schema per asset type". */
+    InspectionSchema(SchemaId id, String name, Set<AssetType> applicableAssetTypes) {
         this.id = Validate.required(id, "schema id");
         this.name = Validate.requiredText(name, "schema name");
         this.applicableAssetTypes.addAll(Validate.requiredNonEmpty(applicableAssetTypes, "applicable asset types"));

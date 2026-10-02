@@ -1,6 +1,7 @@
 package ar.edu.itba.dps.certification.domain.certification.issuance;
 
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
+import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 public sealed interface IssuanceBlocker {
@@ -36,6 +37,18 @@ public sealed interface IssuanceBlocker {
         @Override
         public String describe() {
             return count + " corrective actions have not been planned with a deadline";
+        }
+    }
+
+    record SupersededInspection(InspectionId laterInspectionId) implements IssuanceBlocker {
+        public SupersededInspection {
+            Validate.required(laterInspectionId, "later inspection id");
+        }
+
+        @Override
+        public String describe() {
+            return "the asset was inspected again later by inspection " + laterInspectionId
+                    + ", so this inspection no longer describes its current state";
         }
     }
 

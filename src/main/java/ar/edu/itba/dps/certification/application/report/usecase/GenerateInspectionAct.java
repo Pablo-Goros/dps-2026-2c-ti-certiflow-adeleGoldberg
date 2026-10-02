@@ -21,6 +21,7 @@ import ar.edu.itba.dps.certification.domain.shared.answer.Answer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 public final class GenerateInspectionAct {
 
@@ -72,7 +73,7 @@ public final class GenerateInspectionAct {
         return new InspectionAct.ActCriterionLine(
                 criterion.id(),
                 answerOf(inspection, record),
-                record.evidence().stream().map(EvidenceRecord::reference).toList(),
+                record.evidence().stream().map(evidence -> evidenceOf(inspection, record, evidence)).toList(),
                 criterion.shortfalls(record.evidenceCountByRequirement()).stream()
                         .map(shortfall -> shortfall.describe()).toList(),
                 resultOf(record),
@@ -83,15 +84,32 @@ public final class GenerateInspectionAct {
 
     private ReportedValue<String> answerOf(Inspection inspection, CriterionRecord record) {
         String current = record.answer().map(Answer::describe).orElse(NOT_RECORDED);
+        return reported(inspection, current, change ->
+                change instanceof RectificationChange.AnswerCorrected corrected
+                        && corrected.criterionId().equals(record.criterionId()));
+    }
+
+    private ReportedValue<String> evidenceOf(Inspection inspection, CriterionRecord record, EvidenceRecord evidence) {
+        return reported(inspection, evidence.reference(), change ->
+                change instanceof RectificationChange.EvidenceReferenceChanged changed
+                        && changed.criterionId().equals(record.criterionId())
+                        && changed.evidenceId().equals(evidence.id()));
+    }
+
+    /**
+     * Distinguishes original and corrected information (RF10): the original value comes from the
+     * first rectification that touched it and the attribution from the last one, which produced
+     * the value currently shown.
+     */
+    private ReportedValue<String> reported(Inspection inspection, String current,
+            Predicate<RectificationChange> touchesValue) {
         String original = null;
         Rectification latest = null;
         for (Rectification rectification : inspection.rectifications()) {
             for (RectificationChange change : rectification.changes()) {
-                if (change instanceof RectificationChange.AnswerCorrected corrected
-                        && corrected.criterionId().equals(record.criterionId())) {
+                if (touchesValue.test(change)) {
                     if (latest == null) {
-                        original = corrected.previousValue() == null
-                                ? NOT_RECORDED : corrected.previousValue();
+                        original = change.previousValue() == null ? NOT_RECORDED : change.previousValue();
                     }
                     latest = rectification;
                 }
@@ -129,23 +147,9 @@ public final class GenerateInspectionAct {
     }
 
     private ReportedValue<String> noteTextOf(Inspection inspection, InspectionNote note) {
-        String original = null;
-        Rectification latest = null;
-        for (Rectification rectification : inspection.rectifications()) {
-            for (RectificationChange change : rectification.changes()) {
-                if (change instanceof RectificationChange.NoteCorrected corrected
-                        && corrected.noteId().equals(note.id())) {
-                    if (latest == null) {
-                        original = corrected.previousValue();
-                    }
-                    latest = rectification;
-                }
-            }
-        }
-        if (latest == null) {
-            return ReportedValue.original(note.text());
-        }
-        return ReportedValue.rectified(original, note.text(), latest.id(), latest.reason());
+        return reported(inspection, note.text(), change ->
+                change instanceof RectificationChange.NoteCorrected corrected
+                        && corrected.noteId().equals(note.id()));
     }
 
     private List<InspectionAct.RectificationEntry> rectificationsOf(Inspection inspection) {

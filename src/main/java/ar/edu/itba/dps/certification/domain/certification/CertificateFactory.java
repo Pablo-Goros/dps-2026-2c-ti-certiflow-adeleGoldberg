@@ -10,10 +10,16 @@ import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
-
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 
-/** The only production construction path, loading the facts and enforcing the policy. */
+/**
+ * The only production construction path for certificates. It gathers the facts through domain
+ * ports and applies the issuance policy, so eligibility queries and actual issuance can never
+ * disagree: both go through {@link #contextFor(Inspection)}.
+ */
 public final class CertificateFactory {
     private final InspectionQuery inspections;
     private final FindingQuery findings;
@@ -35,8 +41,30 @@ public final class CertificateFactory {
         this.clock = clock;
     }
 
+    /** What would prevent issuing a certificate backed by this inspection right now. */
+    public List<IssuanceBlocker> blockersFor(InspectionId inspectionId) {
+        return policy.blockersFor(contextFor(inspections.require(inspectionId)));
+    }
+
+    /**
+     * Issues the first certificate of an asset. Once an asset has been certified and that
+     * certificate expired, the next one is a renewal and must keep the link with its predecessor
+     * (RF9), so issuing an unrelated certificate is refused.
+     */
     public IssuanceDecision issue(InspectionId inspectionId) {
-        return create(inspections.require(inspectionId), null);
+        Inspection inspection = inspections.require(inspectionId);
+        Optional<IssuanceDecision> alreadyIssued = alreadyIssued(inspectionId);
+        if (alreadyIssued.isPresent()) {
+            return alreadyIssued.get();
+        }
+        Instant now = clock.now();
+        certificates.findLatestForAsset(inspection.assetId())
+                .filter(previous -> previous.status().expired() || previous.validity().expiredAt(now))
+                .ifPresent(previous -> {
+                    throw new DomainException("asset " + inspection.assetId() + " was certified by "
+                            + previous.id() + ", which has expired; renew it to keep the link between both");
+                });
+        return create(inspection, null);
     }
 
     public IssuanceDecision renew(InspectionId inspectionId) {
@@ -56,19 +84,20 @@ public final class CertificateFactory {
         return create(inspection, previous);
     }
 
+    private Optional<IssuanceDecision> alreadyIssued(InspectionId inspectionId) {
+        return certificates.findByBackingInspection(inspectionId)
+                .map(existing -> new IssuanceDecision.AlreadyIssued(existing.id(), existing.status()));
+    }
+
     private IssuanceDecision create(Inspection inspection, Certificate previous) {
-        var existing = certificates.findByBackingInspection(inspection.id());
-        if (existing.isPresent()) {
-            return new IssuanceDecision.AlreadyIssued(existing.get().id(), existing.get().status());
+        Optional<IssuanceDecision> alreadyIssued = alreadyIssued(inspection.id());
+        if (alreadyIssued.isPresent()) {
+            return alreadyIssued.get();
         }
-        var at = clock.now();
-        var live = certificates.findNonExpiredForAsset(inspection.assetId())
-                .filter(c -> c.coversMoment(at)).map(Certificate::id);
-        CertificationContext context = new CertificationContext(inspection, findings.findingsOf(inspection.id()),
-                clock.today(), Optional.empty(), live);
-        var blockers = policy.blockersFor(context);
+        var blockers = policy.blockersFor(contextFor(inspection));
         if (!blockers.isEmpty()) { return new IssuanceDecision.Blocked(blockers); }
         // The factory's structural safeguards hold even with additional/custom requirements.
+        var at = clock.now();
         Validate.ensure(inspection.status().closed(), "the backing inspection must be closed");
         Validate.ensure(!inspection.closedAt().orElseThrow().isAfter(at), "issuance cannot precede closure");
         var validity = validityPolicy.validityFrom(at);
@@ -76,5 +105,28 @@ public final class CertificateFactory {
         return new IssuanceDecision.Issued(new Certificate(new CertificateId(ids.newIdentifier()),
                 inspection.assetId(), inspection.id(), inspection.requireFrozenSchemaVersionId(),
                 validity, previous == null ? null : previous.id()));
+    }
+
+    private CertificationContext contextFor(Inspection inspection) {
+        Instant now = clock.now();
+        var liveCertificate = certificates.findNonExpiredForAsset(inspection.assetId())
+                .filter(certificate -> certificate.coversMoment(now))
+                .filter(certificate -> !certificate.backingInspectionId().equals(inspection.id()))
+                .map(Certificate::id);
+        return new CertificationContext(inspection, findings.findingsOf(inspection.id()), clock.today(),
+                laterClosedInspectionOf(inspection), liveCertificate);
+    }
+
+    /** A closed inspection of the same asset started after this one describes a newer state. */
+    private Optional<InspectionId> laterClosedInspectionOf(Inspection inspection) {
+        if (inspection.startedAt().isEmpty()) {
+            return Optional.empty();
+        }
+        Instant startedAt = inspection.startedAt().get();
+        return inspections.findClosedByAsset(inspection.assetId()).stream()
+                .filter(other -> !other.id().equals(inspection.id()))
+                .filter(other -> other.startedAt().filter(at -> at.isAfter(startedAt)).isPresent())
+                .max(Comparator.comparing(other -> other.startedAt().orElseThrow()))
+                .map(Inspection::id);
     }
 }

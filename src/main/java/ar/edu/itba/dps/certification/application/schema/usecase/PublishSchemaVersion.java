@@ -25,12 +25,18 @@ public final class PublishSchemaVersion {
     public PublicationResult publish(SchemaId schemaId) {
         InspectionSchema schema = schemas.require(schemaId);
         PublicationResult result = schema.publish(clock.now());
+        if (!result.published()) {
+            // A refused draft stays open and unchanged: there is nothing to save, but the attempt is
+            // a decision worth auditing, and it must not read as a publication.
+            audit.record(AuditedElementRef.schema(schema.id().value()),
+                    AuditAction.SCHEMA_PUBLICATION_REFUSED,
+                    AuditDetail.decision("publish the draft", "refused: " + String.join("; ", result.violations())));
+            return result;
+        }
         schemas.save(schema);
         audit.record(AuditedElementRef.schema(schema.id().value()),
                 AuditAction.SCHEMA_VERSION_PUBLISHED,
-                AuditDetail.decision("publish the draft", result.published()
-                        ? "published version " + result.publishedVersion().number()
-                        : "refused: " + String.join("; ", result.violations())));
+                AuditDetail.decision("publish the draft", "published version " + result.publishedVersion().number()));
         return result;
     }
 }

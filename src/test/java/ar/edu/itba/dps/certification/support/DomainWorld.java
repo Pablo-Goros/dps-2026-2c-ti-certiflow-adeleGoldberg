@@ -70,25 +70,31 @@ public final class DomainWorld {
     public final ChangeAssetResponsible changeAssetResponsible =
             new ChangeAssetResponsible(catalogue.assets, catalogue.parties, audit);
 
-    public final CreateSchema createSchema = new CreateSchema(schemas, ids, audit);
+    public final CreateSchema createSchema = new CreateSchema(schemas, new ar.edu.itba.dps.certification.domain.schema.SchemaApplicability(schemas), ids, audit);
     public final OpenDraft openDraft = new OpenDraft(schemas, audit);
     public final EditDraft editDraft = new EditDraft(schemas, audit);
     public final PublishSchemaVersion publishSchemaVersion =
             new PublishSchemaVersion(schemas, clock, audit);
 
     public final AssignInspection assignInspection =
-            new AssignInspection(inspections, assetDirectory, ids, audit);
+            new AssignInspection(inspections, assetDirectory, catalogue.parties, ids, audit);
     public final StartInspection startInspection =
-            new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit);
+            new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit, actors);
     public final RecordAnswer recordAnswer =
-            new RecordAnswer(inspections, audit);
+            new RecordAnswer(inspections, audit, actors);
     public final AttachEvidence attachEvidence =
-            new AttachEvidence(inspections, schemaCatalog, ids, clock, audit);
+            new AttachEvidence(inspections, ids, clock, audit, actors);
     public final CloseInspection closeInspection =
-            new CloseInspection(inspections, assetDirectory, findings, clock, audit);
+            new CloseInspection(inspections, assetDirectory, findings, clock, audit, actors);
     public final RectifyClosedInspection rectifyClosedInspection =
-            new RectifyClosedInspection(inspections, assetDirectory, findings,
+            new RectifyClosedInspection(inspections, findings,
+                    new ar.edu.itba.dps.certification.domain.inspection.RectificationConsequences(findings, assetDirectory),
                     events, ids, clock, audit, actors);
+
+    /** Makes the given party the authenticated user for the following operations. */
+    public void actAs(Party party) {
+        actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(party.id(), party.name()));
+    }
 
     public <T> T actingAs(ar.edu.itba.dps.certification.domain.shared.PartyId user,
             java.util.function.Supplier<T> operation) {

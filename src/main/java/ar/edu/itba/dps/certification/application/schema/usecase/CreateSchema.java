@@ -16,18 +16,20 @@ import java.util.Set;
 public final class CreateSchema {
 
     private final SchemaRepository schemas;
+    private final SchemaApplicability applicability;
     private final IdGenerator ids;
     private final AuditRecorder audit;
 
-    public CreateSchema(SchemaRepository schemas, IdGenerator ids, AuditRecorder audit) {
+    public CreateSchema(SchemaRepository schemas, SchemaApplicability applicability, IdGenerator ids,
+            AuditRecorder audit) {
         this.schemas = schemas;
+        this.applicability = applicability;
         this.audit = audit;
         this.ids = ids;
     }
 
     public InspectionSchema create(String name, Set<AssetType> applicableAssetTypes) {
-        InspectionSchema schema = new SchemaApplicability(schemas)
-                .create(new SchemaId(ids.newIdentifier()), name, applicableAssetTypes);
+        InspectionSchema schema = applicability.create(new SchemaId(ids.newIdentifier()), name, applicableAssetTypes);
         schemas.save(schema);
         audit.record(AuditedElementRef.schema(schema.id().value()), AuditAction.SCHEMA_CREATED,
                 AuditDetail.created("schema '" + schema.name() + "' for " + applicableAssetTypes));

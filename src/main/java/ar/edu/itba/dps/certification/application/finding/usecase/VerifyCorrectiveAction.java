@@ -8,10 +8,7 @@ import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.Verification;
 import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
-import ar.edu.itba.dps.certification.domain.shared.Actor;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.domain.shared.Validate;
 import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
 import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 import ar.edu.itba.dps.certification.domain.shared.port.DomainEventPublisher;
@@ -35,17 +32,8 @@ public final class VerifyCorrectiveAction {
     }
 
     public Finding verify(FindingId findingId, boolean satisfactory, String reason) {
-        return verify(findingId, satisfactory, reason, actors.requireUser());
-    }
-
-    public Finding verify(FindingId findingId, boolean satisfactory, String reason, PartyId verifiedBy) {
-        var actingUser = actors.current();
-        if (!(actingUser instanceof Actor.User user)) {
-            throw new DomainException("this operation requires an authenticated user");
-        }
-        PartyId actor = user.partyId();
-        Validate.ensure(actor.equals(verifiedBy),
-                "verifiedBy must match the authenticated actor");
+        var actingUser = actors.requireUser();
+        PartyId actor = actingUser.partyId();
         Finding finding = findings.require(findingId);
         Instant at = clock.now();
         boolean closed = finding.concludeCorrection(

@@ -9,24 +9,29 @@ import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.port.InspectionRepository;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
+import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
 
 public final class CorrectNote {
 
     private final InspectionRepository inspections;
     private final AuditRecorder audit;
+    private final ActorProvider actors;
 
-    public CorrectNote(InspectionRepository inspections, AuditRecorder audit) {
+    public CorrectNote(InspectionRepository inspections, AuditRecorder audit, ActorProvider actors) {
         this.inspections = inspections;
         this.audit = audit;
+        this.actors = actors;
     }
 
     public InspectionNote correct(InspectionId inspectionId, String noteId, String text) {
+        var actor = actors.requireUser();
         Inspection inspection = inspections.require(inspectionId);
-        InspectionNote previous = inspection.correctNote(noteId, text);
+        InspectionNote previous = inspection.correctNote(actor.partyId(), noteId, text);
         inspections.save(inspection);
-        audit.record(AuditedElementRef.inspection(inspection.id().value()),
+        InspectionNote corrected = inspection.requireNote(noteId);
+        audit.recordAs(actor, AuditedElementRef.inspection(inspection.id().value()),
                 AuditAction.INSPECTION_DATA_CORRECTED,
-                AuditDetail.dataChanged(new FieldChange("note." + noteId, previous.text(), text)));
-        return inspection.requireNote(noteId);
+                AuditDetail.dataChanged(new FieldChange("note." + noteId, previous.text(), corrected.text())));
+        return corrected;
     }
 }

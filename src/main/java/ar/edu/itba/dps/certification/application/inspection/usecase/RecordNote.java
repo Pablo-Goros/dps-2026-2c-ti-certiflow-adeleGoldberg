@@ -14,7 +14,6 @@ import ar.edu.itba.dps.certification.domain.shared.Validate;
 import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
 import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
-
 import java.util.Optional;
 
 public final class RecordNote {
@@ -25,7 +24,8 @@ public final class RecordNote {
     private final AuditRecorder audit;
     private final ActorProvider actors;
 
-    public RecordNote(InspectionRepository inspections, IdGenerator ids, Clock clock, AuditRecorder audit, ActorProvider actors) {
+    public RecordNote(InspectionRepository inspections, IdGenerator ids, Clock clock, AuditRecorder audit,
+            ActorProvider actors) {
         this.inspections = inspections;
         this.ids = ids;
         this.clock = clock;
@@ -35,12 +35,10 @@ public final class RecordNote {
 
     public InspectionNote record(InspectionId inspectionId, Optional<CriterionId> criterionId, String text) {
         Validate.required(criterionId, "criterion id");
+        var actor = actors.requireUser();
         Inspection inspection = inspections.require(inspectionId);
-        var actor = actors.current();
-        var author = actors.requireUser();
-        InspectionNote note = new InspectionNote(ids.newIdentifier(), criterionId, text,
-                author, clock.now());
-        inspection.recordNote(note);
+        InspectionNote note = inspection.recordNote(actor.partyId(), ids.newIdentifier(), criterionId, text,
+                clock.now());
         inspections.save(inspection);
         audit.recordAs(actor, AuditedElementRef.inspection(inspection.id().value()),
                 AuditAction.INSPECTION_DATA_RECORDED,

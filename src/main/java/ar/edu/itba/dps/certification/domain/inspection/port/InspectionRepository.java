@@ -12,7 +12,6 @@ public interface InspectionRepository extends InspectionQuery {
 
     Optional<Inspection> findNonClosedByAsset(AssetId assetId);
 
-    List<Inspection> findClosedByAsset(AssetId assetId);
 
     List<Inspection> findAll();
 }

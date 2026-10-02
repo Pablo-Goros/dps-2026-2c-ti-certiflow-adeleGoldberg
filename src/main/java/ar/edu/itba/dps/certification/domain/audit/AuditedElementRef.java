@@ -5,7 +5,7 @@ import ar.edu.itba.dps.certification.domain.shared.Validate;
 public record AuditedElementRef(ElementType type, String id) {
 
     public enum ElementType {
-        ASSET, SCHEMA, INSPECTION, FINDING, CORRECTIVE_ACTION, CERTIFICATE
+        ASSET, PARTY, SCHEMA, INSPECTION, FINDING, CORRECTIVE_ACTION, CERTIFICATE
     }
 
     public AuditedElementRef {
@@ -15,6 +15,10 @@ public record AuditedElementRef(ElementType type, String id) {
 
     public static AuditedElementRef asset(String id) {
         return new AuditedElementRef(ElementType.ASSET, id);
+    }
+
+    public static AuditedElementRef party(String id) {
+        return new AuditedElementRef(ElementType.PARTY, id);
     }
 
     public static AuditedElementRef schema(String id) {

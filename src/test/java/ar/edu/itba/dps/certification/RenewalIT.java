@@ -39,6 +39,7 @@ class RenewalIT {
         AssetType laboratory = AssetType.LABORATORY;
         system.publishLaboratorySchema(laboratory);
         inspector = system.person("Ana Perez");
+        system.actAs(inspector);
         responsible = system.organization("Favaloro Foundation");
         asset = system.asset("Laboratory A", laboratory, responsible);
     }
@@ -86,7 +87,7 @@ class RenewalIT {
     void earlierInspectionsActionsDoNotAffectTheRenewal() {
         InspectionId firstInspection = inspectAndClose("20");
         Finding oldFinding = system.findings.findByInspection(firstInspection).getFirst();
-        system.planCorrectiveAction.plan(oldFinding.id(), "improve ventilation",
+        system.planAsResponsible(oldFinding.id(), "improve ventilation",
                 PartyId.of("executor"), LocalDate.parse("2026-04-01"));
         issueFor(firstInspection);
 
@@ -121,10 +122,10 @@ class RenewalIT {
     void aVoidedObligationDoesNotExpireLater() {
         InspectionId inspectionId = inspectAndClose("30");
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
 
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the reading was corrected",
                 List.of(new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
                         Measurement.of("5", "c")))));

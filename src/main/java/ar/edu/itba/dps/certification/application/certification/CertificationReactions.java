@@ -12,9 +12,10 @@ public final class CertificationReactions implements DomainEventHandler {
     private final CertificateRepository certificates;
     private final CertificateLifecycle lifecycle;
     private final AuditRecorder audit;
-    public CertificationReactions(CertificateRepository certificates, AuditRecorder audit) {
+    public CertificationReactions(CertificateRepository certificates, CertificateLifecycle lifecycle,
+            AuditRecorder audit) {
         this.certificates = certificates;
-        this.lifecycle = new CertificateLifecycle(certificates);
+        this.lifecycle = lifecycle;
         this.audit = audit;
     }
     @Override

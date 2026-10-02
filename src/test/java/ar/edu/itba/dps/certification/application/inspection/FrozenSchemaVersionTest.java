@@ -35,6 +35,7 @@ class FrozenSchemaVersionTest {
         world = new DomainWorld();
         laboratory = AssetType.LABORATORY;
         inspector = world.person("Ana Perez");
+        world.actAs(inspector);
         responsible = world.organization("Favaloro Foundation");
     }
 

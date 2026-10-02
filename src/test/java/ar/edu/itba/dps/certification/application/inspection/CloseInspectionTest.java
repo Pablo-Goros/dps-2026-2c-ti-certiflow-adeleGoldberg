@@ -1,5 +1,6 @@
 package ar.edu.itba.dps.certification.application.inspection;
 
+import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
@@ -35,6 +36,7 @@ class CloseInspectionTest {
         AssetType laboratory = AssetType.LABORATORY;
         world.publishLaboratorySchema(laboratory);
         inspector = world.person("Ana Perez");
+        world.actAs(inspector);
         originalResponsible = world.organization("Favaloro Foundation");
         asset = world.asset("Laboratory A", laboratory, originalResponsible, "Building 1");
         inspectionId = world.assignInspection
@@ -56,7 +58,11 @@ class CloseInspectionTest {
         assertThat(first.alreadyClosed()).isFalse();
         assertThat(second.alreadyClosed()).isTrue();
         assertThat(second.closedAt()).isEqualTo(firstClosedAt);
-        assertThat(world.findings.closures).hasSize(1);
+        // A repeated close re-sends the same (idempotent) registration so an interrupted closure can complete.
+        assertThat(world.findings.closures).hasSize(2);
+        assertThat(world.findings.closures.get(1).nonConformities())
+                .isEqualTo(world.findings.closures.get(0).nonConformities());
+        assertThat(world.auditTrail.withAction(AuditAction.INSPECTION_CLOSED)).hasSize(1);
         assertThat(world.inspections.require(inspectionId).requireRecord(DomainWorld.TEMPERATURE)
                 .evaluations()).hasSize(1);
     }
@@ -124,7 +130,7 @@ class CloseInspectionTest {
         world.closeInspection.close(inspectionId);
         Inspection inspection = world.inspections.require(inspectionId);
 
-        assertThatThrownBy(() -> inspection.recordAnswer(DomainWorld.TEMPERATURE,
+        assertThatThrownBy(() -> inspection.recordAnswer(inspector.id(), DomainWorld.TEMPERATURE,
                 Measurement.of("30", "c")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("CLOSED");

@@ -104,8 +104,9 @@ public final class Inspection {
         this.expectedDate = Validate.required(newExpectedDate, "expected date");
     }
 
-    public void start(SchemaVersion version, AssetSnapshot snapshot, Instant at) {
+    public void start(PartyId actor, SchemaVersion version, AssetSnapshot snapshot, Instant at) {
         requireStatus(InspectionStatus.ASSIGNED, "start");
+        requireAssignedInspector(actor, "start");
         Validate.required(version, "schema version");
         Validate.required(snapshot, "asset snapshot");
         Validate.required(at, "start instant");
@@ -121,8 +122,9 @@ public final class Inspection {
         }
     }
 
-    public void recordAnswer(CriterionId criterionId, Answer answer) {
+    public void recordAnswer(PartyId actor, CriterionId criterionId, Answer answer) {
         requireInProgress("record an answer");
+        requireAssignedInspector(actor, "record an answer");
         CriterionRecord record = requireRecord(criterionId);
         Validate.required(answer, "answer");
         frozenSchemaVersion.requireCriterion(criterionId).rule().admissibilityViolation(answer)
@@ -131,52 +133,70 @@ public final class Inspection {
         record.recordAnswer(answer);
     }
 
-    public void removeAnswer(CriterionId criterionId) {
+    public void removeAnswer(PartyId actor, CriterionId criterionId) {
         requireInProgress("remove an answer");
+        requireAssignedInspector(actor, "remove an answer");
         requireRecord(criterionId).clearAnswer();
     }
 
-    public void attachEvidence(CriterionId criterionId, EvidenceRecord evidence) {
+    /**
+     * Attaches evidence against a requirement of the frozen version. The aggregate resolves the
+     * requirement and its type, so a caller cannot attach evidence the version does not ask for.
+     */
+    public EvidenceRecord attachEvidence(PartyId actor, CriterionId criterionId, String requirementLabel,
+            String evidenceId, String reference, Instant at) {
         requireInProgress("attach evidence");
-        Validate.required(evidence, "evidence record");
+        requireAssignedInspector(actor, "attach evidence");
+        CriterionRecord record = requireRecord(criterionId);
+        Validate.requiredText(requirementLabel, "evidence requirement label");
         var requirement = frozenSchemaVersion.requireCriterion(criterionId).evidenceRequirements().stream()
-                .filter(declared -> declared.label().equals(evidence.requirementLabel()))
+                .filter(declared -> declared.label().equals(requirementLabel.strip()))
                 .findFirst().orElseThrow(() -> new DomainException("criterion " + criterionId
-                        + " declares no evidence requirement labelled '" + evidence.requirementLabel() + "'"));
-        Validate.ensure(requirement.type() == evidence.type(), "evidence type must match its declared requirement");
-        requireRecord(criterionId).attach(evidence);
+                        + " declares no evidence requirement labelled '" + requirementLabel + "'"));
+        EvidenceRecord evidence = new EvidenceRecord(evidenceId, requirement.label(), requirement.type(),
+                reference, at);
+        record.attach(evidence);
+        return evidence;
     }
 
-    public EvidenceRecord removeEvidence(CriterionId criterionId, String evidenceId) {
+    public EvidenceRecord removeEvidence(PartyId actor, CriterionId criterionId, String evidenceId) {
         requireInProgress("remove evidence");
+        requireAssignedInspector(actor, "remove evidence");
         return requireRecord(criterionId).detach(evidenceId);
     }
 
-    public void recordNote(InspectionNote note) {
+    /** The note is authored by the acting inspector; the aggregate builds it so authorship cannot be forged. */
+    public InspectionNote recordNote(PartyId actor, String noteId, Optional<CriterionId> criterionId,
+            String text, Instant at) {
         requireInProgress("record a note");
-        Validate.required(note, "note");
+        requireAssignedInspector(actor, "record a note");
+        InspectionNote note = new InspectionNote(noteId, criterionId, text, actor, at);
         note.criterionId().ifPresent(this::requireRecord);
         Validate.ensure(notes.stream().noneMatch(existing -> existing.id().equals(note.id())),
                 "note " + note.id() + " already exists");
         notes.add(note);
+        return note;
     }
 
-    public InspectionNote correctNote(String noteId, String text) {
+    public InspectionNote correctNote(PartyId actor, String noteId, String text) {
         requireInProgress("correct a note");
+        requireAssignedInspector(actor, "correct a note");
         InspectionNote previous = requireNote(noteId);
         notes.set(notes.indexOf(previous), previous.withText(text));
         return previous;
     }
 
-    public InspectionNote removeNote(String noteId) {
+    public InspectionNote removeNote(PartyId actor, String noteId) {
         requireInProgress("remove a note");
+        requireAssignedInspector(actor, "remove a note");
         InspectionNote removed = requireNote(noteId);
         notes.remove(removed);
         return removed;
     }
 
-    public InspectionClosureResult close(Instant at) {
+    public InspectionClosureResult close(PartyId actor, Instant at) {
         Validate.required(at, "closure instant");
+        requireAssignedInspector(actor, "close");
         if (status.closed()) {
             return new InspectionClosureResult(id, closedAt, true, currentEvaluations());
         }
@@ -195,9 +215,7 @@ public final class Inspection {
     public Rectification rectify(RectificationId rectificationId,
             PartyId author, Instant at, String reason, List<Correction> corrections) {
         Validate.ensure(status.closed(), "only a closed inspection can be rectified");
-        Validate.required(author, "rectification author");
-        Validate.ensure(author.equals(inspector),
-                "only the assigned inspector may rectify inspection " + id);
+        requireAssignedInspector(author, "rectify");
         Validate.required(rectificationId, "rectification id");
         Validate.required(at, "rectification instant");
         Validate.requiredText(reason, "rectification reason");
@@ -222,8 +240,9 @@ public final class Inspection {
                     record, at).asRectificationOf(rectificationId, at);
             if (previous.result() != current.result() || !previous.reasons().equals(current.reasons())) {
                 recordEvaluationProducedBy(rectification, criterionId, current);
-            }
-            if (previous.result() != current.result()) {
+                // Announced whenever the evaluation changes, not only the result: a rejection that
+                // comes back with different reasons is a new non-conformity that no verified
+                // correction covers, and the certificate it backs must react to it.
                 pendingEvents.add(new CriterionResultRevised(id, criterionId, previous.result(),
                         current.result(), rectificationId, reason, at));
             }
@@ -335,6 +354,13 @@ public final class Inspection {
         records.forEach((criterionId, record) -> record.currentEvaluation()
                 .ifPresent(evaluation -> current.put(criterionId, evaluation)));
         return Map.copyOf(current);
+    }
+
+    private void requireAssignedInspector(PartyId actor, String operation) {
+        Validate.required(actor, "acting party");
+        Validate.ensure(actor.equals(inspector),
+                "only the assigned inspector " + inspector + " may " + operation + " inspection " + id
+                        + ", not " + actor);
     }
 
     private void requireInProgress(String operation) {

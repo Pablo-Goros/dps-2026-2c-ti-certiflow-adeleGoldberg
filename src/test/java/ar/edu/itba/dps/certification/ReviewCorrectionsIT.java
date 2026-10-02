@@ -33,21 +33,23 @@ class ReviewCorrectionsIT {
         system = new FullSystem();
         system.publishLaboratorySchema(AssetType.LABORATORY);
         inspector = system.person("Inspector");
+        system.actAs(inspector);
         asset = system.asset("Laboratory", AssetType.LABORATORY, system.organization("Owner"));
     }
 
     @Test
     void directClosureEvaluatesMissingAnswersAndEvidenceInsteadOfAcceptingCallerVerdicts() {
         Inspection inspection = system.inspections.require(start());
-        var closure = inspection.close(system.clock.now());
+        var closure = inspection.close(inspector.id(), system.clock.now());
         assertThat(closure.evaluations().values()).allMatch(e -> e.result() == CriterionResult.REJECTED);
-        assertThat(Inspection.class.getMethods()).noneMatch(m -> m.getName().equals("close") && m.getParameterCount() > 1);
+        assertThat(Inspection.class.getMethods()).noneMatch(m -> m.getName().equals("close")
+                && java.util.Arrays.stream(m.getParameterTypes()).anyMatch(java.util.Map.class::isAssignableFrom));
     }
 
     @Test
     void directLoadingRejectsAnAnswerOfTheWrongTypeWithoutChangingTheRecord() {
         Inspection inspection = system.inspections.require(start());
-        assertThatThrownBy(() -> inspection.recordAnswer(TEMPERATURE, YesNoAnswer.yes()))
+        assertThatThrownBy(() -> inspection.recordAnswer(inspector.id(), TEMPERATURE, YesNoAnswer.yes()))
                 .isInstanceOf(DomainException.class).hasMessageContaining("answer refused");
         assertThat(inspection.requireRecord(TEMPERATURE).answer()).isEmpty();
     }
@@ -110,7 +112,7 @@ class ReviewCorrectionsIT {
         Certificate certificate = issuedCertificate(system.issueCertificate.issue(id));
         rectify(id, "20");
         Finding finding = system.findings.findByInspection(id).getFirst();
-        assertThatThrownBy(() -> system.planCorrectiveAction.plan(finding.id(), "fix", PartyId.of("executor"),
+        assertThatThrownBy(() -> system.planAsResponsible(finding.id(), "fix", PartyId.of("executor"),
                 system.clock.today().minusDays(1))).hasMessageContaining("cannot precede planning date");
         assertThat(finding.correctiveAction().plan()).isEmpty();
         assertThat(system.auditTrail.withAction(AuditAction.CORRECTIVE_ACTION_PLANNED)).isEmpty();
@@ -124,7 +126,7 @@ class ReviewCorrectionsIT {
         rectify(id, "20");
         Finding finding = system.findings.findByInspection(id).getFirst();
         system.clock.advanceDays(31);
-        system.planCorrectiveAction.plan(finding.id(), "fix", PartyId.of("executor"), system.clock.today().plusDays(10));
+        system.planAsResponsible(finding.id(), "fix", PartyId.of("executor"), system.clock.today().plusDays(10));
         assertThat(finding.correctiveAction().deadlineBreached()).isTrue();
         assertThat(finding.correctiveAction().breachedDeadline()).contains(finding.correctiveAction().planningDueDate());
         assertThat(system.expireActions.sweep()).containsExactly(finding);
@@ -134,7 +136,7 @@ class ReviewCorrectionsIT {
     @Test
     void theInspectorCannotBePlannedAsTheirOwnExecutor() {
         Finding finding = system.findings.findByInspection(close("30")).getFirst();
-        assertThatThrownBy(() -> system.planCorrectiveAction.plan(finding.id(), "fix", inspector.id(),
+        assertThatThrownBy(() -> system.planAsResponsible(finding.id(), "fix", inspector.id(),
                 system.clock.today().plusDays(10))).hasMessageContaining("cannot execute their own correction");
         assertThat(finding.correctiveAction().plan()).isEmpty();
     }
@@ -143,15 +145,15 @@ class ReviewCorrectionsIT {
     void neitherReportingNorVerificationCanImpersonateAnotherUser() {
         Finding finding = system.findings.findByInspection(close("30")).getFirst();
         PartyId executor = PartyId.of("executor");
-        system.planCorrectiveAction.plan(finding.id(), "fix", executor, system.clock.today().plusDays(10));
+        system.planAsResponsible(finding.id(), "fix", executor, system.clock.today().plusDays(10));
         system.actors.actingAs(Actor.user(PartyId.of("intruder"), "intruder"));
-        assertThatThrownBy(() -> system.reportExecution.report(finding.id(), "done", List.of("file://proof"), executor))
-                .hasMessageContaining("authenticated actor");
-        system.actingAs(executor, () -> system.reportExecution.report(finding.id(), "done", List.of("file://proof"), executor));
-        assertThatThrownBy(() -> system.verifyCorrectiveAction.verify(finding.id(), true, "ok", inspector.id()))
-                .hasMessageContaining("authenticated actor");
+        assertThatThrownBy(() -> system.reportExecution.report(finding.id(), "done", List.of("file://proof")))
+                .hasMessageContaining("intruder cannot report its execution");
+        system.actingAs(executor, () -> system.reportExecution.report(finding.id(), "done", List.of("file://proof")));
+        assertThatThrownBy(() -> system.verifyCorrectiveAction.verify(finding.id(), true, "ok"))
+                .hasMessageContaining("only the inspector may verify");
         assertThat(finding.correctiveAction().verifications()).isEmpty();
-        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "ok", inspector.id()));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "ok"));
         var verification = finding.correctiveAction().verifications().getFirst();
         var audit = system.auditTrail.withAction(AuditAction.CORRECTIVE_ACTION_VERIFIED).getFirst();
         assertThat(((Actor.User) audit.actor()).partyId()).isEqualTo(verification.verifiedBy());
@@ -161,7 +163,7 @@ class ReviewCorrectionsIT {
     void directVerificationEnforcesTheInspectorRoleInTheAggregate() {
         Finding finding = system.findings.findByInspection(close("30")).getFirst();
         PartyId executor = PartyId.of("executor");
-        finding.planCorrection(new CorrectionPlan("fix", executor, system.clock.today().plusDays(10)), system.clock.today());
+        finding.planCorrection(finding.responsible(), new CorrectionPlan("fix", executor, system.clock.today().plusDays(10)), system.clock.today());
         finding.reportCorrectionExecution(new ExecutionReport("done", List.of("file://proof"), executor, system.clock.now()));
         assertThatThrownBy(() -> finding.concludeCorrection(new Verification(true, "ok", executor, system.clock.now()),
                 system.clock.today())).hasMessageContaining("only the inspector");
@@ -186,7 +188,7 @@ class ReviewCorrectionsIT {
         system.openDraft.open(target.id());
         system.editDraft.addSection(target.id(), Section.of("Safety", 1, temperatureCriterion()));
         system.publishSchemaVersion.publish(target.id());
-        var change = new ChangeSchemaApplicability(system.schemas, system.audit);
+        var change = new ChangeSchemaApplicability(system.schemas, system.schemaApplicability, system.audit);
         assertThatThrownBy(() -> change.applyTo(target.id(), AssetType.FACTORY)).hasMessageContaining("already covered");
         assertThatThrownBy(() -> change.stopApplyingTo(source.id(), AssetType.FACILITY)).hasMessageContaining("does not apply");
         assertThatThrownBy(() -> change.stopApplyingTo(source.id(), AssetType.FACTORY)).hasMessageContaining("without a schema");
@@ -252,7 +254,7 @@ class ReviewCorrectionsIT {
         system.recordAnswer.record(id, TEMPERATURE, Measurement.of("20", "c"));
         system.recordAnswer.record(id, DOCUMENTATION, YesNoAnswer.yes());
         system.attachEvidence.attach(id, DOCUMENTATION, SAFETY_MANUAL, "file://manual");
-        system.inspections.require(id).close(system.clock.now());
+        system.inspections.require(id).close(inspector.id(), system.clock.now());
         assertThat(system.certificateFactory.issue(id)).isInstanceOf(IssuanceDecision.Blocked.class);
     }
 
@@ -288,7 +290,7 @@ class ReviewCorrectionsIT {
         return id;
     }
     private Rectification rectify(InspectionId id, String reading) {
-        return system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(id, inspector.id(), "wrong reading",
+        return system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(id, "wrong reading",
                 List.of(new Correction.AnswerCorrection(TEMPERATURE, Measurement.of(reading, "c")))));
     }
 }

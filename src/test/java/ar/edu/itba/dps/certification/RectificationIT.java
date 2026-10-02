@@ -48,6 +48,7 @@ class RectificationIT {
         AssetType laboratory = AssetType.LABORATORY;
         system.publishLaboratorySchema(laboratory);
         inspector = system.person("Ana Perez");
+        system.actAs(inspector);
         Party responsible = system.organization("Favaloro Foundation");
         asset = system.asset("Laboratory A", laboratory, responsible);
     }
@@ -57,7 +58,7 @@ class RectificationIT {
     void clearingTheNonConformityVoidsTheRealObligation() {
         InspectionId inspectionId = inspectAndClose("30");
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
 
         rectifyTemperatureTo("5");
@@ -76,7 +77,7 @@ class RectificationIT {
     void aPersistingNonConformityIsRevisedInPlace() {
         InspectionId inspectionId = inspectAndClose("30");
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
 
         rectifyTemperatureTo("20");
@@ -139,7 +140,7 @@ class RectificationIT {
                 "door was blocked");
         system.closeInspection.close(inspectionId);
 
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the door was a different room", List.of(
                         new Correction.NoteCorrection(note.id(), "corridor door was blocked"))));
 
@@ -162,7 +163,7 @@ class RectificationIT {
                 DomainWorld.SAFETY_MANUAL, "file://wrong-manual.pdf").id();
         system.closeInspection.close(inspectionId);
 
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the wrong file was attached", List.of(new Correction.EvidenceReferenceCorrection(
                         DomainWorld.DOCUMENTATION, evidenceId, "file://manual.pdf"))));
 
@@ -194,14 +195,14 @@ class RectificationIT {
     void aVoidedFindingIsRevisedWhenTheNonConformityComesBack() {
         InspectionId inspectionId = inspectAndClose("30");
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the reading was corrected", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("5", "c")))));
         assertThat(system.findings.require(finding.id()).obligationVoided()).isTrue();
 
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the first reading was the right one", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("30", "c")))));
 
@@ -224,7 +225,7 @@ class RectificationIT {
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
         assertThat(finding.presentedEvidence()).containsExactly("file://wrong-manual.pdf");
 
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the manual link pointed at the wrong document",
                 List.of(new Correction.EvidenceReferenceCorrection(DomainWorld.DOCUMENTATION,
                         evidence.id(), "file://correct-manual.pdf"))));
@@ -248,7 +249,7 @@ class RectificationIT {
                 "door was blocked");
         system.closeInspection.close(inspectionId);
 
-        assertThatThrownBy(() -> system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        assertThatThrownBy(() -> system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "one correction is invalid", List.of(
                         new Correction.NoteCorrection(note.id(), "corrected note"),
                         new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
@@ -261,7 +262,7 @@ class RectificationIT {
     }
 
     private void rectifyTemperatureTo(String temperature) {
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionOf(), inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionOf(),
                 "the probe was misread", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of(temperature, "c")))));
     }

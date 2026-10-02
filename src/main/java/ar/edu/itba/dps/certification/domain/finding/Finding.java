@@ -208,7 +208,11 @@ public final class Finding {
                 && revisionsWhenCorrectionConcluded == revisions.size();
     }
 
-    public void planCorrection(CorrectionPlan plan, LocalDate today) {
+    /** The finding's responsible decides how to correct it (RF8); nobody else can confirm the plan. */
+    public void planCorrection(PartyId planner, CorrectionPlan plan, LocalDate today) {
+        Validate.required(planner, "planner");
+        Validate.ensure(planner.equals(responsible), "only the responsible " + responsible
+                + " may plan the correction of finding " + id + ", not " + planner);
         correctiveAction().confirmPlan(plan, today);
     }
 

@@ -43,6 +43,7 @@ class CertificationLifecycleIT {
         laboratory = AssetType.LABORATORY;
         system.publishLaboratorySchema(laboratory);
         inspector = system.person("Ana Perez");
+        system.actAs(inspector);
         responsible = system.organization("Favaloro Foundation");
         asset = system.asset("Laboratory A", laboratory, responsible);
     }
@@ -74,14 +75,12 @@ class CertificationLifecycleIT {
                 .anyMatch(IssuanceBlocker.UnverifiedRejection.class::isInstance)
                 .anyMatch(IssuanceBlocker.UnplannedAction.class::isInstance);
 
-        system.planCorrectiveAction.plan(finding.id(), "recalibrate the cooling unit",
+        system.planAsResponsible(finding.id(), "recalibrate the cooling unit",
                 PartyId.of("executor"), LocalDate.parse("2026-04-01"));
         assertThat(blockers(system.issueCertificate.issue(inspectionId))).isNotEmpty();
 
-        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "unit recalibrated", List.of("file://photo.jpg"),
-                PartyId.of("executor")));
-        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "measured within range",
-                inspector.id()));
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "unit recalibrated", List.of("file://photo.jpg")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "measured within range"));
 
         assertThat(issuedCertificate(system.issueCertificate.issue(inspectionId))).isNotNull();
     }
@@ -91,7 +90,7 @@ class CertificationLifecycleIT {
     void anObservationDoesNotBlockIssuance() {
         InspectionId inspectionId = inspectAndClose("20", true);
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "improve ventilation", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "improve ventilation", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
 
         IssuanceDecision decision = system.issueCertificate.issue(inspectionId);
@@ -104,7 +103,7 @@ class CertificationLifecycleIT {
     void anExpiringActionSuspendsAndItsClosureReactivates() {
         InspectionId inspectionId = inspectAndClose("20", true);
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "improve ventilation", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "improve ventilation", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
         Certificate certificate = issuedCertificate(system.issueCertificate.issue(inspectionId));
         Instant originalExpiry = certificate.validity().expiresAt();
@@ -115,8 +114,8 @@ class CertificationLifecycleIT {
         assertThat(certificate.status()).isEqualTo(CertificateStatus.SUSPENDED);
 
         system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "ventilation improved",
-                List.of("file://photo.jpg"), PartyId.of("executor")));
-        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "airflow measured", inspector.id()));
+                List.of("file://photo.jpg")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "airflow measured"));
 
         assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
         assertThat(certificate.validity().expiresAt()).isEqualTo(originalExpiry);
@@ -127,7 +126,7 @@ class CertificationLifecycleIT {
     void anExpiringActionWithoutACertificateIsHarmless() {
         InspectionId inspectionId = inspectAndClose("20", true);
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "improve ventilation", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "improve ventilation", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
 
         system.clock.advanceDays(45);
@@ -186,7 +185,7 @@ class CertificationLifecycleIT {
         InspectionId inspectionId = inspectAndClose("30", true);
         Party otherInspector = system.person("Laura Gomez");
 
-        assertThatThrownBy(() -> system.actingAs(otherInspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, otherInspector.id(),
+        assertThatThrownBy(() -> system.actingAs(otherInspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "someone else tries to change the result",
                 List.of(new ar.edu.itba.dps.certification.domain.inspection.rectification.Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("5", "c"))))))

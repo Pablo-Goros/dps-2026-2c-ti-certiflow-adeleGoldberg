@@ -1,6 +1,6 @@
 # PRD — Inspección y certificación de activos
 
-Fuente: [consigna del trabajo práctico](docs/consigna_tp.md). Los RF se numeran según su orden en la consigna.
+Fuente: [consigna del trabajo práctico](entrega_1.md). Los RF se numeran según su orden en la consigna.
 
 En cada RF, «Qué exige» describe el comportamiento solicitado por la consigna. «Definido» registra las decisiones acordadas. «Falta definir» identifica preguntas pendientes; no representa requisitos adicionales ni decisiones ya acordadas. Las interpretaciones propuestas se identifican por separado.
 
@@ -76,6 +76,7 @@ Las respuestas acordadas se incorporan al RF correspondiente. Las propuestas pen
 - Definido: El alcance comprende el esquema completo. No se admiten inspecciones parciales.
 - Definido: Se distinguen asignación e inicio. Al asignar se indican activo, inspector y fecha prevista; el esquema se determina automáticamente por el tipo de activo, no se elige manualmente. Al iniciar se fija su última versión publicada. La consigna no prescribe el nombre de un estado para la etapa previa al inicio. Ver C4.
 - Definido: No se permite iniciar si el tipo de activo no tiene un esquema aplicable con una versión publicada.
+- Definido: El inspector es una persona registrada; no puede asignarse una organización ni un identificador inexistente. Solo el inspector asignado inicia la inspección, registra y corrige datos antes del cierre, la cierra y la rectifica.
 
 ### RF5 — Ejecución
 
@@ -151,6 +152,8 @@ La regla define las condiciones para obtener «observado»: una desviación que 
 - Definido: La emisión se solicita explícitamente después del cierre. Cerrar una inspección no emite ni intenta emitir automáticamente un certificado. Cada solicitud comprueba las condiciones de emisión vigentes en ese momento.
 - Definido: Cada inspección puede respaldar como máximo un certificado.
 - Definido: Una solicitud repetida de emisión no crea otro certificado: informa que la inspección ya tiene uno y lo identifica.
+- Definido: La inspección que respalda la emisión debe ser la última cerrada del activo. Si existe otra inspección cerrada iniciada después, la emisión se bloquea indicando cuál la reemplazó.
+- Definido: Una vez vencido el certificado de un activo, el siguiente se obtiene por renovación, que conserva el vínculo con el anterior; no se emite un certificado independiente.
 - Definido: La renovación se determina por la nueva inspección que la respalda y sus acciones asociadas. Las acciones pendientes de inspecciones anteriores no bloquean la renovación ni suspenden el nuevo certificado; conservan su vínculo e historia originales, sin considerarse cerradas automáticamente por renovar.
 
 #### Pendientes y propuestas
@@ -185,7 +188,7 @@ La regla define las condiciones para obtener «observado»: una desviación que 
 - Definido: Si una rectificación elimina el incumplimiento que originó un hallazgo y su acción, ambos se conservan como antecedentes, pero se deja sin efecto la exigencia de corregir y sus consecuencias sobre la certificación. Se registra el vínculo con la rectificación y su motivo. No se registra una ejecución ni una verificación satisfactoria ficticia, ni se agrega una operación de resolución al hallazgo.
 - Definido: Una acción cuya exigencia quedó sin efecto por rectificación no bloquea la emisión ni causa suspensión por su plazo. Si era la única causa de suspensión, se permite reactivar el certificado siempre que no haya vencido; se conserva el historial y la fecha de vencimiento original. Esta es una excepción al tratamiento ordinario de acciones de RF8 y RF9, no una modificación de su planificación.
 - Definido: Si la rectificación revela un incumplimiento en un criterio antes aprobado, se generan el hallazgo y la acción correspondientes según RF7 y RF8.
-- Definido: Si el nuevo resultado es rechazado, se suspende de inmediato el certificado no vencido respaldado por la inspección rectificada. Si es observado, no se suspende de inmediato; el hallazgo y la acción siguen el tratamiento ordinario, incluido el vencimiento como posible causa posterior de suspensión. La suspensión, sus causas y una eventual reactivación se rigen por RF9 y se registran en la auditoría.
+- Definido: Si el nuevo resultado es rechazado, se suspende de inmediato el certificado no vencido respaldado por la inspección rectificada. Esto incluye un rechazo que reaparece con otros motivos después de que su corrección fue verificada. Si es observado, no se suspende de inmediato; el hallazgo y la acción siguen el tratamiento ordinario, incluido el vencimiento como posible causa posterior de suspensión. La suspensión, sus causas y una eventual reactivación se rigen por RF9 y se registran en la auditoría.
 - Pendiente: Definir el tratamiento de hallazgos y acciones existentes cuando el incumplimiento no desaparece pero cambian sus motivos o resultado. La auditoría conserva los cambios, pero no determina por sí sola esas consecuencias de negocio.
 
 #### Detalle de las modificaciones auditadas

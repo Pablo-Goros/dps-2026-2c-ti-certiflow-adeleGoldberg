@@ -45,6 +45,7 @@ class AuditTrailIT {
         system = new FullSystem();
         system.publishLaboratorySchema(AssetType.LABORATORY);
         inspector = system.person("Ana Perez");
+        system.actAs(inspector);
         responsible = system.organization("Favaloro Foundation");
         asset = system.asset("Laboratory A", AssetType.LABORATORY, responsible);
     }
@@ -62,7 +63,7 @@ class AuditTrailIT {
                                         assertThat(change.previousValue()).isEqualTo("Building 1");
                                         assertThat(change.currentValue()).isEqualTo("Building 7");
                                     }));
-                    assertThat(entry.actor().displayName()).isEqualTo("operator");
+                    assertThat(entry.actor().displayName()).isEqualTo(inspector.name());
                 });
     }
 
@@ -95,7 +96,7 @@ class AuditTrailIT {
     void aRectificationCarriesItsReason() {
         InspectionId inspectionId = inspectAndClose("30");
 
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(), "the probe was misread",
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, "the probe was misread",
                 List.of(new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
                         Measurement.of("5", "c")))));
 
@@ -125,7 +126,7 @@ class AuditTrailIT {
         var note = system.recordNote.record(inspectionId, Optional.empty(), "door was blocked");
         system.closeInspection.close(inspectionId);
 
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the evidence and note pointed to the wrong facts", List.of(
                         new Correction.EvidenceReferenceCorrection(DomainWorld.DOCUMENTATION,
                                 evidence.id(), "file://manual.pdf"),
@@ -153,7 +154,7 @@ class AuditTrailIT {
     void theSweepIsRecordedAsAutomatic() {
         InspectionId inspectionId = inspectAndClose("30");
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
 
         system.clock.advanceDays(45);
@@ -169,11 +170,10 @@ class AuditTrailIT {
     void theTrailCoversEveryElementType() {
         InspectionId inspectionId = inspectAndClose("30");
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
-        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "done", List.of("file://a.jpg"),
-                PartyId.of("executor")));
-        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "within range", inspector.id()));
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "done", List.of("file://a.jpg")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "within range"));
         system.issueCertificate.issue(inspectionId);
 
         assertThat(system.auditTrail.all()).extracting(entry -> entry.element().type())
@@ -204,13 +204,13 @@ class AuditTrailIT {
     void aSecondCauseDoesNotFabricateATransition() {
         InspectionId inspectionId = inspectAndClose("20");
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
         Certificate certificate = issuedCertificate(system.issueCertificate.issue(inspectionId));
         system.clock.advanceDays(45);
         system.expireActions.sweep();
 
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the probe was misread", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("30", "c")))));
 
@@ -232,7 +232,7 @@ class AuditTrailIT {
     void aRevisedFindingRecordsTheEvaluationItHad() {
         InspectionId inspectionId = inspectAndClose("30");
 
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the probe was misread", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("20", "c")))));
 

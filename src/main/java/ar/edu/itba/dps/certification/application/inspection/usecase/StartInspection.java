@@ -13,6 +13,7 @@ import ar.edu.itba.dps.certification.domain.inspection.port.InspectionRepository
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
 import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 
 public final class StartInspection {
@@ -22,26 +23,29 @@ public final class StartInspection {
     private final SchemaCatalog schemas;
     private final Clock clock;
     private final AuditRecorder audit;
+    private final ActorProvider actors;
 
     public StartInspection(InspectionRepository inspections, AssetDirectory assets,
-            SchemaCatalog schemas, Clock clock, AuditRecorder audit) {
+            SchemaCatalog schemas, Clock clock, AuditRecorder audit, ActorProvider actors) {
         this.inspections = inspections;
         this.assets = assets;
         this.schemas = schemas;
         this.clock = clock;
         this.audit = audit;
+        this.actors = actors;
     }
 
     public Inspection start(InspectionId inspectionId) {
+        var actor = actors.requireUser();
         Inspection inspection = inspections.require(inspectionId);
         AssetType assetType = assets.assetTypeOf(inspection.assetId());
         SchemaVersion version = schemas.latestPublishedVersionFor(assetType)
                 .orElseThrow(() -> new DomainException("asset type " + assetType
                         + " has no published schema version, so the inspection cannot start"));
         AssetSnapshot snapshot = assets.captureSnapshot(inspection.assetId());
-        inspection.start(version, snapshot, clock.now());
+        inspection.start(actor.partyId(), version, snapshot, clock.now());
         inspections.save(inspection);
-        audit.record(AuditedElementRef.inspection(inspection.id().value()),
+        audit.recordAs(actor, AuditedElementRef.inspection(inspection.id().value()),
                 AuditAction.INSPECTION_STARTED, AuditDetail.stateChanged("ASSIGNED", "IN_PROGRESS"));
         return inspection;
     }

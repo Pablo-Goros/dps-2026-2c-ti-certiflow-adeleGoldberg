@@ -13,6 +13,7 @@ public enum AuditAction {
     SCHEMA_DRAFT_EDITED(false),
     SCHEMA_DRAFT_DISCARDED(false),
     SCHEMA_VERSION_PUBLISHED(false),
+    SCHEMA_PUBLICATION_REFUSED(false),
 
     INSPECTION_ASSIGNED(false),
     INSPECTION_REASSIGNED(false),

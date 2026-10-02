@@ -42,6 +42,7 @@ class CorrectiveActionLifecycleTest {
     private static final LocalDate DUE_DATE = LocalDate.parse("2026-03-10");
     private static final PartyId EXECUTOR = PartyId.of("executor");
     private static final PartyId INSPECTOR = PartyId.of("inspector");
+    private static final PartyId RESPONSIBLE = PartyId.of("responsible");
     private static final InspectionId INSPECTION = InspectionId.of("inspection-1");
 
     private TestClock clock;
@@ -65,7 +66,7 @@ class CorrectiveActionLifecycleTest {
         InMemoryInspectionRepository inspections = new InMemoryInspectionRepository();
         inspections.save(new Inspection(INSPECTION, AssetId.of("asset-1"), INSPECTOR,
                 LocalDate.parse("2026-03-01")));
-        plan = new PlanCorrectiveAction(findings, audit, clock);
+        plan = new PlanCorrectiveAction(findings, audit, clock, actors);
         reportExecution = new ReportCorrectiveActionExecution(findings, clock, audit, actors);
         verify = new VerifyCorrectiveAction(findings, clock, events, audit, actors);
         expire = new ExpireOverdueCorrectiveActions(findings, clock, events, audit);
@@ -75,9 +76,9 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("a confirmed plan cannot be modified")
     void aConfirmedPlanIsImmutable() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
 
-        assertThatThrownBy(() -> plan.plan(findingId, "something else", EXECUTOR,
+        assertThatThrownBy(() -> planAsResponsible(findingId, "something else", EXECUTOR,
                 DUE_DATE.plusDays(30)))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("already been planned");
@@ -86,12 +87,11 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("closing on the due date meets the deadline")
     void closingOnTheDueDateMeetsTheDeadline() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
         clock.advanceDays(9);
-        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg"),
-                EXECUTOR));
+        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg")));
 
-        Finding finding = this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "measured within range", INSPECTOR));
+        Finding finding = this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "measured within range"));
 
         assertThat(clock.today()).isEqualTo(DUE_DATE);
         assertThat(finding.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.CLOSED);
@@ -102,10 +102,9 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("reporting the execution before the deadline is not enough on its own")
     void reportingExecutionIsNotEnough() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
         clock.advanceDays(5);
-        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg"),
-                EXECUTOR));
+        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg")));
 
         clock.advanceDays(6);
         List<Finding> expired = expire.sweep();
@@ -117,13 +116,12 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("a late satisfactory verification closes the action but never erases the breach")
     void aLateClosureKeepsTheBreachRecorded() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
         clock.advanceDays(15);
         expire.sweep();
-        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced late", List.of("file://photo.jpg"),
-                EXECUTOR));
+        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced late", List.of("file://photo.jpg")));
 
-        Finding finding = this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "measured within range", INSPECTOR));
+        Finding finding = this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "measured within range"));
 
         assertThat(finding.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.CLOSED);
         assertThat(finding.correctiveAction().deadlineBreached()).isTrue();
@@ -133,12 +131,12 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("a failed verification reopens the action for another attempt and keeps every attempt")
     void aFailedVerificationKeepsTheActionOpen() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
-        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "first attempt", List.of("file://a.jpg"), EXECUTOR));
-        this.actingAs(INSPECTOR, () -> verify.verify(findingId, false, "still out of range", INSPECTOR));
-        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "second attempt", List.of("file://b.jpg"), EXECUTOR));
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "first attempt", List.of("file://a.jpg")));
+        this.actingAs(INSPECTOR, () -> verify.verify(findingId, false, "still out of range"));
+        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "second attempt", List.of("file://b.jpg")));
 
-        Finding finding = this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "now within range", INSPECTOR));
+        Finding finding = this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "now within range"));
 
         assertThat(finding.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.CLOSED);
         assertThat(finding.correctiveAction().verifications()).hasSize(2);
@@ -148,9 +146,9 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("an action with no reported execution cannot be verified")
     void cannotVerifyWithoutAReportedExecution() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
 
-        assertThatThrownBy(() -> this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "looks fine", INSPECTOR)))
+        assertThatThrownBy(() -> this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "looks fine")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("no reported execution");
     }
@@ -158,16 +156,15 @@ class CorrectiveActionLifecycleTest {
         @Test
         @DisplayName("a closed action cannot receive another execution or verification")
         void aClosedActionIsTerminal() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
-        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg"),
-            EXECUTOR));
-        this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "measured within range", INSPECTOR));
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg")));
+        this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "measured within range"));
 
         assertThatThrownBy(() -> this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "second attempt",
-            List.of("file://second.jpg"), EXECUTOR)))
+            List.of("file://second.jpg"))))
             .isInstanceOf(DomainException.class)
             .hasMessageContaining("while it is CLOSED");
-        assertThatThrownBy(() -> this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "verify again", INSPECTOR)))
+        assertThatThrownBy(() -> this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "verify again")))
             .isInstanceOf(DomainException.class)
             .hasMessageContaining("no reported execution");
         assertThat(findings.require(findingId).correctiveAction().executions()).hasSize(1);
@@ -177,15 +174,15 @@ class CorrectiveActionLifecycleTest {
         @Test
         @DisplayName("a voided action cannot be planned or executed again")
         void aVoidedActionIsTerminal() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
         Finding finding = findings.require(findingId);
         finding.voidObligation(RectificationId.of("rect-1"), "measurement corrected", clock.now());
 
-        assertThatThrownBy(() -> plan.plan(findingId, "different work", EXECUTOR, DUE_DATE))
+        assertThatThrownBy(() -> planAsResponsible(findingId, "different work", EXECUTOR, DUE_DATE))
             .isInstanceOf(DomainException.class)
             .hasMessageContaining("already been planned");
         assertThatThrownBy(() -> this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "late attempt",
-            List.of("file://photo.jpg"), EXECUTOR)))
+            List.of("file://photo.jpg"))))
             .isInstanceOf(DomainException.class)
             .hasMessageContaining("while it is VOIDED");
         assertThat(finding.correctiveAction().executions()).isEmpty();
@@ -194,7 +191,7 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("the expiry sweep fires once per action and does not repeat on later runs")
     void theSweepIsNotRepeated() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
         clock.advanceDays(15);
 
         assertThat(expire.sweep()).hasSize(1);
@@ -205,7 +202,7 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("voiding an obligation records no execution and no satisfactory verification")
     void voidingRecordsNoFakeCorrection() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
         Finding finding = findings.require(findingId);
 
         finding.voidObligation(RectificationId.of("rect-1"), "reading was a typo", clock.now());
@@ -220,7 +217,7 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("a voided obligation keeps a deadline breach that already happened")
     void voidingDoesNotEraseAnExistingBreach() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
         clock.advanceDays(15);
         expire.sweep();
         Finding finding = findings.require(findingId);
@@ -234,10 +231,10 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("only the executor named in the plan can report the execution")
     void onlyThePlannedExecutorReportsTheExecution() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
 
         assertThatThrownBy(() -> this.actingAs(PartyId.of("somebody-else"), () -> reportExecution.report(findingId, "I did it",
-                List.of("file://photo.jpg"), PartyId.of("somebody-else"))))
+                List.of("file://photo.jpg"))))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("cannot report its execution");
         assertThat(findings.require(findingId).correctiveAction().executions()).isEmpty();
@@ -246,11 +243,10 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("only the inspector of the backing inspection can verify the correction")
     void onlyTheInspectorVerifiesTheCorrection() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
-        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg"),
-                EXECUTOR));
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg")));
 
-        assertThatThrownBy(() -> this.actingAs(EXECUTOR, () -> verify.verify(findingId, true, "it works", EXECUTOR)))
+        assertThatThrownBy(() -> this.actingAs(EXECUTOR, () -> verify.verify(findingId, true, "it works")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("only the inspector");
         assertThat(findings.require(findingId).correctiveAction().status())
@@ -260,10 +256,10 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("a blank evidence reference is not evidence")
     void blankEvidenceIsRejected() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
 
         assertThatThrownBy(() -> this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced",
-                List.of("file://photo.jpg", "   "), EXECUTOR)))
+                List.of("file://photo.jpg", "   "))))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("execution evidence entry");
         assertThat(findings.require(findingId).correctiveAction().executions()).isEmpty();
@@ -312,10 +308,9 @@ class CorrectiveActionLifecycleTest {
     @Test
     @DisplayName("a failed revision on a closed action does not open a replacement action")
     void aFailedRevisionOnAClosedActionDoesNotOpenAReplacementAction() {
-        plan.plan(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
-        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg"),
-                EXECUTOR));
-        this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "measured within range", INSPECTOR));
+        planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
+        this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg")));
+        this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "measured within range"));
         Finding finding = findings.require(findingId);
         assertThat(finding.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.CLOSED);
 
@@ -335,6 +330,10 @@ class CorrectiveActionLifecycleTest {
         assertThat(after.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.CLOSED);
     }
 
+    private Finding planAsResponsible(FindingId id, String work, PartyId executor, LocalDate dueDate) {
+        return actingAs(RESPONSIBLE, () -> plan.plan(id, work, executor, dueDate));
+    }
+
     private <T> T actingAs(PartyId user, java.util.function.Supplier<T> operation) {
         var previous = actors.current();
         actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(user, user.value()));
@@ -348,7 +347,7 @@ class CorrectiveActionLifecycleTest {
                 INSPECTION,
                 CriterionId.of("TEMP"),
                 AssetId.of("asset-1"),
-                PartyId.of("responsible"),
+                RESPONSIBLE,
                 INSPECTOR,
                 CriterionResult.REJECTED,
                 List.of(new EvaluationReason.RuleVerdict(

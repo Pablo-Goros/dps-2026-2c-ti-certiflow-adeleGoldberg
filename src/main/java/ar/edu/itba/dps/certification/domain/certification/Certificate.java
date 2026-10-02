@@ -76,7 +76,9 @@ public final class Certificate {
                 .toList();
     }
 
-    public boolean suspend(SuspensionCause cause, Instant at) {
+    // Suspension and reactivation are decided by CertificateLifecycle from domain events;
+    // they are package-private so no caller can suspend or lift a suspension at will.
+    boolean suspend(SuspensionCause cause, Instant at) {
         Validate.required(cause, "suspension cause");
         Validate.required(at, "suspension instant");
         if (expiredAt(at)) {
@@ -90,12 +92,12 @@ public final class Certificate {
         return true;
     }
 
-    public boolean resolveCause(SuspensionCause cause, String how, Instant at) {
+    boolean resolveCause(SuspensionCause cause, String how, Instant at) {
         Validate.required(cause, "suspension cause");
         return resolveCauses(candidate -> candidate.equals(cause), how, at);
     }
 
-    public boolean resolveCauses(Predicate<SuspensionCause> matches, String how, Instant at) {
+    boolean resolveCauses(Predicate<SuspensionCause> matches, String how, Instant at) {
         Validate.required(matches, "cause matcher");
         Validate.requiredText(how, "resolution");
         Validate.required(at, "resolution instant");
@@ -109,7 +111,7 @@ public final class Certificate {
         return reactivateIfFullyResolved(at);
     }
 
-    public boolean reactivateIfFullyResolved(Instant at) {
+    boolean reactivateIfFullyResolved(Instant at) {
         Validate.required(at, "instant");
         if (status != CertificateStatus.SUSPENDED) {
             return false;

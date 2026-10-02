@@ -44,6 +44,7 @@ class RectifyClosedInspectionTest {
         laboratory = AssetType.LABORATORY;
         world.publishLaboratorySchema(laboratory);
         inspector = world.person("Ana Perez");
+        world.actAs(inspector);
         Party responsible = world.organization("Favaloro Foundation");
         asset = world.asset("Laboratory A", laboratory, responsible, "Building 1");
         inspectionId = world.assignInspection
@@ -119,7 +120,7 @@ class RectifyClosedInspectionTest {
         closeWith("30");
         PartyId someoneElse = world.person("Other Inspector").id();
 
-        assertThatThrownBy(() -> world.actingAs(someoneElse, () -> world.rectifyClosedInspection.rectify(inspectionId, someoneElse,
+        assertThatThrownBy(() -> world.actingAs(someoneElse, () -> world.rectifyClosedInspection.rectify(inspectionId,
                 "typo in the reading", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("5", "c"))))))
                 .isInstanceOf(DomainException.class)
@@ -176,8 +177,7 @@ class RectifyClosedInspectionTest {
     void aRefusedRectificationLeavesNoTrace() {
         closeWith("5");
 
-        assertThatThrownBy(() -> world.actingAs(inspector.id(), () -> world.rectifyClosedInspection.rectify(inspectionId,
-                inspector.id(), "   ", List.of(new Correction.AnswerCorrection(
+        assertThatThrownBy(() -> world.actingAs(inspector.id(), () -> world.rectifyClosedInspection.rectify(inspectionId, "   ", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("30", "c"))))))
                 .isInstanceOf(DomainException.class);
 
@@ -193,8 +193,7 @@ class RectifyClosedInspectionTest {
     void anInadmissibleAnswerIsRefusedWithoutBeingStored() {
         closeWith("5");
 
-        assertThatThrownBy(() -> world.actingAs(inspector.id(), () -> world.rectifyClosedInspection.rectify(inspectionId,
-                inspector.id(), "the probe was misread", List.of(
+        assertThatThrownBy(() -> world.actingAs(inspector.id(), () -> world.rectifyClosedInspection.rectify(inspectionId, "the probe was misread", List.of(
                         new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
                                 YesNoAnswer.yes())))))
                 .isInstanceOf(DomainException.class)
@@ -207,7 +206,7 @@ class RectifyClosedInspectionTest {
     }
 
     private void rectifyTemperatureTo(String temperature) {
-        world.actingAs(inspector.id(), () -> world.rectifyClosedInspection.rectify(inspectionId, inspector.id(), "typo in the reading",
+        world.actingAs(inspector.id(), () -> world.rectifyClosedInspection.rectify(inspectionId, "typo in the reading",
                 List.of(new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
                         Measurement.of(temperature, "c")))));
     }

@@ -9,22 +9,26 @@ import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.port.InspectionRepository;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
+import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
 
 public final class RemoveNote {
 
     private final InspectionRepository inspections;
     private final AuditRecorder audit;
+    private final ActorProvider actors;
 
-    public RemoveNote(InspectionRepository inspections, AuditRecorder audit) {
+    public RemoveNote(InspectionRepository inspections, AuditRecorder audit, ActorProvider actors) {
         this.inspections = inspections;
         this.audit = audit;
+        this.actors = actors;
     }
 
     public Inspection remove(InspectionId inspectionId, String noteId) {
+        var actor = actors.requireUser();
         Inspection inspection = inspections.require(inspectionId);
-        InspectionNote removed = inspection.removeNote(noteId);
+        InspectionNote removed = inspection.removeNote(actor.partyId(), noteId);
         inspections.save(inspection);
-        audit.record(AuditedElementRef.inspection(inspection.id().value()),
+        audit.recordAs(actor, AuditedElementRef.inspection(inspection.id().value()),
                 AuditAction.INSPECTION_DATA_CORRECTED,
                 AuditDetail.dataChanged(new FieldChange("note." + noteId, removed.text(), null)));
         return inspection;

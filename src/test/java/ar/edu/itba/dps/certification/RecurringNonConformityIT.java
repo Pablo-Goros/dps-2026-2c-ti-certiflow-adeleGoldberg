@@ -37,6 +37,7 @@ class RecurringNonConformityIT {
         system = new FullSystem();
         system.publishLaboratorySchema(AssetType.LABORATORY);
         inspector = system.person("Ana Perez");
+        system.actAs(inspector);
         asset = system.asset("Laboratory A", AssetType.LABORATORY,
                 system.organization("Favaloro Foundation"));
     }
@@ -83,12 +84,11 @@ class RecurringNonConformityIT {
     void aCorrectionConcludedBeforeTheRejectionDoesNotCoverIt() {
         InspectionId id = inspectAndClose("20");
         Finding finding = system.findings.findByInspection(id).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "ventilar", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "ventilar", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
-        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "hecho", List.of("f://a.jpg"),
-                PartyId.of("executor")));
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "hecho", List.of("f://a.jpg")));
         system.clock.advanceDays(1);
-        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "medido en rango", inspector.id()));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "medido en rango"));
         Certificate certificate = issuedCertificate(system.issueCertificate.issue(id));
 
         system.clock.advanceDays(1);
@@ -161,11 +161,10 @@ class RecurringNonConformityIT {
     }
 
     private void correctAndClose(Finding finding, String work) {
-        system.planCorrectiveAction.plan(finding.id(), work, PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), work, PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
-        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "hecho", List.of("f://a.jpg"),
-                PartyId.of("executor")));
-        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "verificado", inspector.id()));
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "hecho", List.of("f://a.jpg")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "verificado"));
     }
 
     @Test
@@ -173,12 +172,11 @@ class RecurringNonConformityIT {
     void aCorrectionConcludedAfterTheRejectionCoversIt() {
         InspectionId id = inspectAndClose("30");
         Finding finding = system.findings.findByInspection(id).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "recalibrar", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "recalibrar", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
-        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "hecho", List.of("f://a.jpg"),
-                PartyId.of("executor")));
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "hecho", List.of("f://a.jpg")));
         system.clock.advanceDays(1);
-        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "en rango", inspector.id()));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "en rango"));
 
         assertThat(system.findings.require(finding.id()).blocksCertification()).isFalse();
         assertThat(issuedCertificate(system.issueCertificate.issue(id))).isNotNull();
@@ -189,7 +187,7 @@ class RecurringNonConformityIT {
     void arevivedObservationStillDemandsAPlan() {
         InspectionId id = inspectAndClose("20");
         Finding finding = system.findings.findByInspection(id).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-06-01"));
         rectify(id, "5");
         assertThat(system.findings.require(finding.id()).obligationVoided()).isTrue();
@@ -201,12 +199,12 @@ class RecurringNonConformityIT {
         assertThat(after.obligationVoided()).isFalse();
         assertThat(after.correctiveAction().status())
                 .isEqualTo(CorrectiveActionStatus.PENDING_PLANNING);
-        assertThat(system.findingQuery.unplannedActionsOf(id)).containsExactly(after);
+        assertThat(after.correctiveAction().awaitingPlan()).isTrue();
         assertThat(blockers(system.issueCertificate.issue(id))).isNotEmpty();
     }
 
     private void rectify(InspectionId id, String temp) {
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(id, inspector.id(), "relectura del instrumento",
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(id, "relectura del instrumento",
                 List.of(new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
                         Measurement.of(temp, "c")))));
     }

@@ -25,7 +25,7 @@ public final class RegisterParty {
     public Party register(String name, PartyKind kind) {
         Party party = new Party(new PartyId(ids.newIdentifier()), name, kind);
         parties.save(party);
-        audit.record(AuditedElementRef.asset(party.id().value()), AuditAction.PARTY_REGISTERED,
+        audit.record(AuditedElementRef.party(party.id().value()), AuditAction.PARTY_REGISTERED,
                 AuditDetail.created(kind + " '" + party.name() + "'"));
         return party;
     }

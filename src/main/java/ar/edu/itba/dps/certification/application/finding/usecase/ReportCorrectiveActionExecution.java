@@ -9,10 +9,7 @@ import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
 import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
-import ar.edu.itba.dps.certification.domain.shared.Actor;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.domain.shared.Validate;
 import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
 import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 
@@ -34,18 +31,8 @@ public final class ReportCorrectiveActionExecution {
     }
 
     public Finding report(FindingId findingId, String statement, List<String> evidenceReferences) {
-        return report(findingId, statement, evidenceReferences, actors.requireUser());
-    }
-
-    public Finding report(FindingId findingId, String statement, List<String> evidenceReferences,
-            PartyId reportedBy) {
-        var actingUser = actors.current();
-        if (!(actingUser instanceof Actor.User user)) {
-            throw new DomainException("this operation requires an authenticated user");
-        }
-        PartyId actor = user.partyId();
-        Validate.ensure(actor.equals(reportedBy),
-                "reportedBy must match the authenticated actor");
+        var actingUser = actors.requireUser();
+        PartyId actor = actingUser.partyId();
         Finding finding = findings.require(findingId);
         Instant at = clock.now();
         CorrectiveActionStatus previousStatus = finding.correctiveAction().status();

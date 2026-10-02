@@ -14,7 +14,8 @@ public final class IssuanceRequirements {
                 new RejectionsMustBeCorrected(),
                 new NoActionMayBeOverdue(),
                 new EveryActionMustBePlanned(),
-                new AssetMustNotHoldALiveCertificate());
+                new AssetMustNotHoldALiveCertificate(),
+                new InspectionMustBeTheLatestOfTheAsset());
     }
 
     public static final class InspectionMustBeClosed implements IssuanceRequirement {
@@ -55,6 +56,13 @@ public final class IssuanceRequirements {
             return context.unplannedActions() == 0
                     ? Optional.empty()
                     : Optional.of(new IssuanceBlocker.UnplannedAction(context.unplannedActions()));
+        }
+    }
+
+    public static final class InspectionMustBeTheLatestOfTheAsset implements IssuanceRequirement {
+        @Override
+        public Optional<IssuanceBlocker> unmetBy(CertificationContext context) {
+            return context.laterClosedInspection().map(IssuanceBlocker.SupersededInspection::new);
         }
     }
 

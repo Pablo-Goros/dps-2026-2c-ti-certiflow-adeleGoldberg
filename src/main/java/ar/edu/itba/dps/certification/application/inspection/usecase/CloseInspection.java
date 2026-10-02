@@ -13,12 +13,17 @@ import ar.edu.itba.dps.certification.domain.inspection.port.InspectionRepository
 import ar.edu.itba.dps.certification.domain.inspection.port.NonConformity;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
-import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
 import ar.edu.itba.dps.certification.domain.shared.port.Clock;
-
-import java.time.Instant;
 import java.util.List;
 
+/**
+ * Closes the inspection and makes sure every non-approved criterion has its finding.
+ *
+ * <p>Registering non-conformities is idempotent, so a repeated request completes a closure that
+ * was saved but whose findings were never registered (for example, a failure between both steps)
+ * instead of leaving the inspection closed with no findings and impossible to certify.
+ */
 public final class CloseInspection {
 
     private final InspectionRepository inspections;
@@ -26,39 +31,35 @@ public final class CloseInspection {
     private final FindingRegistry findings;
     private final Clock clock;
     private final AuditRecorder audit;
+    private final ActorProvider actors;
 
-    public CloseInspection(InspectionRepository inspections,
-            AssetDirectory assets, FindingRegistry findings, Clock clock, AuditRecorder audit) {
+    public CloseInspection(InspectionRepository inspections, AssetDirectory assets, FindingRegistry findings,
+            Clock clock, AuditRecorder audit, ActorProvider actors) {
         this.inspections = inspections;
         this.assets = assets;
         this.findings = findings;
         this.clock = clock;
         this.audit = audit;
+        this.actors = actors;
     }
 
     public InspectionClosureResult close(InspectionId inspectionId) {
+        var actor = actors.requireUser();
         Inspection inspection = inspections.require(inspectionId);
-        if (inspection.status().closed()) {
-            return new InspectionClosureResult(inspection.id(), inspection.closedAt().orElseThrow(),
-                    true, inspection.currentEvaluations());
+        InspectionClosureResult result = inspection.close(actor.partyId(), clock.now());
+        if (!result.alreadyClosed()) {
+            inspections.save(inspection);
+            audit.recordAs(actor, AuditedElementRef.inspection(inspection.id().value()),
+                    AuditAction.INSPECTION_CLOSED,
+                    AuditDetail.decision("close the inspection", result.nonApproved().size() + " of "
+                            + result.evaluations().size() + " criteria not approved"));
         }
-
-        Instant closedAt = clock.now();
-        InspectionClosureResult result = inspection.close(closedAt);
-        inspections.save(inspection);
-
-        PartyId responsibleAtClose = assets.currentResponsible(inspection.assetId());
         List<NonConformity> nonConformities = result.nonApproved().entrySet().stream()
                 .map(entry -> new NonConformity(entry.getKey(), entry.getValue(),
                         evidenceReferencesOf(inspection, entry.getKey())))
                 .toList();
-        findings.recordClosureNonConformities(inspection.id(), inspection.assetId(), responsibleAtClose, inspection.inspector(),
-                nonConformities);
-
-        audit.record(AuditedElementRef.inspection(inspection.id().value()),
-                AuditAction.INSPECTION_CLOSED,
-                AuditDetail.decision("close the inspection", result.nonApproved().size() + " of "
-                        + result.evaluations().size() + " criteria not approved"));
+        findings.recordClosureNonConformities(inspection.id(), inspection.assetId(),
+                assets.currentResponsible(inspection.assetId()), inspection.inspector(), nonConformities);
         return result;
     }
 

@@ -48,6 +48,7 @@ class ReportingIT {
         AssetType laboratory = AssetType.LABORATORY;
         system.publishLaboratorySchema(laboratory);
         inspector = system.person("Ana Perez");
+        system.actAs(inspector);
         responsible = system.organization("Favaloro Foundation");
         asset = system.asset("Laboratory A", laboratory, responsible);
         generateAct = new GenerateInspectionAct(system.inspections, system.schemaCatalog);
@@ -60,7 +61,7 @@ class ReportingIT {
     @DisplayName("the act distinguishes the original reading from the rectified one")
     void theActDistinguishesOriginalFromRectified() {
         InspectionId inspectionId = inspectAndClose("30");
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the probe was misread", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("5", "c")))));
 
@@ -111,12 +112,10 @@ class ReportingIT {
     void theFindingsSummaryIsComplete() {
         InspectionId inspectionId = inspectAndClose("30");
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "recalibrate the cooling unit",
+        system.planAsResponsible(finding.id(), "recalibrate the cooling unit",
                 PartyId.of("executor"), LocalDate.parse("2026-04-01"));
-        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "recalibrated", List.of("file://photo.jpg"),
-                PartyId.of("executor")));
-        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), false, "still above range",
-                inspector.id()));
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "recalibrated", List.of("file://photo.jpg")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), false, "still above range"));
 
         FindingsSummary summary = generateSummary.generate(inspectionId);
 
@@ -154,7 +153,7 @@ class ReportingIT {
     void theCertificateReportListsPendingCommitments() {
         InspectionId inspectionId = inspectAndClose("20");
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.planCorrectiveAction.plan(finding.id(), "improve ventilation", PartyId.of("executor"),
+        system.planAsResponsible(finding.id(), "improve ventilation", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
         IssuanceDecision decision = system.issueCertificate.issue(inspectionId);
 
@@ -174,10 +173,10 @@ class ReportingIT {
     @DisplayName("the act attributes a twice-rectified answer to the rectification that produced it")
     void successiveRectificationsAreAttributedToTheLastOne() {
         InspectionId inspectionId = inspectAndClose("30");
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the probe read one digit too high", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("20", "c")))));
-        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId,
                 "the calibration sheet gave the final figure", List.of(new Correction.AnswerCorrection(
                         DomainWorld.TEMPERATURE, Measurement.of("12", "c")))));
 

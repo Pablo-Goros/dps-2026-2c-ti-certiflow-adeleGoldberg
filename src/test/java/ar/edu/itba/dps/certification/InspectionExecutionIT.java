@@ -37,6 +37,7 @@ class InspectionExecutionIT {
         system = new FullSystem();
         system.publishLaboratorySchema(AssetType.LABORATORY);
         inspector = system.person("Ana Perez");
+        system.actAs(inspector);
         asset = system.asset("Laboratory A", AssetType.LABORATORY,
                 system.organization("Favaloro Foundation"));
         inspectionId = system.assignInspection

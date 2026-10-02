@@ -16,24 +16,27 @@ import java.util.Set;
 public final class ChangeSchemaApplicability {
 
     private final SchemaRepository schemas;
+    private final SchemaApplicability applicability;
     private final AuditRecorder audit;
 
-    public ChangeSchemaApplicability(SchemaRepository schemas, AuditRecorder audit) {
+    public ChangeSchemaApplicability(SchemaRepository schemas, SchemaApplicability applicability,
+            AuditRecorder audit) {
         this.schemas = schemas;
+        this.applicability = applicability;
         this.audit = audit;
     }
 
     public InspectionSchema applyTo(SchemaId schemaId, AssetType assetType) {
         InspectionSchema schema = schemas.require(schemaId);
         Set<AssetType> before = schema.applicableAssetTypes();
-        new SchemaApplicability(schemas).applyTo(schema, assetType);
+        applicability.applyTo(schema, assetType);
         return audited(schema, before);
     }
 
     public InspectionSchema stopApplyingTo(SchemaId schemaId, AssetType assetType) {
         InspectionSchema schema = schemas.require(schemaId);
         Set<AssetType> before = schema.applicableAssetTypes();
-        new SchemaApplicability(schemas).stopApplyingTo(schema, assetType);
+        applicability.stopApplyingTo(schema, assetType);
         return audited(schema, before);
     }
 
@@ -42,7 +45,7 @@ public final class ChangeSchemaApplicability {
         InspectionSchema target = schemas.require(targetId);
         Set<AssetType> beforeSource = source.applicableAssetTypes();
         Set<AssetType> beforeTarget = target.applicableAssetTypes();
-        new SchemaApplicability(schemas).transfer(source, target, assetType);
+        applicability.transfer(source, target, assetType);
         schemas.save(source);
         schemas.save(target);
         audited(source, beforeSource);
