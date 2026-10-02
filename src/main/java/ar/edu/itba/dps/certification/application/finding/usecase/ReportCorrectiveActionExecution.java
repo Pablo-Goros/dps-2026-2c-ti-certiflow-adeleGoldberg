@@ -8,10 +8,10 @@ import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
-import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
+import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
-import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
+import ar.edu.itba.dps.certification.application.shared.port.Clock;
 
 import java.time.Instant;
 import java.util.List;
@@ -23,7 +23,8 @@ public final class ReportCorrectiveActionExecution {
     private final AuditRecorder audit;
     private final ActorProvider actors;
 
-    public ReportCorrectiveActionExecution(FindingRepository findings, Clock clock, AuditRecorder audit, ActorProvider actors) {
+    public ReportCorrectiveActionExecution(FindingRepository findings, Clock clock,
+            AuditRecorder audit, ActorProvider actors) {
         this.findings = findings;
         this.clock = clock;
         this.audit = audit;

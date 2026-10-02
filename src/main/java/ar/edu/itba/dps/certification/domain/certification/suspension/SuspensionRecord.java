@@ -5,7 +5,11 @@ import ar.edu.itba.dps.certification.domain.shared.Validate;
 import java.time.Instant;
 import java.util.Optional;
 
-public record SuspensionRecord (SuspensionCause cause, Instant raisedAt, Optional<Instant> resolvedAt, Optional<String> resolution) {
+public record SuspensionRecord(
+        SuspensionCause cause,
+        Instant raisedAt,
+        Optional<Instant> resolvedAt,
+        Optional<String> resolution) {
 
     public SuspensionRecord(SuspensionCause cause, Instant raisedAt) {
         this(cause, raisedAt, Optional.empty(), Optional.empty());

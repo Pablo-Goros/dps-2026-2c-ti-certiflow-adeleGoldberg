@@ -76,5 +76,4 @@ public final class SchemaDraft {
                         .map(violation -> "criterion " + criterion.id() + ": " + violation))
                 .toList();
     }
-
 }

@@ -76,8 +76,6 @@ public final class Certificate {
                 .toList();
     }
 
-    // Suspension and reactivation are decided by CertificateLifecycle from domain events;
-    // they are package-private so no caller can suspend or lift a suspension at will.
     boolean suspend(SuspensionCause cause, Instant at) {
         Validate.required(cause, "suspension cause");
         Validate.required(at, "suspension instant");

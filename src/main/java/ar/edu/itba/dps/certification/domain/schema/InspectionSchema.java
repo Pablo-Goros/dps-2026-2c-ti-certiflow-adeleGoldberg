@@ -57,9 +57,13 @@ public final class InspectionSchema {
         applicableAssetTypes.remove(assetType);
     }
 
-    public void addSection(Section section) { requireDraft().addSection(section); }
+    public void addSection(Section section) {
+        requireDraft().addSection(section);
+    }
 
-    public Section removeSection(String name) { return requireDraft().removeSection(name); }
+    public Section removeSection(String name) {
+        return requireDraft().removeSection(name);
+    }
 
     public Optional<SchemaDraft> draft() {
         return Optional.ofNullable(draft);

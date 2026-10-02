@@ -294,7 +294,7 @@ public final class Inspection {
     }
 
     private void recordEvaluationProducedBy(Rectification rectification, CriterionId criterionId,
-                                           CriterionEvaluation evaluation) {
+            CriterionEvaluation evaluation) {
         Validate.ensure(status.closed(), "only a closed inspection carries rectified evaluations");
         Validate.required(rectification, "rectification");
         Validate.required(criterionId, "criterion id");

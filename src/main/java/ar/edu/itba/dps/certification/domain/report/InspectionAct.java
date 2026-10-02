@@ -31,6 +31,12 @@ public record InspectionAct(
     public InspectionAct {
         Validate.required(inspectionId, "inspection id");
         Validate.required(status, "status");
+        Validate.required(asset, "asset snapshot");
+        Validate.required(inspector, "inspector");
+        Validate.required(expectedDate, "expected date");
+        Validate.required(startedAt, "start instant");
+        Validate.required(closedAt, "closure instant");
+        Validate.required(schemaVersionId, "schema version id");
         sections = List.copyOf(Validate.required(sections, "sections"));
         notes = List.copyOf(Validate.required(notes, "notes"));
         rectifications = List.copyOf(Validate.required(rectifications, "rectifications"));
@@ -63,6 +69,7 @@ public record InspectionAct(
             evidenceReferences = List.copyOf(Validate.required(evidenceReferences, "evidence"));
             missingEvidence = List.copyOf(Validate.required(missingEvidence, "missing evidence"));
             Validate.required(result, "result");
+            Validate.required(severity, "severity");
             reasons = List.copyOf(Validate.required(reasons, "reasons"));
         }
     }

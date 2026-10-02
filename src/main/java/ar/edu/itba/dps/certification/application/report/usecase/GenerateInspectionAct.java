@@ -3,7 +3,7 @@ package ar.edu.itba.dps.certification.application.report.usecase;
 import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.domain.inspection.port.InspectionQuery;
+import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
@@ -15,7 +15,7 @@ import ar.edu.itba.dps.certification.domain.report.ReportedValue;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.Section;
-import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
+import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.domain.shared.answer.Answer;
 
 import java.util.ArrayList;

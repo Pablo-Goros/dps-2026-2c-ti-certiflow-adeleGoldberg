@@ -4,10 +4,10 @@ import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
-import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
+import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.domain.inspection.port.InspectionRepository;
+import ar.edu.itba.dps.certification.application.inspection.port.InspectionRepository;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 

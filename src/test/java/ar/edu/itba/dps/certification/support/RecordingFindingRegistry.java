@@ -1,7 +1,7 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.domain.inspection.port.FindingRegistry;
-import ar.edu.itba.dps.certification.domain.inspection.port.NonConformity;
+import ar.edu.itba.dps.certification.application.inspection.port.FindingRegistry;
+import ar.edu.itba.dps.certification.application.inspection.port.NonConformity;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;

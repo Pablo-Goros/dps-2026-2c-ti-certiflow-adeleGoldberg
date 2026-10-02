@@ -1,5 +1,6 @@
 package ar.edu.itba.dps.certification;
 
+import ar.edu.itba.dps.certification.application.certification.CertificateFactory;
 import ar.edu.itba.dps.certification.application.schema.usecase.ChangeSchemaApplicability;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.catalogue.*;

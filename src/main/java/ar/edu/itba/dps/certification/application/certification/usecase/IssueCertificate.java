@@ -1,21 +1,26 @@
 package ar.edu.itba.dps.certification.application.certification.usecase;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.domain.audit.*;
-import ar.edu.itba.dps.certification.domain.certification.CertificateFactory;
+import ar.edu.itba.dps.certification.application.certification.CertificateFactory;
+import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
+import ar.edu.itba.dps.certification.domain.audit.AuditAction;
+import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
+import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
-import ar.edu.itba.dps.certification.domain.certification.port.CertificateRepository;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 
 public final class IssueCertificate {
+
     private final CertificateFactory factory;
     private final CertificateRepository certificates;
     private final AuditRecorder audit;
+
     public IssueCertificate(CertificateFactory factory, CertificateRepository certificates, AuditRecorder audit) {
         this.factory = factory;
         this.certificates = certificates;
         this.audit = audit;
     }
+
     public IssuanceDecision issue(InspectionId inspectionId) {
         IssuanceDecision decision = factory.issue(inspectionId);
         if (decision instanceof IssuanceDecision.Issued issued) {

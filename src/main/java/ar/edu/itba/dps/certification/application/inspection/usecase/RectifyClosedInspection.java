@@ -6,18 +6,18 @@ import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.domain.inspection.RectificationConsequences;
-import ar.edu.itba.dps.certification.domain.inspection.port.FindingRegistry;
-import ar.edu.itba.dps.certification.domain.inspection.port.InspectionRepository;
+import ar.edu.itba.dps.certification.application.inspection.RectificationConsequences;
+import ar.edu.itba.dps.certification.application.inspection.port.FindingRegistry;
+import ar.edu.itba.dps.certification.application.inspection.port.InspectionRepository;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectification;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
-import ar.edu.itba.dps.certification.domain.shared.port.Clock;
-import ar.edu.itba.dps.certification.domain.shared.port.DomainEventPublisher;
-import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
+import ar.edu.itba.dps.certification.application.shared.port.Clock;
+import ar.edu.itba.dps.certification.application.shared.port.DomainEventPublisher;
+import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
 
 import java.time.Instant;
 import java.util.List;
@@ -77,5 +77,4 @@ public final class RectifyClosedInspection {
         inspections.save(inspection);
         return rectification;
     }
-
 }

@@ -63,6 +63,7 @@ public record FindingsSummary(InspectionId inspectionId, List<FindingLine> lines
             Validate.required(work, "work");
             Validate.required(executor, "executor");
             Validate.required(dueDate, "due date");
+            Validate.required(planningDueDate, "planning due date");
             verifications = List.copyOf(Validate.required(verifications, "verifications"));
         }
     }

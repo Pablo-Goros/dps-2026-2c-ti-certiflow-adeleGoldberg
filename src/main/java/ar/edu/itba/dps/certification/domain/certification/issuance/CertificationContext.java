@@ -31,9 +31,13 @@ public record CertificationContext(
                 "all findings must belong to the backing inspection");
     }
 
-    public InspectionId inspectionId() { return inspection.id(); }
+    public InspectionId inspectionId() {
+        return inspection.id();
+    }
 
-    public boolean inspectionClosed() { return inspection.status().closed(); }
+    public boolean inspectionClosed() {
+        return inspection.status().closed();
+    }
 
     public int unverifiedRejections() {
         return (int) inspection.currentEvaluations().entrySet().stream()

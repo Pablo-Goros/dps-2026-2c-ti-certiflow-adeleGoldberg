@@ -8,9 +8,10 @@ import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
-import ar.edu.itba.dps.certification.domain.schema.port.SchemaRepository;
+import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 
+import java.util.Optional;
 import java.util.Set;
 
 public final class ChangeSchemaApplicability {
@@ -29,7 +30,7 @@ public final class ChangeSchemaApplicability {
     public InspectionSchema applyTo(SchemaId schemaId, AssetType assetType) {
         InspectionSchema schema = schemas.require(schemaId);
         Set<AssetType> before = schema.applicableAssetTypes();
-        applicability.applyTo(schema, assetType);
+        applicability.applyTo(schema, assetType, registeredOwnerOf(assetType));
         return audited(schema, before);
     }
 
@@ -45,11 +46,15 @@ public final class ChangeSchemaApplicability {
         InspectionSchema target = schemas.require(targetId);
         Set<AssetType> beforeSource = source.applicableAssetTypes();
         Set<AssetType> beforeTarget = target.applicableAssetTypes();
-        applicability.transfer(source, target, assetType);
+        applicability.transfer(source, target, assetType, registeredOwnerOf(assetType));
         schemas.save(source);
         schemas.save(target);
         audited(source, beforeSource);
         return audited(target, beforeTarget);
+    }
+
+    private Optional<SchemaId> registeredOwnerOf(AssetType assetType) {
+        return schemas.findByApplicableAssetType(assetType).map(InspectionSchema::id);
     }
 
     private InspectionSchema audited(InspectionSchema schema, Set<AssetType> before) {

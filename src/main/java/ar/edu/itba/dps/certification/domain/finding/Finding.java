@@ -81,7 +81,9 @@ public final class Finding {
         return assetId;
     }
 
-    public PartyId inspector() { return inspector; }
+    public PartyId inspector() {
+        return inspector;
+    }
 
     public PartyId responsible() {
         return responsible;
@@ -191,6 +193,7 @@ public final class Finding {
     public List<DomainEvent> pendingEvents() {
         return List.copyOf(pendingEvents);
     }
+
     public void acknowledgeEvent(DomainEvent event) {
         pendingEvents.remove(event);
     }
@@ -222,7 +225,9 @@ public final class Finding {
 
     public boolean expireCorrectionIfOverdue(LocalDate today, Instant at) {
         Validate.required(at, "expiration instant");
-        if (!correctiveAction().expireIfOverdue(today)) { return false; }
+        if (!correctiveAction().expireIfOverdue(today)) {
+            return false;
+        }
         pendingEvents.add(new CorrectiveActionExpired(
                 inspectionId, id, correctiveAction().id(), criterionId, at));
         return true;

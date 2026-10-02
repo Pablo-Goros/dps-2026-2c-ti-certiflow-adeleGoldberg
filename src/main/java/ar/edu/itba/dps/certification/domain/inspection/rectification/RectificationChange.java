@@ -68,6 +68,7 @@ public sealed interface RectificationChange {
             return "evidence " + evidenceId + " of " + criterionId + ": " + previousValue + " -> "
                     + currentValue;
         }
+
         @Override
         public String field() {
             return "evidence." + criterionId + "." + evidenceId;

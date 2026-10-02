@@ -9,11 +9,11 @@
   <version>1.0.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
-  <name>Asset Inspection and Certification :: Domain Module</name>
+  <name>Asset Inspection and Certification :: Hexagonal Core</name>
   <description>
-    Domain module for the asset inspection, authorization and certification platform.
-    Contains the business model, the use cases and the ports they depend on, plus
-    in-memory adapters used only to exercise the domain from tests.
+    Hexagonal core for the asset inspection, authorization and certification platform.
+    Contains the business model, application use cases, application-owned ports and
+    lightweight adapters that connect ports without adding framework dependencies.
   </description>
 
   <properties>
@@ -52,8 +52,9 @@
     </dependencies>
   </dependencyManagement>
 
-  <!-- The domain module has no production dependencies on purpose: the business
-       rules must not be coupled to any framework, container or persistence library. -->
+  <!-- The production code has no external dependencies on purpose: the business
+       rules and use cases must not be coupled to any framework, container or
+       persistence library. -->
   <dependencies>
     <dependency>
       <groupId>org.junit.jupiter</groupId>

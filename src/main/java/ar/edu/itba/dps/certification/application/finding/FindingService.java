@@ -9,17 +9,17 @@ import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
-import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
+import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.domain.inspection.port.FindingRegistry;
-import ar.edu.itba.dps.certification.domain.inspection.port.NonConformity;
+import ar.edu.itba.dps.certification.application.inspection.port.FindingRegistry;
+import ar.edu.itba.dps.certification.application.inspection.port.NonConformity;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.domain.shared.port.Clock;
-import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.application.shared.port.Clock;
+import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
 
 import java.time.Instant;
 import java.util.List;
@@ -127,7 +127,9 @@ public final class FindingService implements FindingRegistry {
 
     @Override
     public List<DomainEvent> pendingEvents(InspectionId inspectionId) {
-        return findings.findByInspection(inspectionId).stream().flatMap(f -> f.pendingEvents().stream()).toList();
+        return findings.findByInspection(inspectionId).stream()
+                .flatMap(finding -> finding.pendingEvents().stream())
+                .toList();
     }
 
     @Override

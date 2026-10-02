@@ -17,6 +17,7 @@ import ar.edu.itba.dps.certification.domain.report.IssuanceAttemptReport;
 import ar.edu.itba.dps.certification.domain.report.ReportedValue;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
@@ -25,12 +26,14 @@ import ar.edu.itba.dps.certification.support.FullSystem;
 import static ar.edu.itba.dps.certification.support.Decisions.blockers;
 import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 class ReportingIT {
 
@@ -146,6 +149,21 @@ class ReportingIT {
         assertThat(generateAct.generate(inspectionId).sections()).isNotEmpty();
         assertThat(generateSummary.generate(inspectionId).lines()).isNotEmpty();
         assertThat(system.certificates.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("an issuance attempt report cannot mix certified and blocked states")
+    void anIssuanceAttemptReportRejectsInconsistentStates() {
+        InspectionId inspectionId = InspectionId.of("inspection-1");
+
+        assertThatThrownBy(() -> new IssuanceAttemptReport(inspectionId, true,
+                Optional.empty(), List.of()))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("certifies a certificate");
+
+        assertThatThrownBy(() -> IssuanceAttemptReport.blocked(inspectionId, List.of()))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("blocked attempt reports them");
     }
 
     @Test

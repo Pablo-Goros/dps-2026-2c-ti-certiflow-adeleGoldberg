@@ -7,11 +7,11 @@ import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.Verification;
-import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
+import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
-import ar.edu.itba.dps.certification.domain.shared.port.Clock;
-import ar.edu.itba.dps.certification.domain.shared.port.DomainEventPublisher;
+import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
+import ar.edu.itba.dps.certification.application.shared.port.Clock;
+import ar.edu.itba.dps.certification.application.shared.port.DomainEventPublisher;
 
 import java.time.Instant;
 
@@ -23,7 +23,8 @@ public final class VerifyCorrectiveAction {
     private final AuditRecorder audit;
     private final ActorProvider actors;
 
-    public VerifyCorrectiveAction(FindingRepository findings, Clock clock, DomainEventPublisher events, AuditRecorder audit, ActorProvider actors) {
+    public VerifyCorrectiveAction(FindingRepository findings, Clock clock,
+            DomainEventPublisher events, AuditRecorder audit, ActorProvider actors) {
         this.findings = findings;
         this.clock = clock;
         this.events = events;

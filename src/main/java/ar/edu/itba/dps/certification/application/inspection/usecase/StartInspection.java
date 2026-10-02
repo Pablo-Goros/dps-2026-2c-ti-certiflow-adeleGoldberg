@@ -6,15 +6,15 @@ import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
-import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
+import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.domain.inspection.port.InspectionRepository;
+import ar.edu.itba.dps.certification.application.inspection.port.InspectionRepository;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
-import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
+import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
-import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
+import ar.edu.itba.dps.certification.application.shared.port.Clock;
 
 public final class StartInspection {
 

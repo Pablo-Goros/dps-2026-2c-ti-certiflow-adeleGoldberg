@@ -17,6 +17,10 @@ public record IssuanceAttemptReport(
         Validate.required(inspectionId, "inspection id");
         Validate.required(certificateId, "certificate id");
         blockingReasons = List.copyOf(Validate.required(blockingReasons, "blocking reasons"));
+        Validate.ensure(certified == certificateId.isPresent(),
+                "an issuance attempt either certifies a certificate or remains uncertified");
+        Validate.ensure(certified == blockingReasons.isEmpty(),
+                "a certified issuance has no blockers and a blocked attempt reports them");
     }
 
     public static IssuanceAttemptReport certified(InspectionId inspectionId,

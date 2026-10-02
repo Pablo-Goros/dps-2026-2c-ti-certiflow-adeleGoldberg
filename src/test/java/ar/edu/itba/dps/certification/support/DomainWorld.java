@@ -1,8 +1,8 @@
 package ar.edu.itba.dps.certification.support;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.catalogue.CatalogueAssetDirectory;
-import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
+import ar.edu.itba.dps.certification.adapter.catalogue.CatalogueAssetDirectory;
+import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetResponsible;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
@@ -12,8 +12,8 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.CloseInspect
 import ar.edu.itba.dps.certification.application.inspection.usecase.RecordAnswer;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
-import ar.edu.itba.dps.certification.application.schema.PublishedSchemaCatalog;
-import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
+import ar.edu.itba.dps.certification.adapter.schema.PublishedSchemaCatalog;
+import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
 import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
@@ -70,7 +70,8 @@ public final class DomainWorld {
     public final ChangeAssetResponsible changeAssetResponsible =
             new ChangeAssetResponsible(catalogue.assets, catalogue.parties, audit);
 
-    public final CreateSchema createSchema = new CreateSchema(schemas, new ar.edu.itba.dps.certification.domain.schema.SchemaApplicability(schemas), ids, audit);
+    public final CreateSchema createSchema =
+            new CreateSchema(schemas, new ar.edu.itba.dps.certification.domain.schema.SchemaApplicability(), ids, audit);
     public final OpenDraft openDraft = new OpenDraft(schemas, audit);
     public final EditDraft editDraft = new EditDraft(schemas, audit);
     public final PublishSchemaVersion publishSchemaVersion =
@@ -88,7 +89,7 @@ public final class DomainWorld {
             new CloseInspection(inspections, assetDirectory, findings, clock, audit, actors);
     public final RectifyClosedInspection rectifyClosedInspection =
             new RectifyClosedInspection(inspections, findings,
-                    new ar.edu.itba.dps.certification.domain.inspection.RectificationConsequences(findings, assetDirectory),
+                    new ar.edu.itba.dps.certification.application.inspection.RectificationConsequences(findings, assetDirectory),
                     events, ids, clock, audit, actors);
 
     /** Makes the given party the authenticated user for the following operations. */

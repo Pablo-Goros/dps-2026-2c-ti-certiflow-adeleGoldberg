@@ -38,9 +38,13 @@ public final class CorrectiveAction {
         this.planningDueDate = Validate.required(createdOn, "creation date").plusDays(PLANNING_DAYS);
     }
 
-    public LocalDate planningDueDate() { return planningDueDate; }
+    public LocalDate planningDueDate() {
+        return planningDueDate;
+    }
 
-    public LocalDate deadline() { return plan == null ? planningDueDate : plan.dueDate(); }
+    public LocalDate deadline() {
+        return plan == null ? planningDueDate : plan.dueDate();
+    }
 
     public CorrectiveActionId id() {
         return id;

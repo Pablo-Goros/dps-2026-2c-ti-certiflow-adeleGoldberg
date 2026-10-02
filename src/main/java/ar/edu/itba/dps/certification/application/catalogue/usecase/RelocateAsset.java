@@ -6,7 +6,7 @@ import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
-import ar.edu.itba.dps.certification.domain.catalogue.port.AssetRepository;
+import ar.edu.itba.dps.certification.application.catalogue.port.AssetRepository;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 
 public final class RelocateAsset {

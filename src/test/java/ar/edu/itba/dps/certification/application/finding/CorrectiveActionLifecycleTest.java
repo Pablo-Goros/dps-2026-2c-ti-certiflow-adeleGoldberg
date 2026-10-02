@@ -153,40 +153,40 @@ class CorrectiveActionLifecycleTest {
                 .hasMessageContaining("no reported execution");
     }
 
-        @Test
-        @DisplayName("a closed action cannot receive another execution or verification")
-        void aClosedActionIsTerminal() {
+    @Test
+    @DisplayName("a closed action cannot receive another execution or verification")
+    void aClosedActionIsTerminal() {
         planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
         this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "thermostat replaced", List.of("file://photo.jpg")));
         this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "measured within range"));
 
         assertThatThrownBy(() -> this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "second attempt",
-            List.of("file://second.jpg"))))
-            .isInstanceOf(DomainException.class)
-            .hasMessageContaining("while it is CLOSED");
+                List.of("file://second.jpg"))))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("while it is CLOSED");
         assertThatThrownBy(() -> this.actingAs(INSPECTOR, () -> verify.verify(findingId, true, "verify again")))
-            .isInstanceOf(DomainException.class)
-            .hasMessageContaining("no reported execution");
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("no reported execution");
         assertThat(findings.require(findingId).correctiveAction().executions()).hasSize(1);
         assertThat(findings.require(findingId).correctiveAction().verifications()).hasSize(1);
-        }
+    }
 
-        @Test
-        @DisplayName("a voided action cannot be planned or executed again")
-        void aVoidedActionIsTerminal() {
+    @Test
+    @DisplayName("a voided action cannot be planned or executed again")
+    void aVoidedActionIsTerminal() {
         planAsResponsible(findingId, "replace the thermostat", EXECUTOR, DUE_DATE);
         Finding finding = findings.require(findingId);
         finding.voidObligation(RectificationId.of("rect-1"), "measurement corrected", clock.now());
 
         assertThatThrownBy(() -> planAsResponsible(findingId, "different work", EXECUTOR, DUE_DATE))
-            .isInstanceOf(DomainException.class)
-            .hasMessageContaining("already been planned");
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("already been planned");
         assertThatThrownBy(() -> this.actingAs(EXECUTOR, () -> reportExecution.report(findingId, "late attempt",
-            List.of("file://photo.jpg"))))
-            .isInstanceOf(DomainException.class)
-            .hasMessageContaining("while it is VOIDED");
+                List.of("file://photo.jpg"))))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("while it is VOIDED");
         assertThat(finding.correctiveAction().executions()).isEmpty();
-        }
+    }
 
     @Test
     @DisplayName("the expiry sweep fires once per action and does not repeat on later runs")
@@ -337,8 +337,11 @@ class CorrectiveActionLifecycleTest {
     private <T> T actingAs(PartyId user, java.util.function.Supplier<T> operation) {
         var previous = actors.current();
         actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(user, user.value()));
-        try { return operation.get(); }
-        finally { actors.actingAs(previous); }
+        try {
+            return operation.get();
+        } finally {
+            actors.actingAs(previous);
+        }
     }
 
     private FindingId givenAFinding() {
