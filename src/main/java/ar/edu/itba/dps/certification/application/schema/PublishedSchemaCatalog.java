@@ -1,11 +1,11 @@
 package ar.edu.itba.dps.certification.application.schema;
 
-import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 

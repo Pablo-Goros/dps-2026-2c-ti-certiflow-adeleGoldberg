@@ -11,14 +11,14 @@ public final class Validate {
 
     public static <T> T required(T value, String name) {
         if (value == null) {
-            throw new DomainException(name + " is required");
+            throw new InvalidArgumentException(name + " is required");
         }
         return value;
     }
 
     public static String requiredText(String value, String name) {
         if (value == null || value.isBlank()) {
-            throw new DomainException(name + " is required and cannot be blank");
+            throw new InvalidArgumentException(name + " is required and cannot be blank");
         }
         return value.strip();
     }
@@ -31,7 +31,7 @@ public final class Validate {
     public static <T> List<T> requiredNonEmpty(Collection<T> values, String name) {
         required(values, name);
         if (values.isEmpty()) {
-            throw new DomainException(name + " must contain at least one element");
+            throw new InvalidArgumentException(name + " must contain at least one element");
         }
         return List.copyOf(values);
     }
@@ -47,7 +47,7 @@ public final class Validate {
 
     public static int requiredPositive(int value, String name) {
         if (value <= 0) {
-            throw new DomainException(name + " must be greater than zero, but was " + value);
+            throw new InvalidArgumentException(name + " must be greater than zero, but was " + value);
         }
         return value;
     }

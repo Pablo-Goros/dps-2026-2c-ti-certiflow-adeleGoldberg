@@ -72,7 +72,7 @@ class CloseInspectionTest {
 
         assertThatThrownBy(() -> world.closeInspection.close(assignedOnly))
                 .isInstanceOf(DomainException.class)
-                .hasMessageContaining("has not been started");
+                .hasMessageContaining("while it is ASSIGNED");
     }
 
     @Test

@@ -95,9 +95,9 @@ class AuditTrailIT {
     void aRectificationCarriesItsReason() {
         InspectionId inspectionId = inspectAndClose("30");
 
-        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(), "the probe was misread",
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(), "the probe was misread",
                 List.of(new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
-                        Measurement.of("5", "c"))));
+                        Measurement.of("5", "c")))));
 
         assertThat(system.auditTrail.withAction(AuditAction.INSPECTION_RECTIFIED))
                 .singleElement().satisfies(entry -> {
@@ -125,11 +125,11 @@ class AuditTrailIT {
         var note = system.recordNote.record(inspectionId, Optional.empty(), "door was blocked");
         system.closeInspection.close(inspectionId);
 
-        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
                 "the evidence and note pointed to the wrong facts", List.of(
                         new Correction.EvidenceReferenceCorrection(DomainWorld.DOCUMENTATION,
                                 evidence.id(), "file://manual.pdf"),
-                        new Correction.NoteCorrection(note.id(), "corridor door was blocked")));
+                        new Correction.NoteCorrection(note.id(), "corridor door was blocked"))));
 
         assertThat(system.auditTrail.withAction(AuditAction.INSPECTION_RECTIFIED))
                 .singleElement().satisfies(entry ->
@@ -171,9 +171,9 @@ class AuditTrailIT {
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
         system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
-        system.reportExecution.report(finding.id(), "done", List.of("file://a.jpg"),
-                PartyId.of("executor"));
-        system.verifyCorrectiveAction.verify(finding.id(), true, "within range", inspector.id());
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "done", List.of("file://a.jpg"),
+                PartyId.of("executor")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "within range", inspector.id()));
         system.issueCertificate.issue(inspectionId);
 
         assertThat(system.auditTrail.all()).extracting(entry -> entry.element().type())
@@ -210,9 +210,9 @@ class AuditTrailIT {
         system.clock.advanceDays(45);
         system.expireActions.sweep();
 
-        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
                 "the probe was misread", List.of(new Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("30", "c"))));
+                        DomainWorld.TEMPERATURE, Measurement.of("30", "c")))));
 
         assertThat(system.certificates.require(certificate.id()).unresolvedCauses()).hasSize(2);
         assertThat(system.auditTrail.withAction(AuditAction.CERTIFICATE_SUSPENDED))
@@ -232,9 +232,9 @@ class AuditTrailIT {
     void aRevisedFindingRecordsTheEvaluationItHad() {
         InspectionId inspectionId = inspectAndClose("30");
 
-        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
                 "the probe was misread", List.of(new Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("20", "c"))));
+                        DomainWorld.TEMPERATURE, Measurement.of("20", "c")))));
 
         assertThat(system.auditTrail.withAction(AuditAction.FINDING_REVISED))
                 .singleElement().satisfies(entry -> assertThat(entry.detail())

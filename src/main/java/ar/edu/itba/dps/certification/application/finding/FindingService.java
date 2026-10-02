@@ -1,12 +1,6 @@
 package ar.edu.itba.dps.certification.application.finding;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
-import ar.edu.itba.dps.certification.application.inspection.port.FindingRegistry;
-import ar.edu.itba.dps.certification.application.inspection.port.NonConformity;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventPublisher;
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
@@ -15,12 +9,17 @@ import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
-import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionVoided;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.port.FindingRegistry;
+import ar.edu.itba.dps.certification.domain.inspection.port.NonConformity;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
+import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
 
 import java.time.Instant;
 import java.util.List;
@@ -31,37 +30,35 @@ public final class FindingService implements FindingRegistry {
     private final FindingRepository findings;
     private final IdGenerator ids;
     private final Clock clock;
-    private final DomainEventPublisher events;
     private final AuditRecorder audit;
 
-    public FindingService(FindingRepository findings, IdGenerator ids, Clock clock, DomainEventPublisher events, AuditRecorder audit) {
+    public FindingService(FindingRepository findings, IdGenerator ids, Clock clock, AuditRecorder audit) {
         this.findings = findings;
         this.ids = ids;
         this.clock = clock;
-        this.events = events;
         this.audit = audit;
     }
 
     @Override
     public void recordClosureNonConformities(InspectionId inspectionId, AssetId assetId,
-            PartyId responsibleAtClose, List<NonConformity> nonConformities) {
+            PartyId responsibleAtClose, PartyId inspector, List<NonConformity> nonConformities) {
         for (NonConformity nonConformity : nonConformities) {
             if (findings.findByCriterion(inspectionId, nonConformity.criterionId()).isPresent()) {
                 continue;
             }
-            create(inspectionId, assetId, responsibleAtClose, nonConformity);
+            create(inspectionId, assetId, responsibleAtClose, inspector, nonConformity);
         }
     }
 
     @Override
     public void registerRevealedNonConformity(InspectionId inspectionId, AssetId assetId,
-            PartyId responsible, NonConformity nonConformity, RectificationId rectificationId) {
+            PartyId responsible, PartyId inspector, NonConformity nonConformity, RectificationId rectificationId) {
         if (findings.findByCriterion(inspectionId, nonConformity.criterionId()).isPresent()) {
             reviseNonConformity(inspectionId, nonConformity, rectificationId,
                     "non-conformity revealed by a rectification");
             return;
         }
-        create(inspectionId, assetId, responsible, nonConformity);
+        create(inspectionId, assetId, responsible, inspector, nonConformity);
     }
 
     @Override
@@ -126,15 +123,29 @@ public final class FindingService implements FindingRegistry {
                 AuditAction.CORRECTIVE_ACTION_VOIDED,
                 AuditDetail.stateChanged(previousStatus, finding.correctiveAction().status()),
                 reason);
-        events.publish(new CorrectiveActionVoided(inspectionId, finding.id(),
-                finding.correctiveAction().id(), criterionId, rectificationId, at));
+    }
+
+    @Override
+    public List<DomainEvent> pendingEvents(InspectionId inspectionId) {
+        return findings.findByInspection(inspectionId).stream().flatMap(f -> f.pendingEvents().stream()).toList();
+    }
+
+    @Override
+    public void acknowledgeEvent(InspectionId inspectionId,
+            DomainEvent event) {
+        for (Finding finding : findings.findByInspection(inspectionId)) {
+            if (finding.pendingEvents().contains(event)) {
+                finding.acknowledgeEvent(event);
+                findings.save(finding);
+            }
+        }
     }
 
     private String describe(Finding finding) {
         return finding.result() + " (" + finding.severity() + ")";
     }
 
-    private void create(InspectionId inspectionId, AssetId assetId, PartyId responsible,
+    private void create(InspectionId inspectionId, AssetId assetId, PartyId responsible, PartyId inspector,
             NonConformity nonConformity) {
         Instant at = clock.now();
         Finding finding = new Finding(
@@ -143,6 +154,7 @@ public final class FindingService implements FindingRegistry {
                 nonConformity.criterionId(),
                 assetId,
                 responsible,
+                inspector,
                 nonConformity.evaluation().result(),
                 nonConformity.evaluation().reasons(),
                 nonConformity.evaluation().severity(),

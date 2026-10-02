@@ -2,6 +2,7 @@ package ar.edu.itba.dps.certification.domain.inspection;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
+import ar.edu.itba.dps.certification.domain.evaluation.CriterionEvaluator;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
@@ -13,6 +14,7 @@ import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
+import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
@@ -37,6 +39,10 @@ public final class Inspection {
     private LocalDate expectedDate;
     private InspectionStatus status;
     private SchemaVersionId frozenSchemaVersionId;
+    private SchemaVersion frozenSchemaVersion;
+    private final List<DomainEvent> pendingEvents = new ArrayList<>();
+    private final CriterionEvaluator evaluator =
+            new CriterionEvaluator();
     private AssetSnapshot assetSnapshot;
     private Instant startedAt;
     private Instant closedAt;
@@ -105,6 +111,7 @@ public final class Inspection {
         Validate.required(at, "start instant");
         Validate.ensure(snapshot.assetId().equals(assetId),
                 "the snapshot belongs to a different asset");
+        this.frozenSchemaVersion = version;
         this.frozenSchemaVersionId = version.id();
         this.assetSnapshot = snapshot;
         this.startedAt = at;
@@ -116,7 +123,12 @@ public final class Inspection {
 
     public void recordAnswer(CriterionId criterionId, Answer answer) {
         requireInProgress("record an answer");
-        requireRecord(criterionId).recordAnswer(answer);
+        CriterionRecord record = requireRecord(criterionId);
+        Validate.required(answer, "answer");
+        frozenSchemaVersion.requireCriterion(criterionId).rule().admissibilityViolation(answer)
+                .ifPresent(violation -> { throw new DomainException("answer refused for criterion "
+                        + criterionId + ": " + violation); });
+        record.recordAnswer(answer);
     }
 
     public void removeAnswer(CriterionId criterionId) {
@@ -126,6 +138,12 @@ public final class Inspection {
 
     public void attachEvidence(CriterionId criterionId, EvidenceRecord evidence) {
         requireInProgress("attach evidence");
+        Validate.required(evidence, "evidence record");
+        var requirement = frozenSchemaVersion.requireCriterion(criterionId).evidenceRequirements().stream()
+                .filter(declared -> declared.label().equals(evidence.requirementLabel()))
+                .findFirst().orElseThrow(() -> new DomainException("criterion " + criterionId
+                        + " declares no evidence requirement labelled '" + evidence.requirementLabel() + "'"));
+        Validate.ensure(requirement.type() == evidence.type(), "evidence type must match its declared requirement");
         requireRecord(criterionId).attach(evidence);
     }
 
@@ -157,22 +175,24 @@ public final class Inspection {
         return removed;
     }
 
-    public InspectionClosureResult close(Instant at, Map<CriterionId, CriterionEvaluation> evaluations) {
+    public InspectionClosureResult close(Instant at) {
         Validate.required(at, "closure instant");
-        Validate.required(evaluations, "evaluations");
         if (status.closed()) {
             return new InspectionClosureResult(id, closedAt, true, currentEvaluations());
         }
         requireInProgress("close");
-        Validate.ensure(evaluations.keySet().equals(records.keySet()),
-                "every criterion of the frozen version must be evaluated exactly once at close");
+        Validate.ensure(!at.isBefore(startedAt), "closure cannot precede the inspection start");
+        Map<CriterionId, CriterionEvaluation> evaluations = new LinkedHashMap<>();
+        for (Criterion criterion : frozenSchemaVersion.criteria()) {
+            evaluations.put(criterion.id(), evaluator.evaluate(criterion, requireRecord(criterion.id()), at));
+        }
         evaluations.forEach((criterionId, evaluation) -> requireRecord(criterionId).recordClosureEvaluation(evaluation));
         this.status = InspectionStatus.CLOSED;
         this.closedAt = at;
         return new InspectionClosureResult(id, at, false, evaluations);
     }
 
-    public Rectification rectify(SchemaVersion version, RectificationId rectificationId,
+    public Rectification rectify(RectificationId rectificationId,
             PartyId author, Instant at, String reason, List<Correction> corrections) {
         Validate.ensure(status.closed(), "only a closed inspection can be rectified");
         Validate.required(author, "rectification author");
@@ -182,10 +202,11 @@ public final class Inspection {
         Validate.required(at, "rectification instant");
         Validate.requiredText(reason, "rectification reason");
         Validate.requiredNonEmpty(corrections, "corrections");
-        Validate.required(version, "schema version");
-        Validate.ensure(version.id().equals(frozenSchemaVersionId),
-                "a rectification must be checked against the version frozen at start");
-        corrections.forEach(correction -> rejectIfInapplicable(version, correction));
+        Validate.ensure(!at.isBefore(closedAt), "rectification cannot precede closure");
+        Validate.ensure(rectifications.stream().noneMatch(existing -> existing.id().equals(rectificationId)),
+                "rectification " + rectificationId + " is already recorded");
+        corrections = List.copyOf(corrections);
+        corrections.forEach(correction -> rejectIfInapplicable(frozenSchemaVersion, correction));
 
         List<RectificationChange> changes = new ArrayList<>();
         for (Correction correction : corrections) {
@@ -194,6 +215,19 @@ public final class Inspection {
         Rectification rectification =
                 new Rectification(rectificationId, author, at, reason, changes);
         rectifications.add(rectification);
+        for (CriterionId criterionId : rectification.affectedCriteria()) {
+            CriterionRecord record = requireRecord(criterionId);
+            CriterionEvaluation previous = record.currentEvaluation().orElseThrow();
+            CriterionEvaluation current = evaluator.evaluate(frozenSchemaVersion.requireCriterion(criterionId),
+                    record, at).asRectificationOf(rectificationId, at);
+            if (previous.result() != current.result() || !previous.reasons().equals(current.reasons())) {
+                recordEvaluationProducedBy(rectification, criterionId, current);
+            }
+            if (previous.result() != current.result()) {
+                pendingEvents.add(new CriterionResultRevised(id, criterionId, previous.result(),
+                        current.result(), rectificationId, reason, at));
+            }
+        }
         return rectification;
     }
 
@@ -240,7 +274,7 @@ public final class Inspection {
         };
     }
 
-    public void recordEvaluationProducedBy(Rectification rectification, CriterionId criterionId,
+    private void recordEvaluationProducedBy(Rectification rectification, CriterionId criterionId,
                                            CriterionEvaluation evaluation) {
         Validate.ensure(status.closed(), "only a closed inspection carries rectified evaluations");
         Validate.required(rectification, "rectification");
@@ -263,6 +297,14 @@ public final class Inspection {
                         + " already produced an evaluation for criterion " + criterionId);
 
         record.appendRectifiedEvaluation(evaluation);
+    }
+
+    public List<DomainEvent> pendingEvents() {
+        return List.copyOf(pendingEvents);
+    }
+
+    public void acknowledgeEvent(DomainEvent event) {
+        pendingEvents.remove(event);
     }
 
     public CriterionRecord requireRecord(CriterionId criterionId) {

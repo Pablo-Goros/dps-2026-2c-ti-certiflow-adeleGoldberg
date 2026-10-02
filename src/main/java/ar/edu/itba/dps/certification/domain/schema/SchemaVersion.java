@@ -18,6 +18,11 @@ public record SchemaVersion(
         Validate.requiredNonEmpty(sections, "sections");
         Validate.required(publishedAt, "publication instant");
         sections = sections.stream().sorted(Comparator.comparingInt(Section::order)).toList();
+        var criteria = sections.stream().flatMap(section -> section.criteria().stream()).toList();
+        Validate.ensure(criteria.stream().map(Criterion::id).distinct().count() == criteria.size(),
+                "a published version must contain unique criterion ids");
+        Validate.ensure(criteria.stream().allMatch(c -> c.rule().publicationViolations().isEmpty()),
+                "a published version must contain valid total rules");
     }
 
     public int number() {

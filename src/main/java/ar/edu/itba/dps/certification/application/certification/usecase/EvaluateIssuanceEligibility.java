@@ -1,10 +1,10 @@
 package ar.edu.itba.dps.certification.application.certification.usecase;
 
 import ar.edu.itba.dps.certification.application.certification.CertificationContextAssembler;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.certification.issuance.CertificateIssuancePolicy;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionQuery;
 
 import java.util.List;
 
@@ -23,6 +23,6 @@ public final class EvaluateIssuanceEligibility {
 
     public List<IssuanceBlocker> blockersFor(InspectionId inspectionId) {
         return policy.blockersFor(
-                assembler.contextFor(inspections.summaryOf(inspectionId)));
+                assembler.contextFor(inspections.require(inspectionId)));
     }
 }

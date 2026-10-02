@@ -1,7 +1,7 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.application.inspection.port.FindingRegistry;
-import ar.edu.itba.dps.certification.application.inspection.port.NonConformity;
+import ar.edu.itba.dps.certification.domain.inspection.port.FindingRegistry;
+import ar.edu.itba.dps.certification.domain.inspection.port.NonConformity;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
@@ -42,13 +42,13 @@ public final class RecordingFindingRegistry implements FindingRegistry {
 
     @Override
     public void recordClosureNonConformities(InspectionId inspectionId, AssetId assetId,
-            PartyId responsibleAtClose, List<NonConformity> nonConformities) {
+            PartyId responsibleAtClose, PartyId inspector, List<NonConformity> nonConformities) {
         closures.add(new ClosureCall(inspectionId, assetId, responsibleAtClose, nonConformities));
     }
 
     @Override
     public void registerRevealedNonConformity(InspectionId inspectionId, AssetId assetId,
-            PartyId responsible, NonConformity nonConformity, RectificationId rectificationId) {
+            PartyId responsible, PartyId inspector, NonConformity nonConformity, RectificationId rectificationId) {
         revealed.add(new RevealedCall(inspectionId, nonConformity.criterionId(), responsible,
                 rectificationId));
     }

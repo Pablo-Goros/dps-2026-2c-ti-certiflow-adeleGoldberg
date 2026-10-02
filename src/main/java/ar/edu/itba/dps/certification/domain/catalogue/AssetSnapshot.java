@@ -18,7 +18,7 @@ public record AssetSnapshot(
         Validate.required(assetId, "asset id");
         Validate.required(assetType, "asset type id");
         name = Validate.requiredText(name, "asset name");
-        characteristics = Validate.requiredTextEntries(characteristics, "characteristic");
+        characteristics = assetType.validateCharacteristics(characteristics);
         location = Validate.requiredText(location, "location");
         Validate.required(responsible, "responsible");
         Validate.required(capturedAt, "capture instant");

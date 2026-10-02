@@ -42,15 +42,23 @@ public final class InspectionSchema {
         return applicableAssetTypes.contains(assetType);
     }
 
-    public void applyTo(AssetType assetType) {
-        applicableAssetTypes.add(Validate.required(assetType, "asset type id"));
+    void applyTo(AssetType assetType) {
+        Validate.required(assetType, "asset type id");
+        Validate.ensure(!appliesTo(assetType), "schema already applies to asset type " + assetType);
+        applicableAssetTypes.add(assetType);
     }
 
-    public void stopApplyingTo(AssetType assetType) {
+    void stopApplyingTo(AssetType assetType) {
+        Validate.required(assetType, "asset type id");
+        Validate.ensure(appliesTo(assetType), "schema does not apply to asset type " + assetType);
         Validate.ensure(applicableAssetTypes.size() > 1,
                 "schema " + id + " must remain applicable to at least one asset type");
         applicableAssetTypes.remove(assetType);
     }
+
+    public void addSection(Section section) { requireDraft().addSection(section); }
+
+    public Section removeSection(String name) { return requireDraft().removeSection(name); }
 
     public Optional<SchemaDraft> draft() {
         return Optional.ofNullable(draft);

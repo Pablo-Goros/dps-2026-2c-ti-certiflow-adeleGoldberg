@@ -2,7 +2,7 @@ package ar.edu.itba.dps.certification.support;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.application.catalogue.CatalogueAssetDirectory;
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetResponsible;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
@@ -13,7 +13,7 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.RecordAnswer
 import ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
 import ar.edu.itba.dps.certification.application.schema.PublishedSchemaCatalog;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
 import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
@@ -81,14 +81,22 @@ public final class DomainWorld {
     public final StartInspection startInspection =
             new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit);
     public final RecordAnswer recordAnswer =
-            new RecordAnswer(inspections, schemaCatalog, audit);
+            new RecordAnswer(inspections, audit);
     public final AttachEvidence attachEvidence =
             new AttachEvidence(inspections, schemaCatalog, ids, clock, audit);
     public final CloseInspection closeInspection =
-            new CloseInspection(inspections, schemaCatalog, assetDirectory, evaluator, findings, clock, audit);
+            new CloseInspection(inspections, assetDirectory, findings, clock, audit);
     public final RectifyClosedInspection rectifyClosedInspection =
-            new RectifyClosedInspection(inspections, schemaCatalog, assetDirectory, evaluator, findings,
-                    events, ids, clock, audit);
+            new RectifyClosedInspection(inspections, assetDirectory, findings,
+                    events, ids, clock, audit, actors);
+
+    public <T> T actingAs(ar.edu.itba.dps.certification.domain.shared.PartyId user,
+            java.util.function.Supplier<T> operation) {
+        var previous = actors.current();
+        actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(user, user.value()));
+        try { return operation.get(); }
+        finally { actors.actingAs(previous); }
+    }
 
     public Party person(String name) {
         return registerParty.register(name, PartyKind.PERSON);

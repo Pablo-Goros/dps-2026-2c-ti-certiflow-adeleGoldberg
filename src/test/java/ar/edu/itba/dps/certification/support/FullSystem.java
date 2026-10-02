@@ -2,7 +2,7 @@ package ar.edu.itba.dps.certification.support;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.application.catalogue.CatalogueAssetDirectory;
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetResponsible;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
@@ -31,7 +31,7 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveNote;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
 import ar.edu.itba.dps.certification.application.schema.PublishedSchemaCatalog;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
 import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
@@ -69,7 +69,7 @@ public final class FullSystem {
     public final CriterionEvaluator evaluator = new CriterionEvaluator();
     public final RepositoryFindingQuery findingQuery = new RepositoryFindingQuery(findings);
     public final FindingService findingService =
-            new FindingService(findings, ids, clock, events, audit);
+            new FindingService(findings, ids, clock, audit);
     public final CertificationContextAssembler assembler =
             new CertificationContextAssembler(findingQuery, certificates, clock);
     public final RegisterParty registerParty = new RegisterParty(catalogue.parties, ids, audit);
@@ -88,34 +88,36 @@ public final class FullSystem {
             new AssignInspection(inspections, assetDirectory, ids, audit);
     public final StartInspection startInspection =
             new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit);
-    public final RecordAnswer recordAnswer = new RecordAnswer(inspections, schemaCatalog, audit);
-    public final RecordNote recordNote = new RecordNote(inspections, ids, clock, audit);
+    public final RecordAnswer recordAnswer = new RecordAnswer(inspections, audit);
+    public final RecordNote recordNote = new RecordNote(inspections, ids, clock, audit, actors);
     public final CorrectNote correctNote = new CorrectNote(inspections, audit);
     public final RemoveNote removeNote = new RemoveNote(inspections, audit);
     public final RemoveAnswer removeAnswer = new RemoveAnswer(inspections, audit);
     public final RemoveEvidence removeEvidence = new RemoveEvidence(inspections, audit);
     public final AttachEvidence attachEvidence =
             new AttachEvidence(inspections, schemaCatalog, ids, clock, audit);
-    public final CloseInspection closeInspection = new CloseInspection(inspections, schemaCatalog,
-            assetDirectory, evaluator, findingService, clock, audit);
+    public final CloseInspection closeInspection = new CloseInspection(inspections,
+            assetDirectory, findingService, clock, audit);
     public final RectifyClosedInspection rectifyClosedInspection =
-            new RectifyClosedInspection(inspections, schemaCatalog, assetDirectory, evaluator,
-                    findingService, events, ids, clock, audit);
+            new RectifyClosedInspection(inspections, assetDirectory,
+                    findingService, events, ids, clock, audit, actors);
 
     public final PlanCorrectiveAction planCorrectiveAction =
-            new PlanCorrectiveAction(findings, audit);
+            new PlanCorrectiveAction(findings, audit, clock);
     public final ReportCorrectiveActionExecution reportExecution =
-            new ReportCorrectiveActionExecution(findings, clock, audit);
+            new ReportCorrectiveActionExecution(findings, clock, audit, actors);
     public final VerifyCorrectiveAction verifyCorrectiveAction =
-            new VerifyCorrectiveAction(findings, inspections, clock, events, audit);
+            new VerifyCorrectiveAction(findings, clock, events, audit, actors);
     public final ExpireOverdueCorrectiveActions expireActions =
             new ExpireOverdueCorrectiveActions(findings, clock, events, audit);
 
     public final CertificateIssuancePolicy issuancePolicy = new CertificateIssuancePolicy();
-    public final IssueCertificate issueCertificate = new IssueCertificate(inspections, certificates,
-            assembler, issuancePolicy, FixedDurationValidityPolicy.ofMonths(12), ids, clock, audit);
+    public final ar.edu.itba.dps.certification.domain.certification.CertificateFactory certificateFactory =
+            new ar.edu.itba.dps.certification.domain.certification.CertificateFactory(inspections, findingQuery,
+                    certificates, issuancePolicy, FixedDurationValidityPolicy.ofMonths(12), ids, clock);
+    public final IssueCertificate issueCertificate = new IssueCertificate(certificateFactory, certificates, audit);
     public final RenewCertificate renewCertificate =
-            new RenewCertificate(inspections, certificates, issueCertificate, clock, audit);
+            new RenewCertificate(certificateFactory, certificates, audit);
     public final ExpireDueCertificates expireCertificates =
             new ExpireDueCertificates(certificates, clock, audit);
     public final EvaluateIssuanceEligibility evaluateEligibility =
@@ -123,6 +125,14 @@ public final class FullSystem {
 
     public FullSystem() {
         events.register(new CertificationReactions(certificates, audit));
+    }
+
+    public <T> T actingAs(ar.edu.itba.dps.certification.domain.shared.PartyId user,
+            java.util.function.Supplier<T> operation) {
+        var previous = actors.current();
+        actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(user, user.value()));
+        try { return operation.get(); }
+        finally { actors.actingAs(previous); }
     }
 
     public Party person(String name) {

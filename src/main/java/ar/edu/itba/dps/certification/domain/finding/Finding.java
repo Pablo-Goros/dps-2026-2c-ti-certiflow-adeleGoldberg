@@ -1,11 +1,13 @@
 package ar.edu.itba.dps.certification.domain.finding;
 
-import java.time.LocalDate;
+import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
 import ar.edu.itba.dps.certification.domain.finding.action.Verification;
-import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
-import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
+import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionClosed;
+import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired;
+import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionVoided;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
@@ -13,10 +15,12 @@ import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceShortfall;
+import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -24,10 +28,12 @@ import java.util.Optional;
 public final class Finding {
 
     private final FindingId id;
+    private final List<DomainEvent> pendingEvents = new ArrayList<>();
     private final InspectionId inspectionId;
     private final CriterionId criterionId;
     private final AssetId assetId;
     private final PartyId responsible;
+    private final PartyId inspector;
     private final Instant createdAt;
     private final List<CorrectiveAction> correctiveActions = new ArrayList<>();
     private final List<FindingRevision> revisions = new ArrayList<>();
@@ -39,7 +45,7 @@ public final class Finding {
     private Integer revisionsWhenCorrectionConcluded;
 
     public Finding(FindingId id, InspectionId inspectionId, CriterionId criterionId,
-            AssetId assetId, PartyId responsible, CriterionResult result,
+            AssetId assetId, PartyId responsible, PartyId inspector, CriterionResult result,
             List<EvaluationReason> reasons, Severity severity, List<String> presentedEvidence,
             CorrectiveActionId correctiveActionId, Instant createdAt) {
         this.id = Validate.required(id, "finding id");
@@ -47,13 +53,15 @@ public final class Finding {
         this.criterionId = Validate.required(criterionId, "criterion id");
         this.assetId = Validate.required(assetId, "asset id");
         this.responsible = Validate.required(responsible, "responsible");
+        this.inspector = Validate.required(inspector, "inspector");
         this.result = Validate.required(result, "result");
         Validate.ensure(!result.approved(), "an approved criterion does not produce a finding");
         this.reasons = Validate.requiredNonEmpty(reasons, "reasons");
         this.severity = Validate.required(severity, "severity");
         this.presentedEvidence = List.copyOf(Validate.required(presentedEvidence, "presented evidence"));
         this.correctiveActions.add(new CorrectiveAction(
-                Validate.required(correctiveActionId, "corrective action id")));
+                Validate.required(correctiveActionId, "corrective action id"), inspector,
+                Validate.required(createdAt, "creation instant").atZone(java.time.ZoneOffset.UTC).toLocalDate()));
         this.createdAt = Validate.required(createdAt, "creation instant");
     }
 
@@ -72,6 +80,8 @@ public final class Finding {
     public AssetId assetId() {
         return assetId;
     }
+
+    public PartyId inspector() { return inspector; }
 
     public PartyId responsible() {
         return responsible;
@@ -145,7 +155,8 @@ public final class Finding {
         CorrectiveAction newAction = null;
         if (correctiveAction().status().terminal()) {
             newAction = new CorrectiveAction(
-                    Validate.required(replacementAction, "replacement corrective action id"));
+                    Validate.required(replacementAction, "replacement corrective action id"), inspector,
+                    revisedAt.atZone(java.time.ZoneOffset.UTC).toLocalDate());
         }
 
         this.result = validatedResult;
@@ -173,6 +184,15 @@ public final class Finding {
         this.voided = record;
         correctiveAction().voidObligation(record);
         revisionsWhenCorrectionConcluded = revisions.size();
+        pendingEvents.add(new CorrectiveActionVoided(
+                inspectionId, id, correctiveAction().id(), criterionId, rectificationId, voidedAt));
+    }
+
+    public List<DomainEvent> pendingEvents() {
+        return List.copyOf(pendingEvents);
+    }
+    public void acknowledgeEvent(DomainEvent event) {
+        pendingEvents.remove(event);
     }
 
     public boolean obligationVoided() {
@@ -188,22 +208,28 @@ public final class Finding {
                 && revisionsWhenCorrectionConcluded == revisions.size();
     }
 
-    public void planCorrection(CorrectionPlan plan) {
-        correctiveAction().confirmPlan(plan);
+    public void planCorrection(CorrectionPlan plan, LocalDate today) {
+        correctiveAction().confirmPlan(plan, today);
     }
 
     public void reportCorrectionExecution(ExecutionReport report) {
         correctiveAction().reportExecution(report);
     }
 
-    public boolean expireCorrectionIfOverdue(LocalDate today) {
-        return correctiveAction().expireIfOverdue(today);
+    public boolean expireCorrectionIfOverdue(LocalDate today, Instant at) {
+        Validate.required(at, "expiration instant");
+        if (!correctiveAction().expireIfOverdue(today)) { return false; }
+        pendingEvents.add(new CorrectiveActionExpired(
+                inspectionId, id, correctiveAction().id(), criterionId, at));
+        return true;
     }
 
     public boolean concludeCorrection(Verification verification, LocalDate today) {
         boolean closed = correctiveAction().verify(verification, today);
         if (closed) {
             revisionsWhenCorrectionConcluded = revisions.size();
+            pendingEvents.add(new CorrectiveActionClosed(
+                    inspectionId, id, correctiveAction().id(), criterionId, verification.verifiedAt()));
         }
         return closed;
     }

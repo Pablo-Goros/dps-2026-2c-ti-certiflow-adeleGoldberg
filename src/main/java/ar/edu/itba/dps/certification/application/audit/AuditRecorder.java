@@ -1,13 +1,13 @@
 package ar.edu.itba.dps.certification.application.audit;
 
-import ar.edu.itba.dps.certification.application.audit.port.AuditTrail;
-import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditEntry;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
+import ar.edu.itba.dps.certification.domain.audit.port.AuditTrail;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
+import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 
 import java.util.Optional;
 
@@ -30,6 +30,14 @@ public final class AuditRecorder {
     public void record(AuditedElementRef element, AuditAction action, AuditDetail detail,
             String reason) {
         append(element, action, actors.current(), Optional.of(reason), detail);
+    }
+
+    public void recordAs(Actor actor, AuditedElementRef element, AuditAction action, AuditDetail detail) {
+        append(element, action, actor, Optional.empty(), detail);
+    }
+
+    public void recordAs(Actor actor, AuditedElementRef element, AuditAction action, AuditDetail detail, String reason) {
+        append(element, action, actor, Optional.of(reason), detail);
     }
 
     public void recordAutomatic(AuditedElementRef element, AuditAction action, AuditDetail detail) {

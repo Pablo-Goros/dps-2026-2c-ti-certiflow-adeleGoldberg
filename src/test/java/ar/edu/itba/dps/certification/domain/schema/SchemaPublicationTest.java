@@ -108,7 +108,7 @@ class SchemaPublicationTest {
     private SchemaVersion publishValid(InspectionSchema schema) {
         schema.openDraft();
         if (schema.requireDraft().sections().isEmpty()) {
-            schema.requireDraft().addSection(Section.of("Safety", 1, criterion(validNumericRule())));
+            schema.addSection(Section.of("Safety", 1, criterion(validNumericRule())));
         }
         return schema.publish(PUBLISHED_AT).publishedVersion();
     }
@@ -116,7 +116,7 @@ class SchemaPublicationTest {
     private List<String> violationsOf(NumericRangeRule rule) {
         InspectionSchema schema = aSchema();
         schema.openDraft();
-        schema.requireDraft().addSection(Section.of("Safety", 1, criterion(rule)));
+        schema.addSection(Section.of("Safety", 1, criterion(rule)));
         PublicationResult result = schema.publish(PUBLISHED_AT);
         assertThat(result.published()).isFalse();
         return result.violations();
@@ -147,8 +147,8 @@ class SchemaPublicationTest {
         schema.openDraft();
         Criterion first = criterion(validNumericRule());
         Criterion duplicate = new Criterion(first.id(), validNumericRule(), List.of());
-        schema.requireDraft().addSection(Section.of("Safety", 1, first));
-        schema.requireDraft().addSection(Section.of("Hygiene", 2, duplicate));
+        schema.addSection(Section.of("Safety", 1, first));
+        schema.addSection(Section.of("Hygiene", 2, duplicate));
 
         PublicationResult result = schema.publish(PUBLISHED_AT);
 

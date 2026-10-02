@@ -124,10 +124,10 @@ class RenewalIT {
         system.planCorrectiveAction.plan(finding.id(), "recalibrate", PartyId.of("executor"),
                 LocalDate.parse("2026-04-01"));
 
-        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
                 "the reading was corrected",
                 List.of(new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
-                        Measurement.of("5", "c"))));
+                        Measurement.of("5", "c")))));
 
         system.clock.advanceDays(45);
         List<Finding> expired = system.expireActions.sweep();

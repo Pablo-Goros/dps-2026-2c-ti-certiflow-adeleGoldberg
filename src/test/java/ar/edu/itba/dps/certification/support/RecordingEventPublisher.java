@@ -1,6 +1,6 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventPublisher;
+import ar.edu.itba.dps.certification.domain.shared.port.DomainEventPublisher;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
 
 import java.util.ArrayList;

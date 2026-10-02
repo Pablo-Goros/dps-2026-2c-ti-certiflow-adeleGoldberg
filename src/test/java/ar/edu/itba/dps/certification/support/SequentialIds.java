@@ -1,6 +1,6 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
 
 import java.util.concurrent.atomic.AtomicLong;
 

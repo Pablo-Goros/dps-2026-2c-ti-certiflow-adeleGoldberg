@@ -1,6 +1,5 @@
 package ar.edu.itba.dps.certification.domain.catalogue;
 
-import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
@@ -20,7 +19,7 @@ public final class Asset {
         this.id = Validate.required(id, "asset id");
         this.name = Validate.requiredText(name, "asset name");
         this.assetType = Validate.required(assetType, "asset type id");
-        this.characteristics = Validate.requiredTextEntries(characteristics, "characteristic");
+        this.characteristics = assetType.validateCharacteristics(characteristics);
         this.responsible = Validate.required(responsible, "asset responsible");
         this.location = Validate.requiredText(location, "asset location");
     }
@@ -49,22 +48,18 @@ public final class Asset {
         return location;
     }
 
-    public FieldChange assignResponsible(ResponsiblePartyRef newResponsible) {
+    public void assignResponsible(ResponsiblePartyRef newResponsible) {
         Validate.required(newResponsible, "new responsible");
         Validate.ensure(!newResponsible.equals(responsible),
                 "asset " + id + " is already the responsibility of " + newResponsible);
-        FieldChange change = FieldChange.of("responsible", responsible, newResponsible);
         this.responsible = newResponsible;
-        return change;
     }
 
-    public FieldChange relocate(String newLocation) {
+    public void relocate(String newLocation) {
         Validate.requiredText(newLocation, "new location");
         Validate.ensure(!newLocation.equals(location),
                 "asset " + id + " is already located at " + newLocation);
-        FieldChange change = FieldChange.of("location", location, newLocation);
         this.location = newLocation;
-        return change;
     }
 
     public AssetSnapshot captureSnapshot(Instant capturedAt) {

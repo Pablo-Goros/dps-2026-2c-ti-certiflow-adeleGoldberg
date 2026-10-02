@@ -1,7 +1,6 @@
 package ar.edu.itba.dps.certification.application.schema.usecase;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
@@ -9,6 +8,7 @@ import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.SchemaDraft;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.schema.Section;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 
 import java.util.stream.Collectors;
@@ -26,7 +26,7 @@ public final class EditDraft {
     public SchemaDraft addSection(SchemaId schemaId, Section section) {
         InspectionSchema schema = schemas.require(schemaId);
         SchemaDraft draft = schema.requireDraft();
-        draft.addSection(section);
+        schema.addSection(section);
         return audited(schema, draft,
                 FieldChange.of("section." + section.name(), null, describe(section)));
     }
@@ -34,7 +34,7 @@ public final class EditDraft {
     public SchemaDraft removeSection(SchemaId schemaId, String sectionName) {
         InspectionSchema schema = schemas.require(schemaId);
         SchemaDraft draft = schema.requireDraft();
-        Section removed = draft.removeSection(sectionName);
+        Section removed = schema.removeSection(sectionName);
         return audited(schema, draft, FieldChange.of("section." + removed.name(),
                 describe(removed), null));
     }

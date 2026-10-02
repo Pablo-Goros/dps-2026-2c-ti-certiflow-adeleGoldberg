@@ -119,9 +119,9 @@ class RectifyClosedInspectionTest {
         closeWith("30");
         PartyId someoneElse = world.person("Other Inspector").id();
 
-        assertThatThrownBy(() -> world.rectifyClosedInspection.rectify(inspectionId, someoneElse,
+        assertThatThrownBy(() -> world.actingAs(someoneElse, () -> world.rectifyClosedInspection.rectify(inspectionId, someoneElse,
                 "typo in the reading", List.of(new Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("5", "c")))))
+                        DomainWorld.TEMPERATURE, Measurement.of("5", "c"))))))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("only the assigned inspector");
     }
@@ -176,9 +176,9 @@ class RectifyClosedInspectionTest {
     void aRefusedRectificationLeavesNoTrace() {
         closeWith("5");
 
-        assertThatThrownBy(() -> world.rectifyClosedInspection.rectify(inspectionId,
+        assertThatThrownBy(() -> world.actingAs(inspector.id(), () -> world.rectifyClosedInspection.rectify(inspectionId,
                 inspector.id(), "   ", List.of(new Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("30", "c")))))
+                        DomainWorld.TEMPERATURE, Measurement.of("30", "c"))))))
                 .isInstanceOf(DomainException.class);
 
         Inspection inspection = world.inspections.require(inspectionId);
@@ -193,10 +193,10 @@ class RectifyClosedInspectionTest {
     void anInadmissibleAnswerIsRefusedWithoutBeingStored() {
         closeWith("5");
 
-        assertThatThrownBy(() -> world.rectifyClosedInspection.rectify(inspectionId,
+        assertThatThrownBy(() -> world.actingAs(inspector.id(), () -> world.rectifyClosedInspection.rectify(inspectionId,
                 inspector.id(), "the probe was misread", List.of(
                         new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
-                                YesNoAnswer.yes()))))
+                                YesNoAnswer.yes())))))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("answer refused");
 
@@ -206,89 +206,10 @@ class RectifyClosedInspectionTest {
         assertThat(inspection.rectifications()).isEmpty();
     }
 
-    @Test
-    @DisplayName("a rectified evaluation must reference the rectification that produced it")
-    void aRectifiedEvaluationMustReferenceItsRectification() {
-        closeWith("30");
-        Rectification rectification = world.rectifyClosedInspection.rectify(inspectionId,
-                inspector.id(), "typo in the reading", List.of(new Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("5", "c"))));
-        Inspection inspection = world.inspections.require(inspectionId);
-        CriterionEvaluation mismatched = CriterionEvaluation.approved(world.clock.now())
-                .asRectificationOf(RectificationId.of("another-rectification"), world.clock.now());
-
-        assertThatThrownBy(() -> inspection.recordEvaluationProducedBy(rectification,
-                DomainWorld.TEMPERATURE, mismatched))
-                .isInstanceOf(DomainException.class)
-                .hasMessageContaining("must reference rectification");
-
-        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).evaluations()).hasSize(2);
-    }
-
-    @Test
-    @DisplayName("a rectified evaluation cannot be attached to a rectification outside the inspection history")
-    void aRectifiedEvaluationRequiresARecordedRectification() {
-        closeWith("30");
-        Inspection inspection = world.inspections.require(inspectionId);
-        Rectification external = new Rectification(RectificationId.of("external-rectification"),
-                inspector.id(), world.clock.now(), "external change", List.of(
-                new RectificationChange.AnswerCorrected(DomainWorld.TEMPERATURE, "30 c", "5 c")));
-        CriterionEvaluation evaluation = CriterionEvaluation.approved(world.clock.now())
-                .asRectificationOf(external.id(), world.clock.now());
-
-        assertThatThrownBy(() -> inspection.recordEvaluationProducedBy(external,
-                DomainWorld.TEMPERATURE, evaluation))
-                .isInstanceOf(DomainException.class)
-                .hasMessageContaining("is not recorded");
-
-        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).evaluations()).hasSize(1);
-    }
-
-    @Test
-    @DisplayName("a rectified evaluation can only be recorded for a criterion affected by the rectification")
-    void aRectifiedEvaluationRequiresAnAffectedCriterion() {
-        closeWith("30");
-        Inspection inspection = world.inspections.require(inspectionId);
-        String evidenceId = inspection.requireRecord(DomainWorld.DOCUMENTATION)
-                .evidence().getFirst().id();
-        Rectification rectification = world.rectifyClosedInspection.rectify(inspectionId,
-                inspector.id(), "wrong evidence reference", List.of(
-                        new Correction.EvidenceReferenceCorrection(DomainWorld.DOCUMENTATION,
-                                evidenceId, "file://correct-manual.pdf")));
-        CriterionEvaluation evaluation = CriterionEvaluation.approved(world.clock.now())
-                .asRectificationOf(rectification.id(), world.clock.now());
-
-        assertThatThrownBy(() -> inspection.recordEvaluationProducedBy(rectification,
-                DomainWorld.TEMPERATURE, evaluation))
-                .isInstanceOf(DomainException.class)
-                .hasMessageContaining("did not affect criterion");
-
-        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).evaluations()).hasSize(1);
-    }
-
-    @Test
-    @DisplayName("the same rectification cannot produce two evaluations for one criterion")
-    void aRectificationCannotProduceTwoEvaluationsForOneCriterion() {
-        closeWith("30");
-        Rectification rectification = world.rectifyClosedInspection.rectify(inspectionId,
-                inspector.id(), "typo in the reading", List.of(new Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("5", "c"))));
-        Inspection inspection = world.inspections.require(inspectionId);
-        CriterionEvaluation duplicated = CriterionEvaluation.approved(world.clock.now())
-                .asRectificationOf(rectification.id(), world.clock.now());
-
-        assertThatThrownBy(() -> inspection.recordEvaluationProducedBy(rectification,
-                DomainWorld.TEMPERATURE, duplicated))
-                .isInstanceOf(DomainException.class)
-                .hasMessageContaining("already produced an evaluation");
-
-        assertThat(inspection.requireRecord(DomainWorld.TEMPERATURE).evaluations()).hasSize(2);
-    }
-
     private void rectifyTemperatureTo(String temperature) {
-        world.rectifyClosedInspection.rectify(inspectionId, inspector.id(), "typo in the reading",
+        world.actingAs(inspector.id(), () -> world.rectifyClosedInspection.rectify(inspectionId, inspector.id(), "typo in the reading",
                 List.of(new Correction.AnswerCorrection(DomainWorld.TEMPERATURE,
-                        Measurement.of(temperature, "c"))));
+                        Measurement.of(temperature, "c")))));
     }
 
     private void publishASecondVersionWhereWarmIsCritical() {

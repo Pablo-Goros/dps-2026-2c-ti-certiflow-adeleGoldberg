@@ -24,7 +24,7 @@ public final class Certificate {
     private final List<SuspensionRecord> suspensions = new ArrayList<>();
     private CertificateStatus status = CertificateStatus.VALID;
 
-    public Certificate(CertificateId id, AssetId assetId, InspectionId backingInspectionId,
+    Certificate(CertificateId id, AssetId assetId, InspectionId backingInspectionId,
             SchemaVersionId schemaVersionId, ValidityPeriod validity,
             CertificateId previousCertificateId) {
         this.id = Validate.required(id, "certificate id");
@@ -82,7 +82,7 @@ public final class Certificate {
         if (expiredAt(at)) {
             return false;
         }
-        if (hasUnresolved(cause)) {
+        if (hasRecorded(cause)) {
             return false;
         }
         suspensions.add(new SuspensionRecord(cause, at));
@@ -141,9 +141,8 @@ public final class Certificate {
         return status.expired() || validity.expiredAt(at);
     }
 
-    private boolean hasUnresolved(SuspensionCause cause) {
+    private boolean hasRecorded(SuspensionCause cause) {
         return suspensions.stream()
-                .filter(SuspensionRecord::unresolved)
                 .anyMatch(record -> record.cause().equals(cause));
     }
 

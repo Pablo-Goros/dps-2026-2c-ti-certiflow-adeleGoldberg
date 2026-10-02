@@ -1,6 +1,6 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
+import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 

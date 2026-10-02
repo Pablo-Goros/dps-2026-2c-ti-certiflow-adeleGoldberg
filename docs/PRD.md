@@ -33,7 +33,7 @@ Las respuestas acordadas se incorporan al RF correspondiente. Las propuestas pen
 ### RF1 — Catálogo de activos
 
 - Qué exige: Registrar y consultar los activos que se inspeccionan, con tipo, responsable, ubicación y características.
-- Supuesto adoptado: Características predefinidas por tipo, según S1. El catálogo concreto de atributos no es necesario para cerrar este PRD.
+- Supuesto adoptado: Características predefinidas por tipo, según S1. El catálogo inicial implementado se documenta en DESIGN.md; los atributos son opcionales y se rechazan nombres no declarados para el tipo.
 - Definido: Se permite cambiar responsable y ubicación, conservando los cambios en auditoría.
 - Supuesto adoptado: Las características del equipo no se modifican después del alta, según S4.
 - Definido: La inspección mantiene la identidad del activo y conserva sus datos históricos relevantes tal como eran al inspeccionarlo. Los cambios posteriores del activo no reescriben esos datos históricos ni crean otro activo.
@@ -41,7 +41,7 @@ Las respuestas acordadas se incorporan al RF correspondiente. Las propuestas pen
 #### Pendientes y propuestas
 
 - Definido: Al iniciar la inspección se conservan el identificador estable del activo, tipo, características, ubicación e identificador y datos identificatorios básicos del responsable. Los cambios posteriores del catálogo no modifican esta información, incluso durante una inspección abierta.
-- Alcance: La lista concreta de características por tipo y campos identificatorios del responsable se posterga; no bloquea la definición de los comportamientos del negocio ni el cierre del PRD.
+- Alcance: Se definió un catálogo inicial de características por tipo en DESIGN.md. Los campos identificatorios adicionales del responsable se postergan.
 - Definido: Responsable es una entidad del dominio y puede representar una persona o una organización. Su implementación y datos mínimos se definirán posteriormente.
 
 ### RF2 — Esquemas de inspección
@@ -124,8 +124,9 @@ La regla define las condiciones para obtener «observado»: una desviación que 
 - Definido: Planificar la acción consiste en indicar qué se hará, quién debe ejecutarla y su fecha límite.
 - Definido: Una vez confirmada la planificación, no se permite modificar el trabajo previsto, el ejecutor ni la fecha límite. Esto no impide registrar ejecuciones, evidencias y nuevos intentos de verificación en la misma acción.
 - Aclaración terminológica: La consigna exige «planificación» de acciones correctivas. «Plan» se refiere a esos datos de la misma acción; no se requiere un documento ni una entidad adicional llamada Plan.
+- Decisión de implementación para corregir el informe: la acción debe planificarse dentro de los 30 días corridos desde su creación (fecha UTC). El vencimiento de ese plazo tiene las mismas consecuencias que el vencimiento de la corrección. Planificar tarde conserva el incumplimiento. Al confirmar un plan su fecha límite no puede ser anterior a hoy; ambos plazos son inclusivos.
 - Definido: El sistema crea el hallazgo y el registro de su acción pendiente de planificar. El responsable del hallazgo decide cómo resolverlo y completa la acción indicando el trabajo, ejecutor y fecha límite. La decisión sobre la solución es humana; el sistema registra esa decisión y gestiona su seguimiento, vencimiento, verificación y cierre.
-- Definido: El responsable de ejecutar la acción informa su realización y adjunta evidencia. El inspector verifica si la corrección fue suficiente para cerrarla.
+- Definido: El responsable de ejecutar la acción informa su realización y adjunta evidencia. El inspector verifica si la corrección fue suficiente para cerrarla. El inspector no puede ser el ejecutor de esa acción; ejecución y verificación se atribuyen al usuario autenticado.
 - Definido: Si la verificación falla, la misma acción permanece abierta para otro intento. Se conservan las verificaciones realizadas y sus motivos.
 
 - Definido: Una acción vencida admite ejecución tardía y verificación posterior. Se conserva el incumplimiento del plazo aunque después se cierre satisfactoriamente.
@@ -145,7 +146,7 @@ La regla define las condiciones para obtener «observado»: una desviación que 
 - Definido: La reactivación conserva la fecha de vencimiento original y el historial de la suspensión. La causa de suspensión, por sí sola, no exige una nueva inspección completa. Si el certificado ya venció, corresponde gestionar la renovación.
 - Definido: Para emitir se requiere una inspección cerrada, ningún rechazo sin corrección verificada y ninguna acción abierta vencida. Las acciones pendientes deben estar planificadas y tener fecha límite.
 - Definido: Al emitir se indica y conserva la fecha de vencimiento. La duración predeterminada puede definirse posteriormente.
-- Definido: Renovar exige una nueva inspección completa, con la versión vigente del esquema al iniciarla, y emitir un nuevo certificado vinculado al anterior. Inicialmente se renueva una vez vencido el certificado anterior; la renovación anticipada queda fuera del alcance.
+- Definido: Renovar exige una nueva inspección completa iniciada después de la emisión del certificado anterior, con la versión vigente del esquema al iniciarla, y emitir un nuevo certificado vinculado al anterior. Inicialmente se renueva una vez vencido el certificado anterior; la renovación anticipada queda fuera del alcance.
 - Definido: Inicialmente las causas de suspensión son el vencimiento de una acción correctiva asociada y un criterio rechazado descubierto mediante una rectificación de la inspección que respalda el certificado. La reactivación es automática al verificar satisfactoriamente y cerrar la última acción correspondiente a las causas de suspensión, siempre que el certificado no haya vencido.
 - Definido: La emisión se solicita explícitamente después del cierre. Cerrar una inspección no emite ni intenta emitir automáticamente un certificado. Cada solicitud comprueba las condiciones de emisión vigentes en ese momento.
 - Definido: Cada inspección puede respaldar como máximo un certificado.

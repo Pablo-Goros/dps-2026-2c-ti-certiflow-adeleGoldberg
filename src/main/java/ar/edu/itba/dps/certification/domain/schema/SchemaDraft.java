@@ -1,6 +1,5 @@
 package ar.edu.itba.dps.certification.domain.schema;
 
-import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
@@ -22,14 +21,14 @@ public final class SchemaDraft {
         sections.addAll(seed.sections());
     }
 
-    public void addSection(Section section) {
+    void addSection(Section section) {
         Validate.required(section, "section");
         Validate.ensure(sections.stream().noneMatch(existing -> existing.name().equals(section.name())),
                 "section '" + section.name() + "' is already part of the draft");
         sections.add(section);
     }
 
-    public Section removeSection(String name) {
+    Section removeSection(String name) {
         Section removed = sections.stream()
                 .filter(section -> section.name().equals(name))
                 .findFirst()

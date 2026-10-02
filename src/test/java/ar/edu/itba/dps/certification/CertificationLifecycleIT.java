@@ -78,10 +78,10 @@ class CertificationLifecycleIT {
                 PartyId.of("executor"), LocalDate.parse("2026-04-01"));
         assertThat(blockers(system.issueCertificate.issue(inspectionId))).isNotEmpty();
 
-        system.reportExecution.report(finding.id(), "unit recalibrated", List.of("file://photo.jpg"),
-                PartyId.of("executor"));
-        system.verifyCorrectiveAction.verify(finding.id(), true, "measured within range",
-                inspector.id());
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "unit recalibrated", List.of("file://photo.jpg"),
+                PartyId.of("executor")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "measured within range",
+                inspector.id()));
 
         assertThat(issuedCertificate(system.issueCertificate.issue(inspectionId))).isNotNull();
     }
@@ -114,9 +114,9 @@ class CertificationLifecycleIT {
 
         assertThat(certificate.status()).isEqualTo(CertificateStatus.SUSPENDED);
 
-        system.reportExecution.report(finding.id(), "ventilation improved",
-                List.of("file://photo.jpg"), PartyId.of("executor"));
-        system.verifyCorrectiveAction.verify(finding.id(), true, "airflow measured", inspector.id());
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "ventilation improved",
+                List.of("file://photo.jpg"), PartyId.of("executor")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "airflow measured", inspector.id()));
 
         assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
         assertThat(certificate.validity().expiresAt()).isEqualTo(originalExpiry);
@@ -186,10 +186,10 @@ class CertificationLifecycleIT {
         InspectionId inspectionId = inspectAndClose("30", true);
         Party otherInspector = system.person("Laura Gomez");
 
-        assertThatThrownBy(() -> system.rectifyClosedInspection.rectify(inspectionId, otherInspector.id(),
+        assertThatThrownBy(() -> system.actingAs(otherInspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, otherInspector.id(),
                 "someone else tries to change the result",
                 List.of(new ar.edu.itba.dps.certification.domain.inspection.rectification.Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("5", "c")))))
+                        DomainWorld.TEMPERATURE, Measurement.of("5", "c"))))))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("only the assigned inspector");
     }

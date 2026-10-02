@@ -1,6 +1,6 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 
 import java.time.Duration;
 import java.time.Instant;

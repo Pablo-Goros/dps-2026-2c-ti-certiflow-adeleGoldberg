@@ -1,14 +1,13 @@
 package ar.edu.itba.dps.certification.application.finding.usecase;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventPublisher;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
-import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.DomainEventPublisher;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -32,7 +31,7 @@ public final class ExpireOverdueCorrectiveActions {
         Instant at = clock.now();
         List<Finding> expired = new ArrayList<>();
         for (Finding finding : findings.findWithOpenActions()) {
-            if (!finding.expireCorrectionIfOverdue(clock.today())) {
+            if (!finding.expireCorrectionIfOverdue(clock.today(), at)) {
                 continue;
             }
             findings.save(finding);
@@ -41,10 +40,13 @@ public final class ExpireOverdueCorrectiveActions {
                     AuditedElementRef.correctiveAction(finding.correctiveAction().id().value()),
                     AuditAction.CORRECTIVE_ACTION_EXPIRED,
                     AuditDetail.decision("deadline sweep", "due "
-                            + finding.correctiveAction().plan().orElseThrow().dueDate()
+                            + finding.correctiveAction().breachedDeadline().orElseThrow()
                             + " passed without a verified correction"));
-            events.publish(new CorrectiveActionExpired(finding.inspectionId(), finding.id(),
-                    finding.correctiveAction().id(), finding.criterionId(), at));
+            for (var event : finding.pendingEvents()) {
+                events.publish(event);
+                finding.acknowledgeEvent(event);
+            }
+            findings.save(finding);
         }
         return expired;
     }

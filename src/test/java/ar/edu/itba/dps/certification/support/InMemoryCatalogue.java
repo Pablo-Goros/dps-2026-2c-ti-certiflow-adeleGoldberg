@@ -1,7 +1,7 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetRepository;
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetRepository;
+import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;

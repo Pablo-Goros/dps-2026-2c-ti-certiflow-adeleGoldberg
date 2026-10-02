@@ -20,6 +20,7 @@ public record AuditEntry(
         Validate.required(occurredAt, "audit timestamp");
         Validate.required(actor, "audit actor");
         Validate.required(reason, "audit reason");
+        reason = reason.map(value -> Validate.requiredText(value, "audit reason"));
         Validate.required(detail, "audit detail");
         Validate.ensure(!action.requiresReason() || reason.isPresent(),
                 "action " + action + " requires a reason");

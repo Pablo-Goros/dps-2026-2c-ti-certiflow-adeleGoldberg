@@ -5,8 +5,8 @@ import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
 import ar.edu.itba.dps.certification.domain.finding.action.Verification;
-
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
@@ -17,18 +17,30 @@ import java.util.Optional;
 
 public final class CorrectiveAction {
 
+    private static final int PLANNING_DAYS = 30;
     private final CorrectiveActionId id;
+    private final LocalDate planningDueDate;
+    private final PartyId inspector;
     private final List<ExecutionReport> executions = new ArrayList<>();
     private final List<Verification> verifications = new ArrayList<>();
     private CorrectiveActionStatus status = CorrectiveActionStatus.PENDING_PLANNING;
     private CorrectionPlan plan;
     private Instant closedAt;
     private boolean deadlineBreached;
+    private LocalDate breachedDeadline;
+    private boolean expiryNotified;
     private VoidedObligation voided;
 
-    public CorrectiveAction(CorrectiveActionId id) {
+    CorrectiveAction(CorrectiveActionId id, PartyId inspector,
+            LocalDate createdOn) {
         this.id = Validate.required(id, "corrective action id");
+        this.inspector = Validate.required(inspector, "inspector");
+        this.planningDueDate = Validate.required(createdOn, "creation date").plusDays(PLANNING_DAYS);
     }
+
+    public LocalDate planningDueDate() { return planningDueDate; }
+
+    public LocalDate deadline() { return plan == null ? planningDueDate : plan.dueDate(); }
 
     public CorrectiveActionId id() {
         return id;
@@ -62,12 +74,20 @@ public final class CorrectiveAction {
         return deadlineBreached;
     }
 
-    void confirmPlan(CorrectionPlan newPlan) {
+    public Optional<LocalDate> breachedDeadline() {
+        return Optional.ofNullable(breachedDeadline);
+    }
+
+    void confirmPlan(CorrectionPlan newPlan, LocalDate today) {
         Validate.required(newPlan, "correction plan");
         if (status != CorrectiveActionStatus.PENDING_PLANNING) {
             throw new DomainException("corrective action " + id
                     + " has already been planned and its plan cannot be modified");
         }
+        Validate.required(today, "planning date");
+        Validate.ensure(!newPlan.dueDate().isBefore(today), "correction deadline cannot precede planning date");
+        Validate.ensure(!newPlan.executor().equals(inspector), "the inspector cannot execute their own correction");
+        latchBreachIfOverdue(today);
         this.plan = newPlan;
         this.status = CorrectiveActionStatus.PLANNED;
     }
@@ -87,10 +107,15 @@ public final class CorrectiveAction {
 
     boolean verify(Verification verification, LocalDate today) {
         Validate.required(verification, "verification");
+        Validate.required(today, "verification date");
         if (status != CorrectiveActionStatus.EXECUTION_REPORTED) {
             throw new DomainException("corrective action " + id
                     + " has no reported execution to verify, it is " + status);
         }
+        Validate.ensure(verification.verifiedBy().equals(inspector),
+                "only the inspector may verify the corrective action");
+        Validate.ensure(!verification.verifiedBy().equals(plan.executor()),
+                "the executor cannot verify their own correction");
         verifications.add(verification);
         if (!verification.satisfactory()) {
             status = CorrectiveActionStatus.PLANNED;
@@ -104,11 +129,12 @@ public final class CorrectiveAction {
 
     boolean expireIfOverdue(LocalDate today) {
         Validate.required(today, "today");
-        if (status.terminal() || plan == null || !plan.overdueOn(today)) {
+        if (status.terminal() || (!deadlineBreached && !today.isAfter(deadline()))) {
             return false;
         }
-        boolean newlyBreached = !deadlineBreached;
-        deadlineBreached = true;
+        boolean newlyBreached = !expiryNotified;
+        latchBreachIfOverdue(today);
+        expiryNotified = true;
         return newlyBreached;
     }
 
@@ -124,7 +150,7 @@ public final class CorrectiveAction {
     }
 
     public boolean overdueAndOpen(LocalDate today) {
-        return status.open() && plan != null && plan.overdueOn(today);
+        return status.open() && (deadlineBreached || today.isAfter(deadline()));
     }
 
     public boolean awaitingPlan() {
@@ -140,8 +166,11 @@ public final class CorrectiveAction {
     }
 
     private void latchBreachIfOverdue(LocalDate today) {
-        if (plan != null && plan.overdueOn(today)) {
+        if (today.isAfter(deadline())) {
             deadlineBreached = true;
+            if (breachedDeadline == null) {
+                breachedDeadline = deadline();
+            }
         }
     }
 }

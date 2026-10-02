@@ -60,9 +60,9 @@ class ReportingIT {
     @DisplayName("the act distinguishes the original reading from the rectified one")
     void theActDistinguishesOriginalFromRectified() {
         InspectionId inspectionId = inspectAndClose("30");
-        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
                 "the probe was misread", List.of(new Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("5", "c"))));
+                        DomainWorld.TEMPERATURE, Measurement.of("5", "c")))));
 
         InspectionAct act = generateAct.generate(inspectionId);
 
@@ -113,10 +113,10 @@ class ReportingIT {
         Finding finding = system.findings.findByInspection(inspectionId).getFirst();
         system.planCorrectiveAction.plan(finding.id(), "recalibrate the cooling unit",
                 PartyId.of("executor"), LocalDate.parse("2026-04-01"));
-        system.reportExecution.report(finding.id(), "recalibrated", List.of("file://photo.jpg"),
-                PartyId.of("executor"));
-        system.verifyCorrectiveAction.verify(finding.id(), false, "still above range",
-                inspector.id());
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(finding.id(), "recalibrated", List.of("file://photo.jpg"),
+                PartyId.of("executor")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), false, "still above range",
+                inspector.id()));
 
         FindingsSummary summary = generateSummary.generate(inspectionId);
 
@@ -174,12 +174,12 @@ class ReportingIT {
     @DisplayName("the act attributes a twice-rectified answer to the rectification that produced it")
     void successiveRectificationsAreAttributedToTheLastOne() {
         InspectionId inspectionId = inspectAndClose("30");
-        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
                 "the probe read one digit too high", List.of(new Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("20", "c"))));
-        system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
+                        DomainWorld.TEMPERATURE, Measurement.of("20", "c")))));
+        system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(inspectionId, inspector.id(),
                 "the calibration sheet gave the final figure", List.of(new Correction.AnswerCorrection(
-                        DomainWorld.TEMPERATURE, Measurement.of("12", "c"))));
+                        DomainWorld.TEMPERATURE, Measurement.of("12", "c")))));
 
         InspectionAct act = generateAct.generate(inspectionId);
 

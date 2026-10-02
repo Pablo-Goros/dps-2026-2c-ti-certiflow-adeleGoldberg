@@ -1,14 +1,14 @@
 package ar.edu.itba.dps.certification.application.catalogue.usecase;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.PartyKind;
+import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
 
 public final class RegisterParty {
 

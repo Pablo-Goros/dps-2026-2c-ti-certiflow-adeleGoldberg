@@ -1,14 +1,14 @@
 package ar.edu.itba.dps.certification.application.catalogue.usecase;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetRepository;
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetRepository;
+import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 
@@ -28,7 +28,9 @@ public final class ChangeAssetResponsible {
     public Asset change(AssetId assetId, PartyId newResponsible) {
         Asset asset = assets.require(assetId);
         Party party = parties.require(newResponsible);
-        FieldChange change = asset.assignResponsible(party.reference());
+        var previous = asset.responsible();
+        asset.assignResponsible(party.reference());
+        FieldChange change = FieldChange.of("responsible", previous, asset.responsible());
         assets.save(asset);
         audit.record(AuditedElementRef.asset(asset.id().value()),
                 AuditAction.ASSET_RESPONSIBLE_CHANGED, AuditDetail.dataChanged(change));

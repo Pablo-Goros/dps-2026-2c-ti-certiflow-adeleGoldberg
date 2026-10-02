@@ -53,6 +53,7 @@ public record FindingsSummary(InspectionId inspectionId, List<FindingLine> lines
             Optional<String> work,
             Optional<PartyId> executor,
             Optional<LocalDate> dueDate,
+            LocalDate planningDueDate,
             boolean deadlineBreached,
             List<VerificationLine> verifications) {
 

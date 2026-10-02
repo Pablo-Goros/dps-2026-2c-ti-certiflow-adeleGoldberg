@@ -1,14 +1,14 @@
 package ar.edu.itba.dps.certification.application.schema.usecase;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.PublicationResult;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaRepository;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 
 public final class PublishSchemaVersion {
 

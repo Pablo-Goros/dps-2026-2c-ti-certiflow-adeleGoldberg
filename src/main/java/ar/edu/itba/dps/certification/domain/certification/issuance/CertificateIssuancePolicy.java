@@ -9,11 +9,14 @@ public final class CertificateIssuancePolicy {
     private final List<IssuanceRequirement> requirements;
 
     public CertificateIssuancePolicy() {
-        this(IssuanceRequirements.standard());
+        this(List.of());
     }
 
     public CertificateIssuancePolicy(List<IssuanceRequirement> requirements) {
-        this.requirements = Validate.requiredNonEmpty(requirements, "issuance requirements");
+        Validate.required(requirements, "additional issuance requirements");
+        var all = new java.util.ArrayList<>(IssuanceRequirements.standard());
+        all.addAll(requirements);
+        this.requirements = List.copyOf(all);
     }
 
     public List<IssuanceBlocker> blockersFor(CertificationContext context) {
