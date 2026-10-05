@@ -1,18 +1,20 @@
 package ar.edu.itba.dps.certification.application.finding.usecase;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
+import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
+import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
+import ar.edu.itba.dps.certification.application.shared.port.Clock;
+import ar.edu.itba.dps.certification.application.shared.port.DomainEventPublisher;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
-import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 
 public final class PlanCorrectiveAction {
 
@@ -20,9 +22,10 @@ public final class PlanCorrectiveAction {
     private final AuditRecorder audit;
     private final Clock clock;
     private final ActorProvider actors;
+    private final DomainEventPublisher events;
 
-    public PlanCorrectiveAction(FindingRepository findings, AuditRecorder audit, Clock clock, ActorProvider actors) {
-        this.findings = findings;
+    public PlanCorrectiveAction(FindingRepository findings, AuditRecorder audit, Clock clock, ActorProvider actors, DomainEventPublisher events) {
+        this.findings = findings; this.events = events;
         this.actors = actors;
         this.audit = audit;
         this.clock = clock;
@@ -32,12 +35,18 @@ public final class PlanCorrectiveAction {
         var actor = actors.requireUser();
         Finding finding = findings.require(findingId);
         CorrectionPlan plan = new CorrectionPlan(work, executor, dueDate);
-        finding.planCorrection(actor.partyId(), plan, clock.today());
+        var at = clock.now();
+        finding.planCorrection(actor.partyId(), plan, at.atZone(ZoneOffset.UTC).toLocalDate(), at);
         findings.save(finding);
         audit.recordAs(actor, AuditedElementRef.correctiveAction(finding.correctiveAction().id().value()),
                 AuditAction.CORRECTIVE_ACTION_PLANNED,
                 AuditDetail.decision("confirm the correction plan",
                         work + ", executor " + executor + ", due " + dueDate));
+        for (var event : finding.pendingEvents()) {
+            events.publish(event);
+            finding.acknowledgeEvent(event);
+            findings.save(finding);
+        }
         return finding;
     }
 }

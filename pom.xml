@@ -162,6 +162,10 @@
           <includes>
             <include>ar/edu/itba/dps/certification/**</include>
           </includes>
+          <!-- Runtime-generated Mockito classes follow the running JDK rather than compiler release. -->
+          <excludes>
+            <exclude>**/*MockitoMock*</exclude>
+          </excludes>
         </configuration>
         <executions>
           <execution>

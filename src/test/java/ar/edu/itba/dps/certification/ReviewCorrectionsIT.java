@@ -2,27 +2,53 @@ package ar.edu.itba.dps.certification;
 
 import ar.edu.itba.dps.certification.application.certification.CertificateFactory;
 import ar.edu.itba.dps.certification.application.schema.usecase.ChangeSchemaApplicability;
+import ar.edu.itba.dps.certification.application.shared.usecase.PublishPendingDomainEvents;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
-import ar.edu.itba.dps.certification.domain.catalogue.*;
-import ar.edu.itba.dps.certification.domain.certification.*;
+import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
+import ar.edu.itba.dps.certification.domain.audit.AuditEntry;
+import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
+import ar.edu.itba.dps.certification.domain.catalogue.Asset;
+import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
+import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
+import ar.edu.itba.dps.certification.domain.catalogue.Party;
+import ar.edu.itba.dps.certification.domain.certification.Certificate;
+import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
+import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
-import ar.edu.itba.dps.certification.domain.finding.action.*;
-import ar.edu.itba.dps.certification.domain.inspection.*;
-import ar.edu.itba.dps.certification.domain.inspection.rectification.*;
-import ar.edu.itba.dps.certification.domain.schema.*;
-import ar.edu.itba.dps.certification.domain.shared.*;
-import ar.edu.itba.dps.certification.domain.shared.answer.*;
-import ar.edu.itba.dps.certification.support.*;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
+import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
+import ar.edu.itba.dps.certification.domain.finding.action.Verification;
+import ar.edu.itba.dps.certification.domain.inspection.CriterionResultRevised;
+import ar.edu.itba.dps.certification.domain.inspection.Inspection;
+import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
+import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectification;
+import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
+import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
+import ar.edu.itba.dps.certification.domain.schema.SchemaDraft;
+import ar.edu.itba.dps.certification.domain.schema.Section;
+import ar.edu.itba.dps.certification.domain.shared.Actor;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.domain.shared.Validate;
+import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
+import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.support.DomainWorld;
+import ar.edu.itba.dps.certification.support.FullSystem;
+
 import java.lang.reflect.Modifier;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
-import static org.assertj.core.api.Assertions.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
 import static ar.edu.itba.dps.certification.support.DomainWorld.*;
+import static org.assertj.core.api.Assertions.*;
 
 class ReviewCorrectionsIT {
     private FullSystem system;
@@ -89,7 +115,7 @@ class ReviewCorrectionsIT {
         InspectionId fresh = close("5");
         Certificate renewed = issuedCertificate(system.renewCertificate.renew(fresh));
         assertThat(system.renewCertificate.renew(fresh))
-                .isEqualTo(new IssuanceDecision.AlreadyIssued(renewed.id(), renewed.status()));
+                .isEqualTo(new IssuanceDecision.AlreadyIssued(renewed.id(), renewed.status(), renewed.policy(), renewed.mode()));
     }
 
     @Test
@@ -108,7 +134,7 @@ class ReviewCorrectionsIT {
     }
 
     @Test
-    void aPastDuePlanIsRefusedWithoutRecordingItOrSuspendingACertificate() {
+    void aPastDuePlanIsRefusedWithoutRecordingItOrChangingTheSuspension() {
         InspectionId id = close("5");
         Certificate certificate = issuedCertificate(system.issueCertificate.issue(id));
         rectify(id, "20");
@@ -117,7 +143,7 @@ class ReviewCorrectionsIT {
                 system.clock.today().minusDays(1))).hasMessageContaining("cannot precede planning date");
         assertThat(finding.correctiveAction().plan()).isEmpty();
         assertThat(system.auditTrail.withAction(AuditAction.CORRECTIVE_ACTION_PLANNED)).isEmpty();
-        assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
+        assertThat(certificate.status()).isEqualTo(CertificateStatus.SUSPENDED);
     }
 
     @Test
@@ -164,7 +190,7 @@ class ReviewCorrectionsIT {
     void directVerificationEnforcesTheInspectorRoleInTheAggregate() {
         Finding finding = system.findings.findByInspection(close("30")).getFirst();
         PartyId executor = PartyId.of("executor");
-        finding.planCorrection(finding.responsible(), new CorrectionPlan("fix", executor, system.clock.today().plusDays(10)), system.clock.today());
+        finding.planCorrection(finding.responsible(), new CorrectionPlan("fix", executor, system.clock.today().plusDays(10)), system.clock.today(), system.clock.now());
         finding.reportCorrectionExecution(new ExecutionReport("done", List.of("file://proof"), executor, system.clock.now()));
         assertThatThrownBy(() -> finding.concludeCorrection(new Verification(true, "ok", executor, system.clock.now()),
                 system.clock.today())).hasMessageContaining("only the inspector");
@@ -219,19 +245,17 @@ class ReviewCorrectionsIT {
         assertThat(system.auditTrail.withAction(AuditAction.INSPECTION_RECTIFIED)).hasSize(1);
         assertThat(inspection.pendingEvents()).hasSize(1);
         failing.set(false);
-        new ar.edu.itba.dps.certification.application.shared.usecase.PublishPendingDomainEvents(
+        new PublishPendingDomainEvents(
                 system.inspections, system.findings, system.events).publish();
         assertThat(inspection.pendingEvents()).isEmpty();
         assertThat(system.auditTrail.withAction(AuditAction.CERTIFICATE_SUSPENDED)).hasSize(1);
     }
 
     @Test
-    void additionalPolicyRequirementsCannotBypassTheMandatoryIssuanceRules() {
+    void theReferenceProfilePreservesMandatoryIssuanceRules() {
         InspectionId id = close("30");
-        var policy = new ar.edu.itba.dps.certification.domain.certification.issuance.CertificateIssuancePolicy(
-                List.of(context -> java.util.Optional.empty()));
         var factory = new CertificateFactory(system.inspections, system.findingQuery, system.certificates,
-                policy, FixedDurationValidityPolicy.ofMonths(12), system.globalPolicy, system.ids,
+                system.assetDirectory, system.policies, system.globalPolicy, system.ids,
                 system.clock);
         assertThat(factory.issue(id)).isInstanceOf(IssuanceDecision.Blocked.class);
     }
@@ -267,10 +291,10 @@ class ReviewCorrectionsIT {
 
     @Test
     void auditRejectsBlankReasonsAndDistinguishesInvalidArgumentsFromBusinessFailures() {
-        assertThatThrownBy(() -> new ar.edu.itba.dps.certification.domain.audit.AuditEntry(
-                ar.edu.itba.dps.certification.domain.audit.AuditedElementRef.inspection("id"),
+        assertThatThrownBy(() -> new AuditEntry(
+                AuditedElementRef.inspection("id"),
                 AuditAction.INSPECTION_RECTIFIED, system.clock.now(), Actor.system(), java.util.Optional.of("  "),
-                ar.edu.itba.dps.certification.domain.audit.AuditDetail.created("change")))
+                AuditDetail.created("change")))
                 .isInstanceOf(InvalidArgumentException.class).hasMessageContaining("audit reason");
         assertThatThrownBy(() -> Validate.required(null, "argument")).isInstanceOf(InvalidArgumentException.class);
         assertThatThrownBy(() -> Validate.ensure(false, "business rule")).isExactlyInstanceOf(DomainException.class);
@@ -279,7 +303,7 @@ class ReviewCorrectionsIT {
     @Test
     void assetCharacteristicsAreCheckedAgainstThePredefinedNames() {
         assertThatThrownBy(() -> new Asset(AssetId.of("bad"), "Bad", AssetType.EQUIPMENT,
-                java.util.Map.of("invented", "value"), asset.responsible(), "here"))
+                java.util.Map.of("invented", "value"), asset.responsible(), "here", JurisdictionId.of("REFERENCE")))
                 .hasMessageContaining("must be predefined");
     }
 

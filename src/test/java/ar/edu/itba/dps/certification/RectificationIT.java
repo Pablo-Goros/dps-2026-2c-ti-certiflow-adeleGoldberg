@@ -1,15 +1,5 @@
 package ar.edu.itba.dps.certification;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
@@ -31,10 +21,21 @@ import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
-import static ar.edu.itba.dps.certification.support.Decisions.blockers;
-import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static ar.edu.itba.dps.certification.support.Decisions.blockers;
+import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RectificationIT {
 
@@ -112,7 +113,7 @@ class RectificationIT {
                 });
         assertThat(certificate.status()).isEqualTo(CertificateStatus.SUSPENDED);
         assertThat(certificate.unresolvedCauses()).singleElement()
-                .isInstanceOf(SuspensionCause.RectifiedRejection.class);
+                .isInstanceOf(SuspensionCause.NonConformity.class);
     }
 
     @Test
@@ -210,7 +211,7 @@ class RectificationIT {
         assertThat(system.findings.findByInspection(inspectionId)).hasSize(1);
         assertThat(after.result()).isEqualTo(CriterionResult.REJECTED);
         assertThat(after.revisions()).isNotEmpty();
-        assertThat(after.blocksCertification()).isTrue();
+        assertThat(after.pendingNonConformity()).isTrue();
     }
 
     @Test

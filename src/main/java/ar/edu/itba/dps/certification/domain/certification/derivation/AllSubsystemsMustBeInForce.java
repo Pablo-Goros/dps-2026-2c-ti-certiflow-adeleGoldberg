@@ -2,6 +2,7 @@ package ar.edu.itba.dps.certification.domain.certification.derivation;
 
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
+import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.ValidityPeriod;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
@@ -43,7 +44,12 @@ public final class AllSubsystemsMustBeInForce implements GlobalCertificatePolicy
                 context.schemaVersionId(),
                 commonValidityOf(backing),
                 new LinkedHashSet<>(subsystems),
-                backing.stream().map(Certificate::id).toList()));
+                backing.stream().map(Certificate::id).toList(),
+                backing.stream().anyMatch(c -> c.mode() == CertificateMode.CONDITIONAL)
+                        ? CertificateMode.CONDITIONAL
+                        : CertificateMode.REGULAR,
+                backing.stream().map(c -> new GlobalCertificate.PartialProvenance(c.id(),
+                        c.scope().coveredSubsystem().orElseThrow(), c.policy(), c.mode())).toList()));
     }
 
     private Optional<String> whyItCannotBackAGlobal(Map<Subsystem, Certificate> bySubsystem,

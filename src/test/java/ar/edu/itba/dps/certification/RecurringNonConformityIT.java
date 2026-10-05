@@ -95,7 +95,7 @@ class RecurringNonConformityIT {
         rectify(id, "30");
 
         assertThat(certificate.status()).isEqualTo(CertificateStatus.SUSPENDED);
-        assertThat(system.findings.require(finding.id()).blocksCertification()).isTrue();
+        assertThat(system.findings.require(finding.id()).pendingNonConformity()).isTrue();
     }
 
     @Test
@@ -113,7 +113,7 @@ class RecurringNonConformityIT {
         assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
         assertThat(certificate.unresolvedCauses()).isEmpty();
         assertThat(system.findings.require(finding.id()).correctiveActions()).hasSize(2);
-        assertThat(system.findings.require(finding.id()).blocksCertification()).isFalse();
+        assertThat(system.findings.require(finding.id()).pendingNonConformity()).isFalse();
     }
 
     @Test
@@ -139,7 +139,7 @@ class RecurringNonConformityIT {
                 .isEqualTo(CorrectiveActionStatus.CLOSED);
         assertThat(after.correctiveAction().status())
                 .isEqualTo(CorrectiveActionStatus.PENDING_PLANNING);
-        assertThat(after.blocksCertification()).isTrue();
+        assertThat(after.pendingNonConformity()).isTrue();
         assertThat(certificate.status()).isEqualTo(CertificateStatus.SUSPENDED);
     }
 
@@ -178,7 +178,7 @@ class RecurringNonConformityIT {
         system.clock.advanceDays(1);
         system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(finding.id(), true, "en rango"));
 
-        assertThat(system.findings.require(finding.id()).blocksCertification()).isFalse();
+        assertThat(system.findings.require(finding.id()).pendingNonConformity()).isFalse();
         assertThat(issuedCertificate(system.issueCertificate.issue(id))).isNotNull();
     }
 

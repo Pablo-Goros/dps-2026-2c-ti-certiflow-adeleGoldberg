@@ -7,11 +7,13 @@ import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
+import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Facts the issuance policy decides on. The business meaning of each fact (what counts as an
@@ -44,20 +46,29 @@ public record CertificationContext(
     }
 
     public int unverifiedRejections() {
-        return (int) inspection.currentEvaluations().entrySet().stream()
+        return (int) pendingNonConformities().stream().filter(p -> p.result() == CriterionResult.REJECTED).count();
+    }
+
+    public record PendingNonConformity(CriterionId criterionId, CriterionResult result,
+            Severity severity) { }
+
+    public List<PendingNonConformity> pendingNonConformities() {
+        return inspection.currentEvaluations().entrySet().stream()
                 .filter(e -> inScope(e.getKey()))
-                .filter(e -> e.getValue().result() == CriterionResult.REJECTED)
-                .filter(e -> findings.stream().noneMatch(f -> f.criterionId().equals(e.getKey()) && !f.blocksCertification()))
-                .count();
+                .filter(e -> !e.getValue().result().approved())
+                .filter(e -> findings.stream().noneMatch(f -> f.criterionId().equals(e.getKey())
+                        && !f.pendingNonConformity()))
+                .map(e -> new PendingNonConformity(e.getKey(), e.getValue().result(), e.getValue().severity()))
+                .toList();
     }
 
     public int overdueOpenActions() {
-        return (int) scopedFindings().filter(f -> !f.obligationVoided())
+        return (int) scopedFindings().filter(Finding::pendingNonConformity)
                 .filter(f -> f.correctiveAction().overdueAndOpen(today)).count();
     }
 
     public int unplannedActions() {
-        int pending = (int) scopedFindings().filter(f -> !f.obligationVoided())
+        int pending = (int) scopedFindings().filter(Finding::pendingNonConformity)
                 .filter(f -> f.correctiveAction().awaitingPlan()).count();
         int missing = (int) inspection.currentEvaluations().entrySet().stream()
                 .filter(e -> inScope(e.getKey()))
@@ -72,7 +83,7 @@ public record CertificationContext(
                 .orElse(true);
     }
 
-    private java.util.stream.Stream<Finding> scopedFindings() {
+    private Stream<Finding> scopedFindings() {
         return findings.stream().filter(finding -> inScope(finding.criterionId()));
     }
 }

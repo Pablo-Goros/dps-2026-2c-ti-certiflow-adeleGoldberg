@@ -1,12 +1,12 @@
 package ar.edu.itba.dps.certification.application.certification.usecase;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
+import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
+import ar.edu.itba.dps.certification.application.shared.port.Clock;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -28,7 +28,7 @@ public final class ExpireDueCertificates {
         Instant at = clock.now();
         List<Certificate> expired = new ArrayList<>();
         for (Certificate certificate : certificates.findDueForExpiry(at)) {
-            String previousStatus = certificate.status().name();
+            var previousStatus = certificate.status();
             if (!certificate.expireIfDue(at)) {
                 continue;
             }
@@ -36,7 +36,7 @@ public final class ExpireDueCertificates {
             expired.add(certificate);
             audit.recordAutomatic(AuditedElementRef.certificate(certificate.id().value()),
                     AuditAction.CERTIFICATE_EXPIRED,
-                    AuditDetail.stateChanged(previousStatus, "EXPIRED"));
+                    AuditDetail.certificateStateChanged(previousStatus, certificate));
         }
         return expired;
     }

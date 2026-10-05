@@ -3,32 +3,34 @@ package ar.edu.itba.dps.certification;
 import ar.edu.itba.dps.certification.application.schema.usecase.ChangeSchemaApplicability;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
-import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
-import ar.edu.itba.dps.certification.domain.certification.CertificationPlan;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
+import ar.edu.itba.dps.certification.domain.certification.CertificationPlan;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.report.CertificateReport;
+import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.OptionAnswer;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import static ar.edu.itba.dps.certification.support.Decisions.alreadyIssuedCertificate;
 import static ar.edu.itba.dps.certification.support.Decisions.blockers;
@@ -55,7 +57,7 @@ class PartialCertificationIT {
         responsible = system.organization("Favaloro Foundation");
         asset = system.registerAsset.register("Central Facility", AssetType.FACILITY,
                 responsible.id(), "Building 1", Map.of("room", "12", "purpose", "research"),
-                Set.of(ELECTRICAL, PRESSURE));
+                Set.of(ELECTRICAL, PRESSURE), JurisdictionId.of("REFERENCE"));
     }
 
     @Test
@@ -201,7 +203,7 @@ class PartialCertificationIT {
     void anAssetThatLacksASubsystemStillGetsAGlobalCertificate() {
         Asset electricalOnly = system.registerAsset.register("Annex", AssetType.FACILITY,
                 responsible.id(), "Building 2", Map.of("room", "3", "purpose", "storage"),
-                Set.of(ELECTRICAL));
+                Set.of(ELECTRICAL), JurisdictionId.of("REFERENCE"));
         InspectionId inspectionId = system.assignInspection
                 .assign(electricalOnly.id(), inspector.id(), LocalDate.parse("2026-03-05")).id();
         system.startInspection.start(inspectionId);
@@ -232,7 +234,7 @@ class PartialCertificationIT {
     void aCriterionOfAnAbsentPartIsNotApplicable() {
         Asset electricalOnly = system.registerAsset.register("Annex", AssetType.FACILITY,
                 responsible.id(), "Building 2", Map.of("room", "3", "purpose", "storage"),
-                Set.of(ELECTRICAL));
+                Set.of(ELECTRICAL), JurisdictionId.of("REFERENCE"));
         InspectionId inspectionId = system.assignInspection
                 .assign(electricalOnly.id(), inspector.id(), LocalDate.parse("2026-03-05")).id();
         system.startInspection.start(inspectionId);
@@ -268,7 +270,7 @@ class PartialCertificationIT {
     void anAssetWithoutDeclaredPartsIsCertifiedAsAWhole() {
         Asset whole = system.registerAsset.register("Warehouse", AssetType.FACILITY,
                 responsible.id(), "Building 3", Map.of("room", "1", "purpose", "storage"),
-                Set.of());
+                Set.of(), JurisdictionId.of("REFERENCE"));
         InspectionId inspectionId = system.assignInspection
                 .assign(whole.id(), inspector.id(), LocalDate.parse("2026-03-05")).id();
         system.startInspection.start(inspectionId);
@@ -304,7 +306,7 @@ class PartialCertificationIT {
         InspectionId byParts = inspectAndClose("clean", "clean", true);
         Asset whole = system.registerAsset.register("Warehouse", AssetType.FACILITY,
                 responsible.id(), "Building 3", Map.of("room", "1", "purpose", "storage"),
-                Set.of());
+                Set.of(), JurisdictionId.of("REFERENCE"));
         InspectionId asAWhole = system.assignInspection
                 .assign(whole.id(), inspector.id(), LocalDate.parse("2026-03-05")).id();
         system.startInspection.start(asAWhole);
@@ -341,7 +343,7 @@ class PartialCertificationIT {
     void noLoadingOperationAcceptsAnAbsentPart() {
         Asset electricalOnly = system.registerAsset.register("Annex", AssetType.FACILITY,
                 responsible.id(), "Building 2", Map.of("room", "3", "purpose", "storage"),
-                Set.of(ELECTRICAL));
+                Set.of(ELECTRICAL), JurisdictionId.of("REFERENCE"));
         InspectionId id = system.assignInspection
                 .assign(electricalOnly.id(), inspector.id(), LocalDate.parse("2026-03-05")).id();
         system.startInspection.start(id);
@@ -600,7 +602,7 @@ class PartialCertificationIT {
     void theGlobalCertificateCoversEveryPartTheAssetHas() {
         Asset threeParts = system.registerAsset.register("Annex", AssetType.FACILITY,
                 responsible.id(), "Building 4", Map.of("room", "4", "purpose", "storage"),
-                Set.of(ELECTRICAL, PRESSURE, DomainWorld.BUILDING_SAFETY));
+                Set.of(ELECTRICAL, PRESSURE, DomainWorld.BUILDING_SAFETY), JurisdictionId.of("REFERENCE"));
         InspectionId inspectionId = system.assignInspection
                 .assign(threeParts.id(), inspector.id(), LocalDate.parse("2026-03-05")).id();
         system.startInspection.start(inspectionId);

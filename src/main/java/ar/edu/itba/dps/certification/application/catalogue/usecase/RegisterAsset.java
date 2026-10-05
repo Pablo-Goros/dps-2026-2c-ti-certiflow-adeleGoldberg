@@ -10,6 +10,7 @@ import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
@@ -33,19 +34,20 @@ public final class RegisterAsset {
     }
 
     public Asset register(String name, AssetType assetType, PartyId responsible, String location,
-            Map<String, String> characteristics) {
+            Map<String, String> characteristics, JurisdictionId jurisdiction) {
         return register(name, assetType, responsible, location, characteristics,
-                assetType == null ? Set.of() : assetType.subsystems());
+                assetType == null ? Set.of() : assetType.subsystems(), jurisdiction);
     }
 
     public Asset register(String name, AssetType assetType, PartyId responsible, String location,
-            Map<String, String> characteristics, Set<Subsystem> subsystems) {
+            Map<String, String> characteristics, Set<Subsystem> subsystems, JurisdictionId jurisdiction) {
         Party responsibleParty = parties.require(responsible);
         Asset asset = new Asset(new AssetId(ids.newIdentifier()), name, assetType, characteristics,
-                responsibleParty.reference(), location, subsystems);
+                responsibleParty.reference(), location, subsystems, jurisdiction);
         assets.save(asset);
         audit.record(AuditedElementRef.asset(asset.id().value()), AuditAction.ASSET_REGISTERED,
                 AuditDetail.created(assetType + " '" + asset.name() + "' at " + asset.location()
+                        + ", jurisdiction " + asset.jurisdiction()
                         + ", responsible " + asset.responsible()
                         + (asset.subsystems().isEmpty() ? ""
                                 : ", subsystems " + asset.subsystems())));

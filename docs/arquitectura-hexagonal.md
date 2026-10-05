@@ -34,6 +34,7 @@ Ejemplos de puertos secundarios:
 - `application.catalogue.port.AssetRepository`
 - `application.inspection.port.InspectionRepository`
 - `application.schema.port.SchemaRepository`
+- `application.certification.port.CertificationPolicyRegistry`
 - `application.audit.port.AuditTrail`
 - `application.shared.port.Clock`
 - `application.shared.port.IdGenerator`
@@ -62,6 +63,7 @@ Adaptadores actuales:
 - `adapter.catalogue.CatalogueAssetDirectory`: implementa `AssetDirectory` usando `AssetRepository`.
 - `adapter.finding.RepositoryFindingQuery`: implementa `FindingQuery` usando `FindingRepository`.
 - `adapter.schema.PublishedSchemaCatalog`: implementa `SchemaCatalog` usando `SchemaRepository`.
+- `adapter.certification.RegisteredCertificationPolicies`: implementa `CertificationPolicyRegistry` mediante un registro explícito versionado.
 
 Los adaptadores en memoria usados por tests viven en `src/test/java/.../support` y cumplen el mismo rol externo para escenarios de integracion.
 
@@ -117,3 +119,25 @@ Se agrego `ArchitectureBoundaryTest`, una prueba de frontera que verifica:
 - que no existan paquetes de puertos dentro de `domain`.
 
 Esto evita que futuros cambios vuelvan a degradar la arquitectura a una variante pseudo hexagonal.
+
+
+## Políticas jurisdiccionales (F3)
+
+`CertificateFactory` consulta la jurisdicción con `AssetDirectory` y resuelve el perfil
+actual con `CertificationPolicyRegistry`. Construye hechos por alcance y un instante UTC,
+y delega la evaluación pura a `JurisdictionCertificationPolicy`. El adaptador de registro
+no se importa desde aplicación ni dominio; agregar una jurisdicción consiste en registrar
+un perfil en la composición existente.
+
+El dominio conserva `CertificationPolicySnapshot`, `CertificationPolicyRef`,
+`CertificationAssessment` y `CertificateMode`. Un certificado contiene la definición
+inmutable usada al emitirse. Elegibilidad evalúa solicitudes nuevas; reintentos e informes
+leen la metadata histórica del certificado. `CertificationReactions` consulta los hechos
+actuales y los pasa a `CertificateLifecycle.reconcile`, que usa el snapshot histórico sin
+consultar el registro ni aplicar restricciones de emisión inicial. También se reconcilia
+al planificar una acción correctiva; su evento se conserva pendiente hasta publicarse.
+
+Los perfiles de referencia y de ejemplo se registran explícitamente en los fixtures.
+Una jurisdicción desconocida produce un error de resolución, sin política predeterminada.
+El registro actual no sustituye la futura persistencia de revisiones, certificados y
+sus decisiones auditadas, ni ofrece atomicidad o unicidad concurrente.

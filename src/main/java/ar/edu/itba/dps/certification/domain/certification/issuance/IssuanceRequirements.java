@@ -8,13 +8,9 @@ public final class IssuanceRequirements {
     private IssuanceRequirements() {
     }
 
-    public static List<IssuanceRequirement> standard() {
-        return List.of(
-                new InspectionMustBeClosed(),
-                new RejectionsMustBeCorrected(),
-                new NoActionMayBeOverdue(),
-                new EveryActionMustBePlanned(),
-                new AssetMustNotHoldALiveCertificate(),
+    public static List<IssuanceRequirement> common() {
+        return List.of(new InspectionMustBeClosed(), new NoActionMayBeOverdue(),
+                new EveryActionMustBePlanned(), new AssetMustNotHoldALiveCertificate(),
                 new InspectionMustBeTheLatestOfTheAsset());
     }
 

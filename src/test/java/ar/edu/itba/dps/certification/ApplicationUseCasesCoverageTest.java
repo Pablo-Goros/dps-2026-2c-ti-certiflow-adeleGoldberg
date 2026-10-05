@@ -9,6 +9,7 @@ import ar.edu.itba.dps.certification.application.schema.usecase.DiscardDraft;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
@@ -18,15 +19,18 @@ import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
+import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,7 +56,7 @@ class ApplicationUseCasesCoverageTest {
         Party otherResponsible = system.organization("Merk Laboratories");
         Asset equipment = system.registerAsset.register("Cooling Unit", AssetType.EQUIPMENT,
                 otherResponsible.id(), "Building 2",
-                Map.of("room", "12", "brand", "Acme", "model", "X1", "serialNumber", "SN-1"));
+                Map.of("room", "12", "brand", "Acme", "model", "X1", "serialNumber", "SN-1"), JurisdictionId.of("REFERENCE"));
         SearchAssets search = new SearchAssets(system.catalogue.assets);
 
         assertThat(search.byId(laboratory.id())).contains(laboratory);
@@ -121,9 +125,9 @@ class ApplicationUseCasesCoverageTest {
         assertThat(started.asset()).isPresent();
 
         system.recordAnswer.record(inspectionId, DomainWorld.TEMPERATURE,
-                ar.edu.itba.dps.certification.domain.shared.answer.Measurement.of("5", "c"));
+                Measurement.of("5", "c"));
         system.recordAnswer.record(inspectionId, DomainWorld.DOCUMENTATION,
-                ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer.yes());
+                YesNoAnswer.yes());
         system.attachEvidence.attach(inspectionId, DomainWorld.DOCUMENTATION,
                 DomainWorld.SAFETY_MANUAL, "file://manual.pdf");
         system.closeInspection.close(inspectionId);

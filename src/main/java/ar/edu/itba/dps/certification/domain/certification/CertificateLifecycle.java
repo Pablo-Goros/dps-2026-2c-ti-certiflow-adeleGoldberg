@@ -1,69 +1,61 @@
 package ar.edu.itba.dps.certification.domain.certification;
 
+import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationContext;
 import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionCause;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
-import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionClosed;
-import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired;
-import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionVoided;
-import ar.edu.itba.dps.certification.domain.inspection.CriterionResultRevised;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
-import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
+import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 public final class CertificateLifecycle {
 
     public record Change(Certificate certificate, CertificateStatus previousStatus,
             boolean suspended, boolean reactivated, String reason) { }
 
-    public Optional<Change> apply(Certificate certificate, DomainEvent event) {
-        return switch (event) {
-            case CorrectiveActionExpired expired -> suspendFor(certificate,
-                    new SuspensionCause.OverdueAction(expired.correctiveActionId()),
-                    expired.occurredAt());
-            case CriterionResultRevised revised -> onResultRevised(certificate, revised);
-            case CorrectiveActionClosed closed -> resolveFor(certificate,
-                    matcher(closed.correctiveActionId(), closed.criterionId()),
-                    "the correction was verified and the action closed", closed.occurredAt());
-            case CorrectiveActionVoided voided -> resolveFor(certificate,
-                    matcher(voided.correctiveActionId(), voided.criterionId()),
-                    "the obligation was left without effect by rectification "
-                            + voided.rectificationId(), voided.occurredAt());
-            default -> Optional.empty();
-        };
-    }
-
-    private Optional<Change> onResultRevised(Certificate certificate, CriterionResultRevised revised) {
-        if (!revised.resultsInRejection()) {
-            return Optional.empty();
+    /** Reconcile current scoped facts with the immutable policy used at issuance, never with event payloads. */
+    public Optional<Change> reconcile(Certificate certificate,
+            CertificationContext context, Instant at) {
+        Validate.ensure(
+                certificate.backingInspectionId().equals(context.inspectionId()) && certificate.scope().equals(context.scope()),
+                "compliance facts must belong to the certificate and its scope");
+        var previous = certificate.status();
+        var policy = certificate.policy();
+        var violations = new HashSet<CriterionId>();
+        var overdue = new HashSet<CorrectiveActionId>();
+        boolean suspended = false;
+        for (var pending : context.pendingNonConformities()) {
+            var finding = context.findings().stream().filter(f -> f.criterionId().equals(pending.criterionId())).findFirst();
+            boolean policyViolation = certificate.mode() == CertificateMode.REGULAR
+                    || !policy.permitsPending(pending.result(), pending.severity());
+            boolean requiresPlan = finding.isEmpty() || finding.get().correctiveAction().awaitingPlan();
+            boolean actionOverdue = finding.isPresent() && finding.get().correctiveAction().overdueAndOpen(context.today());
+            boolean violates = policyViolation || requiresPlan || actionOverdue;
+            if (violates) {
+                violations.add(pending.criterionId());
+                var evaluation = context.inspection().currentEvaluations().get(pending.criterionId());
+                var actionId = finding.map(f -> f.correctiveAction().id());
+                if ((policyViolation || requiresPlan) && certificate.unresolvedCauses().stream().noneMatch(c ->
+                        c instanceof SuspensionCause.NonConformity n && n.criterionId().equals(pending.criterionId()))) {
+                    suspended |= certificate.suspend(new SuspensionCause.NonConformity(pending.criterionId(),
+                            actionId, evaluation.rectificationId()), at);
+                }
+                if (actionOverdue) {
+                    overdue.add(finding.get().correctiveAction().id());
+                    suspended |= certificate.suspend(new SuspensionCause.OverdueAction(finding.get().correctiveAction().id()), at);
+                }
+            }
         }
-        return suspendFor(certificate, new SuspensionCause.RectifiedRejection(
-                revised.criterionId(), revised.rectificationId()), revised.occurredAt());
+        var before = certificate.unresolvedCauses();
+        boolean reactivated = certificate.resolveCauses(cause -> switch (cause) {
+            case SuspensionCause.NonConformity nonconformity -> !violations.contains(nonconformity.criterionId());
+            case SuspensionCause.OverdueAction action -> !overdue.contains(action.correctiveActionId());
+        }, "current facts comply with the historical policy", at);
+        if (!suspended && !reactivated && before.equals(certificate.unresolvedCauses())) return Optional.empty();
+        return Optional.of(new Change(certificate, previous, suspended, reactivated,
+                "current facts evaluated with " + policy.reference()));
     }
 
-    private Optional<Change> suspendFor(Certificate certificate, SuspensionCause cause, Instant at) {
-        CertificateStatus previousStatus = certificate.status();
-        if (!certificate.suspend(cause, at)) {
-            return Optional.empty();
-        }
-        return Optional.of(new Change(certificate, previousStatus, true, false, cause.describe()));
-    }
-
-    private Optional<Change> resolveFor(Certificate certificate, Predicate<SuspensionCause> matches,
-            String how, Instant at) {
-        CertificateStatus previousStatus = certificate.status();
-        boolean reactivated = certificate.resolveCauses(matches, how, at);
-        return Optional.of(new Change(certificate, previousStatus, false, reactivated, how));
-    }
-
-    private Predicate<SuspensionCause> matcher(CorrectiveActionId actionId, CriterionId criterionId) {
-        return cause -> switch (cause) {
-            case SuspensionCause.OverdueAction overdue ->
-                    overdue.correctiveActionId().equals(actionId);
-            case SuspensionCause.RectifiedRejection rejection ->
-                    rejection.criterionId().equals(criterionId);
-        };
-    }
 }

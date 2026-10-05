@@ -2,11 +2,12 @@ package ar.edu.itba.dps.certification.domain.catalogue;
 
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.Map;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,7 +40,7 @@ class CatalogueEdgeTest {
     void assetsRejectNoOpChangesAndExposeSnapshots() {
         ResponsiblePartyRef responsible = new ResponsiblePartyRef(PartyId.of("owner-1"), "Owner");
         Asset asset = new Asset(AssetId.of("asset-1"), "Freezer", AssetType.EQUIPMENT,
-                Map.of("room", "12", "brand", "Acme"), responsible, "Building 1");
+                Map.of("room", "12", "brand", "Acme"), responsible, "Building 1", JurisdictionId.of("REFERENCE"));
 
         assertThat(asset.id()).isEqualTo(AssetId.of("asset-1"));
         assertThat(asset.name()).isEqualTo("Freezer");
@@ -50,9 +51,9 @@ class CatalogueEdgeTest {
         assertThat(asset.captureSnapshot(Instant.parse("2026-03-01T10:00:00Z")).assetId())
                 .isEqualTo(asset.id());
         assertThat(asset).isEqualTo(new Asset(AssetId.of("asset-1"), "Other", AssetType.EQUIPMENT,
-                Map.of("room", "14"), responsible, "Building 2"));
+                Map.of("room", "14"), responsible, "Building 2", JurisdictionId.of("REFERENCE")));
         assertThat(asset).isNotEqualTo(new Asset(AssetId.of("asset-2"), "Freezer", AssetType.EQUIPMENT,
-                Map.of("room", "12"), responsible, "Building 1"));
+                Map.of("room", "12"), responsible, "Building 1", JurisdictionId.of("REFERENCE")));
         assertThat(asset).isNotEqualTo("asset-1");
         assertThat(asset.hashCode()).isEqualTo(AssetId.of("asset-1").hashCode());
         assertThat(asset.toString()).isEqualTo("Freezer (asset-1)");

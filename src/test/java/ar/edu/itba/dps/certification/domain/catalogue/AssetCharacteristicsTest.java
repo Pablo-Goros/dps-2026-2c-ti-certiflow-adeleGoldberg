@@ -2,11 +2,12 @@ package ar.edu.itba.dps.certification.domain.catalogue;
 
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.Map;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,7 +38,7 @@ class AssetCharacteristicsTest {
     void theSnapshotAppliesTheSameRule() {
         assertThatThrownBy(() -> new AssetSnapshot(AssetId.of("asset-1"), AssetType.LABORATORY,
                 "Laboratory A", Map.of("room", "  "), "Building 1", OWNER,
-                Instant.parse("2026-03-01T10:00:00Z")))
+                Instant.parse("2026-03-01T10:00:00Z"), JurisdictionId.of("REFERENCE")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("value of characteristic 'room'");
     }
@@ -50,6 +51,6 @@ class AssetCharacteristicsTest {
 
     private Asset asset(Map<String, String> characteristics) {
         return new Asset(AssetId.of("asset-1"), "Laboratory A", AssetType.LABORATORY,
-                characteristics, OWNER, "Building 1");
+                characteristics, OWNER, "Building 1", JurisdictionId.of("REFERENCE"));
     }
 }

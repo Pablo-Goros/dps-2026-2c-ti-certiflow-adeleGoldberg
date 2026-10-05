@@ -7,8 +7,12 @@ import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
+import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
+import ar.edu.itba.dps.certification.domain.certification.policy.PolicyResolutionException;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+
+import java.util.function.Supplier;
 
 public final class IssueCertificate {
 
@@ -23,11 +27,22 @@ public final class IssueCertificate {
     }
 
     public IssuanceDecision issue(InspectionId inspectionId) {
-        return record(inspectionId, factory.issue(inspectionId));
+        return execute(inspectionId, CertificateScope.global(), () -> factory.issue(inspectionId));
     }
 
     public IssuanceDecision issuePartial(InspectionId inspectionId, Subsystem subsystem) {
-        return record(inspectionId, factory.issuePartial(inspectionId, subsystem));
+        return execute(inspectionId, CertificateScope.of(subsystem), () -> factory.issuePartial(inspectionId, subsystem));
+    }
+
+    private IssuanceDecision execute(InspectionId inspectionId,
+            CertificateScope scope,
+            Supplier<IssuanceDecision> operation) {
+        try { return record(inspectionId, operation.get()); }
+        catch (PolicyResolutionException error) {
+            audit.record(AuditedElementRef.inspection(inspectionId.value()), AuditAction.CERTIFICATE_ISSUANCE_BLOCKED,
+                    new AuditDetail.PolicyResolutionFailed("issue", inspectionId, scope, error.getMessage()));
+            throw error;
+        }
     }
 
     private IssuanceDecision record(InspectionId inspectionId, IssuanceDecision decision) {
@@ -35,12 +50,10 @@ public final class IssueCertificate {
             var certificate = issued.certificate();
             certificates.save(certificate);
             audit.record(AuditedElementRef.certificate(certificate.id().value()), AuditAction.CERTIFICATE_ISSUED,
-                    AuditDetail.created("certificate over " + certificate.scope().describe()
-                            + " for asset " + certificate.assetId() + " backed by inspection "
-                            + inspectionId + ", valid until " + certificate.validity().expiresAt()));
+                    AuditDetail.certification("issue", decision));
         } else if (decision instanceof IssuanceDecision.Blocked blocked) {
             audit.record(AuditedElementRef.inspection(inspectionId.value()), AuditAction.CERTIFICATE_ISSUANCE_BLOCKED,
-                    AuditDetail.decision("issue a certificate", "blocked: " + blocked.describe()));
+                    AuditDetail.certification("issue", decision));
         }
         return decision;
     }

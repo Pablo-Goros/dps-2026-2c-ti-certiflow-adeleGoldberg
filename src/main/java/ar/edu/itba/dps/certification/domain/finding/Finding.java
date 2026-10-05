@@ -7,6 +7,7 @@ import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
 import ar.edu.itba.dps.certification.domain.finding.action.Verification;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionClosed;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired;
+import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionPlanned;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionVoided;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
@@ -21,6 +22,7 @@ import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -61,7 +63,7 @@ public final class Finding {
         this.presentedEvidence = List.copyOf(Validate.required(presentedEvidence, "presented evidence"));
         this.correctiveActions.add(new CorrectiveAction(
                 Validate.required(correctiveActionId, "corrective action id"), inspector,
-                Validate.required(createdAt, "creation instant").atZone(java.time.ZoneOffset.UTC).toLocalDate()));
+                Validate.required(createdAt, "creation instant").atZone(ZoneOffset.UTC).toLocalDate()));
         this.createdAt = Validate.required(createdAt, "creation instant");
     }
 
@@ -158,7 +160,7 @@ public final class Finding {
         if (correctiveAction().status().terminal()) {
             newAction = new CorrectiveAction(
                     Validate.required(replacementAction, "replacement corrective action id"), inspector,
-                    revisedAt.atZone(java.time.ZoneOffset.UTC).toLocalDate());
+                    revisedAt.atZone(ZoneOffset.UTC).toLocalDate());
         }
 
         this.result = validatedResult;
@@ -202,8 +204,8 @@ public final class Finding {
         return voided != null;
     }
 
-    public boolean blocksCertification() {
-        return result == CriterionResult.REJECTED && !correctionCoversCurrentResult();
+    public boolean pendingNonConformity() {
+        return !obligationVoided() && !correctionCoversCurrentResult();
     }
 
     private boolean correctionCoversCurrentResult() {
@@ -212,11 +214,13 @@ public final class Finding {
     }
 
     /** The finding's responsible decides how to correct it (RF8); nobody else can confirm the plan. */
-    public void planCorrection(PartyId planner, CorrectionPlan plan, LocalDate today) {
+    public void planCorrection(PartyId planner, CorrectionPlan plan, LocalDate today, Instant at) {
         Validate.required(planner, "planner");
         Validate.ensure(planner.equals(responsible), "only the responsible " + responsible
                 + " may plan the correction of finding " + id + ", not " + planner);
+        Validate.required(at, "planning instant");
         correctiveAction().confirmPlan(plan, today);
+        pendingEvents.add(new CorrectiveActionPlanned(inspectionId, criterionId, at));
     }
 
     public void reportCorrectionExecution(ExecutionReport report) {

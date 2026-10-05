@@ -7,6 +7,7 @@ import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetResponsible;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
+import ar.edu.itba.dps.certification.application.inspection.RectificationConsequences;
 import ar.edu.itba.dps.certification.application.inspection.usecase.AssignInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.AttachEvidence;
 import ar.edu.itba.dps.certification.application.inspection.usecase.CloseInspection;
@@ -20,6 +21,7 @@ import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.PublishSchemaVersion;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.PartyKind;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
@@ -28,6 +30,7 @@ import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.PublicationResult;
+import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
@@ -38,6 +41,8 @@ import ar.edu.itba.dps.certification.domain.schema.rule.NumericBand;
 import ar.edu.itba.dps.certification.domain.schema.rule.NumericRangeRule;
 import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
 import ar.edu.itba.dps.certification.domain.schema.rule.YesNoRule;
+import ar.edu.itba.dps.certification.domain.shared.Actor;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -79,7 +84,7 @@ public final class DomainWorld {
             new ChangeAssetResponsible(catalogue.assets, catalogue.parties, audit);
 
     public final CreateSchema createSchema =
-            new CreateSchema(schemas, new ar.edu.itba.dps.certification.domain.schema.SchemaApplicability(), ids, audit);
+            new CreateSchema(schemas, new SchemaApplicability(), ids, audit);
     public final OpenDraft openDraft = new OpenDraft(schemas, audit);
     public final EditDraft editDraft = new EditDraft(schemas, audit);
     public final PublishSchemaVersion publishSchemaVersion =
@@ -97,18 +102,18 @@ public final class DomainWorld {
             new CloseInspection(inspections, assetDirectory, findings, clock, audit, actors);
     public final RectifyClosedInspection rectifyClosedInspection =
             new RectifyClosedInspection(inspections, findings,
-                    new ar.edu.itba.dps.certification.application.inspection.RectificationConsequences(findings, assetDirectory),
+                    new RectificationConsequences(findings, assetDirectory),
                     events, ids, clock, audit, actors);
 
     /** Makes the given party the authenticated user for the following operations. */
     public void actAs(Party party) {
-        actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(party.id(), party.name()));
+        actors.actingAs(Actor.user(party.id(), party.name()));
     }
 
-    public <T> T actingAs(ar.edu.itba.dps.certification.domain.shared.PartyId user,
+    public <T> T actingAs(PartyId user,
             java.util.function.Supplier<T> operation) {
         var previous = actors.current();
-        actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(user, user.value()));
+        actors.actingAs(Actor.user(user, user.value()));
         try { return operation.get(); }
         finally { actors.actingAs(previous); }
     }
@@ -123,7 +128,7 @@ public final class DomainWorld {
 
     public Asset asset(String name, AssetType type, Party responsible, String location) {
         return registerAsset.register(name, type, responsible.id(), location,
-                Map.of("room", "12"));
+                Map.of("room", "12"), JurisdictionId.of("REFERENCE"));
     }
 
     public static Criterion temperatureCriterion() {

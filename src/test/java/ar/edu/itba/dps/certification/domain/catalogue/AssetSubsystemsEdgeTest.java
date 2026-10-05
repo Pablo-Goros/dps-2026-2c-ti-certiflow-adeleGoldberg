@@ -3,16 +3,17 @@ package ar.edu.itba.dps.certification.domain.catalogue;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -101,7 +102,7 @@ class AssetSubsystemsEdgeTest {
     @DisplayName("an asset refuses a part its type does not define")
     void anAssetRefusesAnUndefinedPart() {
         assertThatThrownBy(() -> new Asset(AssetId.of("asset-1"), "Central", AssetType.FACILITY,
-                Map.of("room", "1"), OWNER, "B1", Set.of(UNKNOWN)))
+                Map.of("room", "1"), OWNER, "B1", Set.of(UNKNOWN), JurisdictionId.of("REFERENCE")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("must be predefined");
     }
@@ -110,7 +111,7 @@ class AssetSubsystemsEdgeTest {
     @DisplayName("an asset registered without naming its parts gets every part of its type")
     void anAssetWithoutDeclaredPartsGetsThemAll() {
         Asset asset = new Asset(AssetId.of("asset-1"), "Central", AssetType.FACILITY,
-                Map.of("room", "1"), OWNER, "B1");
+                Map.of("room", "1"), OWNER, "B1", JurisdictionId.of("REFERENCE"));
 
         assertThat(asset.subsystems()).isEqualTo(AssetType.FACILITY.subsystems());
     }
@@ -119,7 +120,7 @@ class AssetSubsystemsEdgeTest {
     @DisplayName("the snapshot carries the parts the asset had when it was captured")
     void theSnapshotCarriesTheAssetParts() {
         Asset asset = new Asset(AssetId.of("asset-1"), "Central", AssetType.FACILITY,
-                Map.of("room", "1"), OWNER, "B1", Set.of(ELECTRICAL));
+                Map.of("room", "1"), OWNER, "B1", Set.of(ELECTRICAL), JurisdictionId.of("REFERENCE"));
 
         AssetSnapshot snapshot = asset.captureSnapshot(Instant.parse("2026-03-01T10:00:00Z"));
 
@@ -131,7 +132,7 @@ class AssetSubsystemsEdgeTest {
     void aSnapshotRefusesAnUndefinedPart() {
         assertThatThrownBy(() -> new AssetSnapshot(AssetId.of("asset-1"), AssetType.FACILITY,
                 "Central", Map.of("room", "1"), "B1", OWNER, Set.of(UNKNOWN),
-                Instant.parse("2026-03-01T10:00:00Z")))
+                Instant.parse("2026-03-01T10:00:00Z"), JurisdictionId.of("REFERENCE")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("must be predefined");
     }

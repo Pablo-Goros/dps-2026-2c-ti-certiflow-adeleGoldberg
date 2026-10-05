@@ -3,11 +3,13 @@ package ar.edu.itba.dps.certification.domain.certification.derivation;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.ResponsiblePartyRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
+import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.CertificationPlan;
 import ar.edu.itba.dps.certification.domain.certification.ValidityPeriod;
@@ -22,14 +24,16 @@ import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.support.DomainWorld;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import ar.edu.itba.dps.certification.support.TestPolicies;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -83,12 +87,12 @@ class DerivationEdgeTest {
     @DisplayName("a global certificate covers at least one part and names what backs it")
     void aGlobalCertificateNeedsBacking() {
         assertThatThrownBy(() -> new GlobalCertificate(ASSET, INSPECTION, VERSION,
-                new ValidityPeriod(AT, IN_A_YEAR), Set.of(), List.of(CertificateId.of("c1"))))
+                new ValidityPeriod(AT, IN_A_YEAR), Set.of(), List.of(CertificateId.of("c1")), CertificateMode.REGULAR, provenance(CertificateId.of("c1"))))
                 .isInstanceOf(InvalidArgumentException.class)
                 .hasMessageContaining("covered subsystems");
 
         assertThatThrownBy(() -> new GlobalCertificate(ASSET, INSPECTION, VERSION,
-                new ValidityPeriod(AT, IN_A_YEAR), Set.of(ELECTRICAL), List.of()))
+                new ValidityPeriod(AT, IN_A_YEAR), Set.of(ELECTRICAL), List.of(), CertificateMode.REGULAR, provenance()))
                 .isInstanceOf(InvalidArgumentException.class)
                 .hasMessageContaining("derived from");
     }
@@ -98,7 +102,7 @@ class DerivationEdgeTest {
     void oneCertificatePerPart() {
         assertThatThrownBy(() -> new GlobalCertificate(ASSET, INSPECTION, VERSION,
                 new ValidityPeriod(AT, IN_A_YEAR), Set.of(ELECTRICAL, PRESSURE),
-                List.of(CertificateId.of("c1"))))
+                List.of(CertificateId.of("c1")), CertificateMode.REGULAR, provenance(CertificateId.of("c1"))))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("exactly one partial certificate per subsystem");
     }
@@ -108,7 +112,7 @@ class DerivationEdgeTest {
     void theContextRefusesAForeignCertificate() {
         Certificate foreign = issuer.issue(CertificateId.of("c1"), ASSET,
                 InspectionId.of("another"), VERSION, CertificateScope.of(ELECTRICAL),
-                new ValidityPeriod(AT, IN_A_YEAR), null);
+                new ValidityPeriod(AT, IN_A_YEAR), null, TestPolicies.reference(), CertificateMode.REGULAR);
 
         assertThatThrownBy(() -> new GlobalDerivationContext(startedInspection(), List.of(foreign), AT))
                 .isInstanceOf(DomainException.class)
@@ -119,7 +123,7 @@ class DerivationEdgeTest {
     @DisplayName("the context refuses a global certificate among the partials it derives from")
     void theContextRefusesAGlobalAmongThePartials() {
         Certificate global = issuer.issue(CertificateId.of("c1"), ASSET, INSPECTION, VERSION,
-                CertificateScope.global(), new ValidityPeriod(AT, IN_A_YEAR), null);
+                CertificateScope.global(), new ValidityPeriod(AT, IN_A_YEAR), null, TestPolicies.reference(), CertificateMode.REGULAR);
 
         assertThatThrownBy(() -> new GlobalDerivationContext(startedInspection(), List.of(global), AT))
                 .isInstanceOf(DomainException.class)
@@ -176,19 +180,26 @@ class DerivationEdgeTest {
     void aDerivedGlobalDescribesItsParts() {
         GlobalCertificate one = new GlobalCertificate(ASSET, INSPECTION, VERSION,
                 new ValidityPeriod(AT, IN_A_YEAR), Set.of(ELECTRICAL),
-                List.of(CertificateId.of("c1")));
+                List.of(CertificateId.of("c1")), CertificateMode.REGULAR, provenance(CertificateId.of("c1")));
         GlobalCertificate two = new GlobalCertificate(ASSET, INSPECTION, VERSION,
                 new ValidityPeriod(AT, IN_A_YEAR), Set.of(ELECTRICAL, PRESSURE),
-                List.of(CertificateId.of("c1"), CertificateId.of("c2")));
+                List.of(CertificateId.of("c1"), CertificateId.of("c2")), CertificateMode.REGULAR, provenance(CertificateId.of("c1"), CertificateId.of("c2")));
 
         assertThat(one.describe()).contains("its 1 part until").doesNotContain("parts");
         assertThat(two.describe()).contains("its 2 parts until");
         assertThat(GlobalCertificateDerivation.derived(two).describe()).isEqualTo(two.describe());
     }
 
+    private List<GlobalCertificate.PartialProvenance> provenance(CertificateId... ids) {
+        return java.util.stream.IntStream.range(0, ids.length).mapToObj(i ->
+                new GlobalCertificate.PartialProvenance(ids[i], i == 0 ? ELECTRICAL : PRESSURE,
+                        TestPolicies.reference(),
+                        CertificateMode.REGULAR)).toList();
+    }
+
     private Certificate partial(Subsystem subsystem, String id) {
         return issuer.issue(CertificateId.of(id), ASSET, INSPECTION, VERSION,
-                CertificateScope.of(subsystem), new ValidityPeriod(AT, IN_A_YEAR), null);
+                CertificateScope.of(subsystem), new ValidityPeriod(AT, IN_A_YEAR), null, TestPolicies.reference(), CertificateMode.REGULAR);
     }
 
     private Inspection startedInspection() {
@@ -200,7 +211,7 @@ class DerivationEdgeTest {
                 LocalDate.parse("2026-03-01"));
         inspection.start(inspector, version, new AssetSnapshot(ASSET, AssetType.FACILITY, "Central",
                 Map.of(), "B1", new ResponsiblePartyRef(PartyId.of("owner-1"), "Owner"),
-                Set.of(ELECTRICAL, PRESSURE), AT), AT);
+                Set.of(ELECTRICAL, PRESSURE), AT, JurisdictionId.of("REFERENCE")), AT);
         return inspection;
     }
 }

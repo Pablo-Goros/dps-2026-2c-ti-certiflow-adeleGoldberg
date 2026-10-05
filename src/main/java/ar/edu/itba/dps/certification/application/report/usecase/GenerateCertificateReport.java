@@ -1,20 +1,22 @@
 package ar.edu.itba.dps.certification.application.report.usecase;
 
+import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
+import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
+import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
+import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionCause;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
-import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.report.CertificateReport;
 import ar.edu.itba.dps.certification.domain.report.IssuanceAttemptReport;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class GenerateCertificateReport {
 
@@ -43,14 +45,16 @@ public final class GenerateCertificateReport {
                 certificate.previousCertificateId(),
                 inspections.wasRectified(certificate.backingInspectionId()),
                 certificate.unresolvedCauses().stream().map(SuspensionCause::describe).toList(),
-                pendingCommitmentsOf(certificate));
+                pendingCommitmentsOf(certificate), certificate.policy(), certificate.mode());
     }
 
-    public IssuanceAttemptReport reportBlockedAttempt(InspectionId inspectionId,
-            List<IssuanceBlocker> blockers) {
-        Validate.requiredNonEmpty(blockers, "blockers");
-        return IssuanceAttemptReport.blocked(inspectionId,
-                blockers.stream().map(IssuanceBlocker::describe).toList());
+    public IssuanceAttemptReport reportBlockedAttempt(
+            IssuanceDecision.Blocked blocked) {
+        Validate.required(blocked, "blocked decision");
+        var assessment = blocked.assessment();
+        return new IssuanceAttemptReport(assessment.inspectionId(), false, Optional.empty(),
+                blocked.blockers().stream().map(IssuanceBlocker::describe).toList(), assessment.scope(),
+                assessment.policy(), Optional.empty());
     }
 
     private List<CertificateReport.PendingCommitment> pendingCommitmentsOf(Certificate certificate) {
@@ -58,7 +62,7 @@ public final class GenerateCertificateReport {
         var inspection = inspections.require(inspectionId);
         List<CertificateReport.PendingCommitment> commitments = new ArrayList<>();
         for (Finding finding : findings.findingsOf(inspectionId)) {
-            if (finding.obligationVoided() || finding.correctiveAction().status().terminal()) {
+            if (!finding.pendingNonConformity()) {
                 continue;
             }
             boolean inScope = certificate.scope().coveredSubsystem()

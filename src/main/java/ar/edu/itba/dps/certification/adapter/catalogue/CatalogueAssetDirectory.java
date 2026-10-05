@@ -7,6 +7,7 @@ import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 
 public final class CatalogueAssetDirectory implements AssetDirectory {
@@ -17,6 +18,11 @@ public final class CatalogueAssetDirectory implements AssetDirectory {
     public CatalogueAssetDirectory(AssetRepository assets, Clock clock) {
         this.assets = assets;
         this.clock = clock;
+    }
+
+    @Override
+    public JurisdictionId jurisdictionOf(AssetId assetId) {
+        return assets.require(assetId).jurisdiction();
     }
 
     @Override

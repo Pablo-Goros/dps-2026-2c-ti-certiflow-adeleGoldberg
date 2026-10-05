@@ -1,6 +1,7 @@
 package ar.edu.itba.dps.certification.domain.certification;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
+import ar.edu.itba.dps.certification.domain.certification.policy.CertificationPolicySnapshot;
 import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionCause;
 import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
@@ -16,6 +17,8 @@ import java.util.function.Predicate;
 public final class Certificate {
 
     private final CertificateId id;
+    private final CertificationPolicySnapshot policy;
+    private final CertificateMode mode;
     private final AssetId assetId;
     private final InspectionId backingInspectionId;
     private final SchemaVersionId schemaVersionId;
@@ -27,7 +30,10 @@ public final class Certificate {
 
     Certificate(CertificateId id, AssetId assetId, InspectionId backingInspectionId,
             SchemaVersionId schemaVersionId, CertificateScope scope, ValidityPeriod validity,
-            CertificateId previousCertificateId) {
+            CertificateId previousCertificateId, CertificationPolicySnapshot policy, CertificateMode mode) {
+        this.policy = Validate.required(policy, "policy snapshot");
+        this.mode = Validate.required(mode, "certificate mode");
+        Validate.ensure(mode != CertificateMode.CONDITIONAL || policy.allowsConditional(), "conditional mode is forbidden");
         this.id = Validate.required(id, "certificate id");
         this.assetId = Validate.required(assetId, "asset id");
         this.backingInspectionId = Validate.required(backingInspectionId, "backing inspection id");
@@ -38,6 +44,9 @@ public final class Certificate {
                 "certificate " + id + " cannot succeed itself");
         this.previousCertificateId = previousCertificateId;
     }
+
+    public CertificationPolicySnapshot policy() { return policy; }
+    public CertificateMode mode() { return mode; }
 
     public CertificateId id() {
         return id;

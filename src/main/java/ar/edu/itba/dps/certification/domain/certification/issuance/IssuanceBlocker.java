@@ -2,11 +2,30 @@ package ar.edu.itba.dps.certification.domain.certification.issuance;
 
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.schema.CriterionId;
+import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
+import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 public sealed interface IssuanceBlocker {
 
     String describe();
+
+    record BlockingSeverity(CriterionId criterionId,
+            CriterionResult result,
+            Severity severity) implements IssuanceBlocker {
+        public BlockingSeverity {
+            Validate.required(criterionId, "criterion id");
+            Validate.required(result, "result");
+            Validate.required(severity, "severity");
+            Validate.ensure(!result.approved(), "approved results do not block");
+        }
+        @Override public String describe() { return criterionId + " has blocking severity " + severity + " (" + result + ")"; }
+    }
+    record ConditionalNotAllowed(int count) implements IssuanceBlocker {
+        public ConditionalNotAllowed { Validate.requiredPositive(count, "pending count"); }
+        @Override public String describe() { return count + " pending nonconformities require a conditional certificate, forbidden by policy"; }
+    }
 
     record InspectionNotClosed() implements IssuanceBlocker {
 

@@ -25,6 +25,10 @@ public record GlobalDerivationContext(Inspection inspection, List<Certificate> p
                 "every partial certificate must be backed by the inspection being derived");
         Validate.ensure(partials.stream().allMatch(c -> c.scope().coveredSubsystem().isPresent()),
                 "a global certificate is derived from partial certificates only");
+        Validate.ensure(partials.stream().allMatch(c -> c.assetId().equals(inspection.assetId())
+                && c.schemaVersionId().equals(inspection.requireFrozenSchemaVersionId())
+                && inspection.assetSnapshot().map(snapshot -> snapshot.jurisdiction().equals(c.policy().reference().jurisdiction())).orElse(false)),
+                "partial provenance must match the inspection asset, schema and jurisdiction");
         Validate.ensure(partials.stream().map(Certificate::scope).distinct().count() == partials.size(),
                 "two partial certificates cannot cover the same subsystem of one inspection");
     }

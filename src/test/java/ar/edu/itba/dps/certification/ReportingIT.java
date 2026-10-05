@@ -6,6 +6,8 @@ import ar.edu.itba.dps.certification.application.report.usecase.GenerateInspecti
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
+import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
+import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
@@ -23,17 +25,20 @@ import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
+import ar.edu.itba.dps.certification.support.TestPolicies;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import static ar.edu.itba.dps.certification.support.Decisions.blockers;
 import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
 
 class ReportingIT {
 
@@ -140,8 +145,7 @@ class ReportingIT {
         InspectionId inspectionId = inspectAndClose("30");
 
         IssuanceDecision decision = system.issueCertificate.issue(inspectionId);
-        IssuanceAttemptReport attempt = generateCertificateReport.reportBlockedAttempt(inspectionId,
-                blockers(decision));
+        IssuanceAttemptReport attempt = generateCertificateReport.reportBlockedAttempt((IssuanceDecision.Blocked) decision);
 
         assertThat(attempt.certified()).isFalse();
         assertThat(attempt.certificateId()).isEmpty();
@@ -157,11 +161,11 @@ class ReportingIT {
         InspectionId inspectionId = InspectionId.of("inspection-1");
 
         assertThatThrownBy(() -> new IssuanceAttemptReport(inspectionId, true,
-                Optional.empty(), List.of()))
+                Optional.empty(), List.of(), CertificateScope.global(), TestPolicies.reference(), Optional.of(CertificateMode.REGULAR)))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("certifies a certificate");
 
-        assertThatThrownBy(() -> IssuanceAttemptReport.blocked(inspectionId, List.of()))
+        assertThatThrownBy(() -> new IssuanceAttemptReport(inspectionId, false, Optional.empty(),  List.of(), CertificateScope.global(), TestPolicies.reference(), Optional.empty()))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("blocked attempt reports them");
     }

@@ -6,30 +6,31 @@ import ar.edu.itba.dps.certification.domain.audit.AuditEntry;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
-import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
+import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
-import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
-import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -218,12 +219,16 @@ class AuditTrailIT {
         assertThat(system.auditTrail.withAction(AuditAction.CERTIFICATE_SUSPENDED))
                 .hasSize(2)
                 .satisfies(entries -> {
-                    assertThat(entries.getFirst().detail())
-                            .isEqualTo(AuditDetail.stateChanged(CertificateStatus.VALID,
-                                    CertificateStatus.SUSPENDED));
-                    assertThat(entries.getLast().detail())
-                            .isEqualTo(AuditDetail.stateChanged(CertificateStatus.SUSPENDED,
-                                    CertificateStatus.SUSPENDED));
+                    assertThat(entries.getFirst().detail()).isInstanceOfSatisfying(AuditDetail.CertificateStateChanged.class, detail -> {
+                        assertThat(detail.previousState()).isEqualTo(CertificateStatus.VALID);
+                        assertThat(detail.newState()).isEqualTo(CertificateStatus.SUSPENDED);
+                        assertThat(detail.policy()).isEqualTo(certificate.policy());
+                    });
+                    assertThat(entries.get(1).detail()).isInstanceOfSatisfying(AuditDetail.CertificateStateChanged.class, detail -> {
+                        assertThat(detail.previousState()).isEqualTo(CertificateStatus.SUSPENDED);
+                        assertThat(detail.newState()).isEqualTo(CertificateStatus.SUSPENDED);
+                        assertThat(detail.policy()).isEqualTo(certificate.policy());
+                    });
                 });
     }
 

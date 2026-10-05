@@ -180,17 +180,17 @@ El tiempo se recibe explícitamente y los casos de uso de barrido materializan v
 
 ## 6. Cierre, elegibilidad y emisión como decisiones separadas
 
-**Política adoptada.** Una observación exige corrección en plazo, pero permite certificar si su acción está planificada. Un rechazo bloquea hasta verificar la corrección, sin exigir repetir toda la inspección ni reescribir su resultado histórico. La emisión requiere una inspección cerrada, ningún rechazo sin corregir y ninguna acción abierta vencida.
+**Política adoptada (F3).** Cada activo declara una jurisdicción y cada solicitud nueva resuelve su política activa. La política define severidades bloqueantes para observaciones y rechazos, permiso de certificados condicionales y duración por modalidad. El perfil explícito de referencia conserva la regla anterior: observaciones planificadas permitidas y rechazos pendientes bloqueantes. Todas las políticas exigen cierre, planificación y ausencia de acciones abiertas vencidas; la sección 12 detalla su procedencia histórica.
 
 La emisión se solicita explícitamente y cada inspección respalda como máximo un certificado; una solicitud repetida identifica el existente. Al emitir se conserva su vencimiento. Renovar exige que el anterior haya vencido, una nueva inspección completa y un nuevo certificado vinculado al anterior. Las acciones de inspecciones anteriores conservan su historia, pero no bloquean la renovación ni suspenden el certificado nuevo. La fábrica carga el predecesor del mismo activo y valida las condiciones de renovación antes de construir el certificado.
 
-`Inspection.close` evalúa; `CloseInspection` guarda el cierre y registra las no conformidades. El registro es idempotente y se repite en cada solicitud de cierre: si el cierre quedó guardado pero sus hallazgos no llegaron a registrarse, un nuevo intento lo completa en lugar de dejar la inspección cerrada, sin hallazgos y sin posibilidad de certificar. `CertificateFactory` reúne los hechos tanto para emitir como para consultar la elegibilidad (`EvaluateIssuanceEligibility` delega en ella), de modo que ambas respuestas no pueden divergir; antes existía un ensamblador paralelo en aplicación. `CertificateIssuancePolicy` evalúa requisitos independientes mediante `IssuanceRequirement`. `CertificateFactory` decide emitir y renovar; `IssueCertificate` y `RenewCertificate` guardan y auditan sus decisiones. `CertificateValidityPolicy` separa el cálculo de vigencia.
+`Inspection.close` evalúa; `CloseInspection` guarda el cierre y registra las no conformidades. El registro es idempotente y se repite en cada solicitud de cierre: si el cierre quedó guardado pero sus hallazgos no llegaron a registrarse, un nuevo intento lo completa en lugar de dejar la inspección cerrada, sin hallazgos y sin posibilidad de certificar. `CertificateFactory` reúne los hechos tanto para emitir como para consultar la elegibilidad (`EvaluateIssuanceEligibility` delega en ella), de modo que ambas respuestas no pueden divergir; antes existía un ensamblador paralelo en aplicación. `ConfiguredJurisdictionCertificationPolicy` evalúa requisitos comunes mediante `IssuanceRequirement` y las reglas variables de su definición inmutable. Sustituye a `CertificateIssuancePolicy`. `CertificateFactory` decide emitir y renovar; `IssueCertificate` y `RenewCertificate` guardan y auditan sus decisiones. `CertificateValidityPolicy` separa el cálculo de vigencia.
 
 Esta **composición de políticas** mantiene las decisiones fuera de los repositorios y permite informar todos los bloqueos. Se descartó emitir automáticamente al cerrar porque puede ser necesario completar correcciones antes de solicitar certificación. Tampoco se usa Chain of Responsibility con interrupción en el primer fallo: interesa explicar todos los impedimentos.
 
 Los resultados son variantes explícitas: emitido, bloqueado o ya emitido, sin crear un certificado rechazado. La implementación también limita a uno los certificados no vencidos por activo; esa restricción adicional requiere revisar su alcance. Los doce meses elegidos en los tests no establecen una duración universal.
 
-`Certificate` conserva constructor de paquete y la creación material queda encapsulada en `CertificateIssuer`, un servicio puro del dominio. `CertificateFactory` vive en aplicación y es la ruta de producción para emitir o renovar: carga los hechos mediante puertos de aplicación, delega la construcción al issuer y aplica la política del dominio. `CertificationContext` contiene inspección, hallazgos y fecha; calcula los bloqueos en el dominio e incluye incumplimientos cuyas acciones aún no fueron registradas. Los requisitos adicionales suman restricciones sin sustituir los estándares. Renovar exige otra inspección iniciada estrictamente después de emitir el certificado anterior, que debe estar vencido. Repetir una renovación devuelve el certificado ya emitido.
+`Certificate` conserva constructor de paquete y la creación material queda encapsulada en `CertificateIssuer`, un servicio puro del dominio. `CertificateFactory` vive en aplicación y es la ruta de producción para emitir o renovar: carga los hechos mediante puertos de aplicación, delega la construcción al issuer y aplica la política del dominio. `CertificationContext` contiene inspección, hallazgos y fecha; calcula los bloqueos en el dominio e incluye incumplimientos cuyas acciones aún no fueron registradas. Las restricciones identificadas en el snapshot suman reglas del perfil; ninguna estrategia puede quitar las garantías comunes que también comprueba la fábrica. Renovar exige otra inspección iniciada estrictamente después de emitir el certificado anterior, que debe estar vencido. Repetir una renovación devuelve el certificado ya emitido.
 
 La misma razón que impide renovar con una inspección antigua impide emitir con una inspección superada: el requisito estándar `InspectionMustBeTheLatestOfTheAsset` bloquea la emisión cuando el activo tiene otra inspección cerrada iniciada después (`IssuanceBlocker.SupersededInspection`), porque certificaría un estado del activo que ya fue reemplazado por uno más reciente. Además, una vez vencido el certificado de un activo, `issue` se rechaza: el siguiente certificado se obtiene renovando, y así conserva el vínculo con el anterior que exige RF9.
 
@@ -200,7 +200,7 @@ de modo que la unicidad «un activo no puede tener dos certificados vivos» pasa
 dos partes pueden estar certificadas a la vez, cada una con su vigencia.
 
 Los hechos sobre los que decide la política se filtran por alcance en `CertificationContext`, no en
-los requisitos: los seis `IssuanceRequirement` responden a un parcial sin saber que existen partes,
+los requisitos: los requisitos comunes y el perfil jurisdiccional responden a un parcial sin conocer los repositorios,
 porque simplemente ven menos criterios. Se descartó agregar un requisito por subsistema, que habría
 multiplicado `IssuanceRequirements` y mezclado el alcance con las reglas de negocio.
 
@@ -242,9 +242,9 @@ bloquea solo la rechazada, que es lo que exige aprobar algunos subsistemas y rec
 
 ## 7. Eventos para coordinar efectos entre agregados
 
-**Política adoptada.** Un certificado se suspende por vencimiento de una acción asociada o por un rechazo descubierto al rectificar su inspección de respaldo. Una observación nueva no suspende de inmediato. Se conservan todas las causas y la reactivación ocurre al resolver la última, siempre que el certificado no haya vencido. Reactivar conserva el vencimiento original; si ya venció, corresponde renovar.
+**Política adoptada (F3).** Cada evento relevante provoca una reconciliación de los hechos actuales por alcance con el snapshot del certificado. Un condicional se suspende ante severidades bloqueantes, restricciones del perfil, falta de plan o acciones abiertas vencidas. Un regular se suspende ante cualquier incumplimiento pendiente nuevo: cambiarlo a condicional requiere otra decisión. Se conservan las causas y se reactiva únicamente cuando todas quedan resueltas y el certificado sigue dentro de vigencia. Reactivar conserva el vencimiento y la modalidad originales.
 
-Los agregados acumulan eventos como `CorrectiveActionExpired`, `CorrectiveActionClosed`, `CorrectiveActionVoided` y `CriterionResultRevised`. Este último se emite cada vez que una rectificación cambia la evaluación, no solo el resultado: un rechazo que reaparece con otros motivos después de una corrección verificada es una no conformidad nueva, y `CertificateLifecycle` suspende el certificado por todo resultado rechazado, sea nuevo o reaparecido. Antes ese caso dejaba el certificado vigente mientras el hallazgo volvía a bloquear la emisión. Los servicios puros de dominio (`SchemaApplicability`, `CertificateLifecycle`) se mantienen en `domain`; los servicios que consultan puertos (`RectificationConsequences`, `CertificationReactions`) viven en `application`. Los casos de uso guardan y auditan antes de publicar eventos. En una rectificación se guardan y auditan la inspección y todas las consecuencias sobre hallazgos antes de despachar cualquier evento. `CertificateLifecycle` decide suspensiones y reactivaciones en el dominio; `CertificationReactions` persiste y audita esas decisiones. Se usa **publicación/suscripción**, con despacho síncrono en memoria en las pruebas.
+Los agregados acumulan eventos como `CorrectiveActionExpired`, `CorrectiveActionClosed`, `CorrectiveActionVoided` y `CriterionResultRevised`. Este último se emite cada vez que una rectificación cambia la evaluación, no solo el resultado: un rechazo que reaparece con otros motivos después de una corrección verificada es una no conformidad nueva, y `CertificateLifecycle` contrasta el incumplimiento actual con la política histórica, incluso si el resultado es una observación o un rechazo permitido; el contenido de un evento antiguo no sustituye esos hechos. Antes ese caso dejaba el certificado vigente mientras el hallazgo volvía a bloquear la emisión. Los servicios puros de dominio (`SchemaApplicability`, `CertificateLifecycle`) se mantienen en `domain`; los servicios que consultan puertos (`RectificationConsequences`, `CertificationReactions`) viven en `application`. Los casos de uso guardan y auditan antes de publicar eventos. En una rectificación se guardan y auditan la inspección y todas las consecuencias sobre hallazgos antes de despachar cualquier evento. `CertificateLifecycle` decide suspensiones y reactivaciones en el dominio; `CertificationReactions` persiste y audita esas decisiones. Se usa **publicación/suscripción**, con despacho síncrono en memoria en las pruebas.
 
 Así, las operaciones sobre acciones e inspecciones comunican hechos sin conocer cómo se actualiza un certificado. Invocar certificación desde esas entidades introduciría dependencias entre ciclos de vida. Un broker, una saga o un outbox durable no se incorporan en esta entrega.
 
@@ -305,8 +305,129 @@ El proyecto compila para Java 25. `mvn test` ejecuta unitarios y `mvn verify` ag
 
 ## 11. Definiciones que siguen abiertas
 
-El catálogo inicial de características y el plazo de planificación se explicitan en las secciones 2 y 5. Quedan por precisar los campos identificatorios del responsable y una duración predeterminada de certificados, si se necesita.
+El catálogo inicial de características y el plazo de planificación se explicitan en las secciones 2 y 5. Quedan por precisar los campos identificatorios del responsable. F3 define los plazos por perfil registrado y evita una duración predeterminada implícita.
 
 Las validaciones de argumentos inválidos producen `InvalidArgumentException`, subtipo distinguible de `DomainException`, que se reserva para condiciones de negocio. `AuditEntry` conserva la validación del motivo según `AuditAction.requiresReason()` y ahora exige texto no vacío cuando se proporciona uno. Se mantiene este contrato en ejecución para una auditoría genérica; separar cada acción en tipos de comandos sería una extensión y no una condición para garantizar que se conserve el motivo.
 
 El tratamiento de hallazgos y acciones cuando una rectificación cambia el incumplimiento sin eliminarlo quedó resuelto y se describe en la sección 8, incluidos los casos de acciones ya cerradas y hallazgos previamente anulados. Abrir una acción correctiva nueva sobre el mismo hallazgo es una decisión adoptada por el equipo sobre un punto que RF10 dejó abierto.
+
+
+## 12. F3: políticas jurisdiccionales versionadas
+
+**Datos y selección.** `JurisdictionId` es un valor abierto, validado y obligatorio en
+`Asset`, `AssetSnapshot` y `RegisterAsset`. La reubicación textual no lo modifica;
+cambiar de jurisdicción requerirá otro caso de uso. `AssetDirectory.jurisdictionOf`
+y `CatalogueAssetDirectory` permiten resolver también inspecciones aún asignadas.
+La fábrica comprueba que la jurisdicción actual coincide con el snapshot capturado.
+
+`CertificationPolicyRegistry` es un puerto de aplicación. Su adaptador
+`RegisteredCertificationPolicies` registra explícitamente estrategias por jurisdicción,
+activa revisiones estrictamente crecientes del mismo ID y conserva el acceso histórico.
+Rechaza duplicados, cambios de definición bajo una referencia existente, referencias de
+otra jurisdicción y estrategias cuya definición registrada cambió. Agregar un perfil
+no requiere modificar ni reconstruir `CertificateFactory`. El registro es configuración
+en memoria, sin garantías de concurrencia o persistencia.
+
+**Definición de reglas.** `CertificationPolicyRef` identifica jurisdicción, ID y revisión;
+`CertificationPolicySnapshot` copia defensivamente las severidades y restricciones y
+valida períodos positivos por modalidad. Una política que prohíbe condicionales declara
+el mismo plazo en ambos campos para evitar configuración inactiva contradictoria.
+`JurisdictionCertificationPolicy` define una estrategia pura e inmutable;
+`ConfiguredJurisdictionCertificationPolicy` interpreta la configuración habitual y usa
+`FixedDurationValidityPolicy` para aritmética de calendario UTC. `PolicyRestriction`
+identifica reglas recuperables, inicialmente `REJECTIONS_MUST_BE_CORRECTED`, utilizada
+por el perfil de referencia. No se guardan lambdas como historia: nuevas restricciones
+requieren definiciones explícitas en el dominio, y una estrategia propia debe representar
+**todas** sus reglas en el snapshot que interpretará el ciclo de vida.
+
+Se descartó un enum de jurisdicciones y un switch central por jurisdicción: obligarían
+a modificar código para agregar perfiles. También se descartó conservar la regla fija
+de rechazo dentro de las garantías comunes: impediría certificar rechazos de severidad
+permitida, que F3 admite. `CertificateIssuancePolicy` fue sustituida por la estrategia
+jurisdiccional; `IssuanceRequirements.common()` mantiene las cinco garantías universales.
+La fábrica las comprueba incluso ante una estrategia personalizada.
+
+**Hechos y decisión.** `Finding.pendingNonConformity()` extiende la resolución histórica
+a observaciones y rechazos. Una ejecución reportada no resuelve un hallazgo; hace falta
+verificación satisfactoria que cubra la revisión vigente o anulación de la obligación.
+Una revisión posterior vuelve a pesar sin borrar el resultado anterior.
+`CertificationContext.pendingNonConformities()` proyecta criterio, resultado y severidad,
+filtrados una vez por alcance. Un hallazgo faltante conserva el incumplimiento y el bloqueo
+por acción faltante. Los criterios transversales pesan en cada parcial; los de partes
+no presentes no se evalúan.
+
+`CertificationAssessment` identifica inspección, alcance, instante, snapshot, todos los
+bloqueos y modalidad posible. `EvaluateIssuanceEligibility.assess` evalúa siempre una
+**solicitud nueva**, con la política activa; la procedencia de un certificado existente
+se consulta en el certificado o en su informe. Los métodos `blockersFor` delegan a esa
+evaluación. Emisión y renovación usan los mismos hechos y reglas, un único instante y
+su fecha UTC. La emisión vuelve a evaluar; una consulta previa no reserva el resultado.
+Una severidad bloqueante impide certificar tanto `OBSERVED` como `REJECTED`; un pendiente
+permitido y planificado puede producir un condicional únicamente si el perfil lo permite.
+Sin pendientes se emite regular. `BlockingSeverity` y `ConditionalNotAllowed` son motivos
+tipados que se acumulan con todos los demás impedimentos.
+
+`CertificateMode.REGULAR/CONDITIONAL` es independiente de `CertificateStatus`.
+`Certificate`, `CertificateIssuer` e `IssuanceDecision` conservan snapshot y modalidad.
+El plazo condicional puede ser distinto al regular; una renovación determina de nuevo
+perfil y modalidad, y conserva el vínculo al predecesor. Repetir emisión o renovación
+resuelve primero el certificado existente, conserva su metadata original y no consulta
+el registro activo ni duplica una emisión auditada. `PolicyResolutionException` expresa
+falta o incoherencia de configuración, distinta de una decisión `Blocked`; la fábrica
+valida cierre, fecha de emisión y vigencia antes de consumir un ID.
+
+**Auditoría, informes y parciales.** `AuditDetail.CertificationDecision` registra operación,
+inspección, alcance, snapshot, modalidad/resultado, certificado, instante y vigencia, o
+todos los bloqueos. `PolicyResolutionFailed` registra errores sin inventar una política
+aplicada. Los casos de uso guardan antes de auditar éxito. `CertificateStateChanged`
+conserva política, alcance, modalidad y causas al suspender, reactivar o vencer.
+`CertificateReport` y `IssuanceAttemptReport` exponen snapshot y alcance; el informe de
+bloqueo recibe la decisión completa. Sus metadatos históricos no se recalculan a partir
+del registro. Los compromisos del informe usan la resolución de la revisión actual.
+
+`GlobalCertificate` sigue siendo una proyección, con modalidad condicional si al menos
+un parcial lo es. `PartialProvenance` expone certificado, subsistema, snapshot y modalidad
+por parcial: dos parciales pueden tener revisiones diferentes. `AllSubsystemsMustBeInForce`
+mantiene la intersección de vigencias y rechaza derivar cuando falta un parcial vigente.
+`GlobalDerivationContext` valida procedencia de activo, inspección, esquema y jurisdicción.
+
+**Reconciliación histórica.** `CertificationReactions` reúne inspección, hallazgos y
+un instante actual y delega en `CertificateLifecycle.reconcile`. El servicio puro usa
+solamente cumplimiento, nunca reglas de emisión inicial como inspección posterior,
+predecesor o certificado ya vivo. `SuspensionCause.NonConformity` permite registrar
+observaciones, rechazos, planes faltantes y su revisión; `OverdueAction` conserva el
+incumplimiento de plazo como causa independiente. El reintento de un evento antiguo
+usa los hechos actuales y no reinstala causas resueltas. La última causa resuelta
+reactiva únicamente dentro de vigencia. `CorrectiveActionPlanned` permite reconciliar
+al confirmar un plan; `Finding` lo conserva pendiente para reintentos de publicación,
+y `PlanCorrectiveAction` guarda y audita antes de publicarlo.
+
+**Validación.** Los unitarios nuevos cubren valores, registro, matriz parametrizada de
+severidad/resultado/condicionalidad, revisiones de corrección, fechas inclusivas de acciones,
+calendario bisiesto UTC, alcance, fábrica, efectos de casos de uso y reconciliación.
+`JurisdictionCertificationIT` demuestra A/B con hechos equivalentes, incorporación de C
+con la misma fábrica, decisiones auditadas, global condicional, revisión nueva y renovación,
+reintentos históricos y rectificaciones según la política original. Los perfiles A/B/C y
+REFERENCE son datos ficticios de tests, **no normativa real**. Se ejecutan `mvn test` y
+`mvn verify`; el segundo produce cobertura JaCoCo. Se excluyen de instrumentación las
+clases generadas por Mockito, cuyo bytecode depende del JDK de ejecución, conservando
+la medición del código de producción compilado para Java 25.
+
+La verificación final ejecutó 220 unitarios y 124 escenarios de integración, sin fallos,
+errores ni omisiones. El paquete `domain.certification.policy` cubre 56/56 líneas y
+40/40 ramas; el registro cubre 27/28 líneas y 16/20 ramas; la coordinación de
+certificación cubre 170/171 líneas y 58/72 ramas. Se revisaron las ramas restantes:
+principalmente son defensas ante referencias/snapshots nulos o incoherentes devueltos
+por estrategias personalizadas, combinaciones inválidas de valores de salida y algunos
+mensajes de bloqueos que los tests comprueban por tipo/datos. No se impone cobertura
+100% global: se priorizan decisiones de negocio y efectos observables; las garantías
+de persistencia y concurrencia continúan requiriendo las pruebas reales pendientes.
+
+**Deuda de integración.** El núcleo F3 no completa la aplicación de la Entrega 2:
+faltan adaptadores persistentes y migración explícita de datos anteriores, transacción
+certificado/auditoría y unicidad concurrente, REST con contratos de error, frontend,
+pruebas reales de repositorio/API y CI con protección de ramas. También quedan fuera
+administración dinámica o aprobación de políticas, vigencia futura, F2 y cambio de
+jurisdicción de un activo. No se ofrece atomicidad durable entre guardados, auditoría
+y eventos con los adaptadores actuales. Estas dependencias corresponden a la sección 8
+del plan y no se ocultan mediante defaults de producción.

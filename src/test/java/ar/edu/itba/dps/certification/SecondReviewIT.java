@@ -4,31 +4,43 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.ReassignInsp
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
-import ar.edu.itba.dps.certification.domain.catalogue.*;
-import ar.edu.itba.dps.certification.domain.certification.*;
+import ar.edu.itba.dps.certification.domain.catalogue.Asset;
+import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.Party;
+import ar.edu.itba.dps.certification.domain.certification.Certificate;
+import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionCause;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
-import ar.edu.itba.dps.certification.domain.inspection.*;
+import ar.edu.itba.dps.certification.domain.inspection.Inspection;
+import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.InspectionStatus;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.report.ReportedValue;
-import ar.edu.itba.dps.certification.domain.schema.*;
-import ar.edu.itba.dps.certification.domain.shared.*;
-import ar.edu.itba.dps.certification.domain.shared.answer.*;
-import ar.edu.itba.dps.certification.support.*;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceType;
+import ar.edu.itba.dps.certification.domain.shared.Actor;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
+import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.support.FullSystem;
+
 import java.lang.reflect.Modifier;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import static org.assertj.core.api.Assertions.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import static ar.edu.itba.dps.certification.support.Decisions.issuedCertificate;
 import static ar.edu.itba.dps.certification.support.DomainWorld.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Regression tests for the second review, done before starting Entrega 2. Every test reproduces
@@ -104,7 +116,7 @@ class SecondReviewIT {
                 "ev-1", "file://x", system.clock.now())).hasMessageContaining("declares no evidence requirement");
         var evidence = inspection.attachEvidence(inspector.id(), DOCUMENTATION, SAFETY_MANUAL, "ev-2",
                 "file://manual", system.clock.now());
-        assertThat(evidence.type()).isEqualTo(ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceType.DOCUMENT);
+        assertThat(evidence.type()).isEqualTo(EvidenceType.DOCUMENT);
     }
 
     @Test
@@ -153,11 +165,11 @@ class SecondReviewIT {
         rectify(id, "0");   // still REJECTED, now too cold instead of too hot
 
         Finding after = system.findings.require(finding.id());
-        assertThat(after.blocksCertification()).isTrue();
+        assertThat(after.pendingNonConformity()).isTrue();
         assertThat(after.correctiveActions()).hasSize(2);
         assertThat(certificate.status()).isEqualTo(CertificateStatus.SUSPENDED);
         assertThat(certificate.unresolvedCauses()).singleElement()
-                .isInstanceOf(SuspensionCause.RectifiedRejection.class);
+                .isInstanceOf(SuspensionCause.NonConformity.class);
 
         correct(after);
         assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);

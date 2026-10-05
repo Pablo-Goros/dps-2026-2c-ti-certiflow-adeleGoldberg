@@ -1,14 +1,5 @@
 package ar.edu.itba.dps.certification.application.finding;
 
-import java.time.LocalDate;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.application.finding.usecase.ExpireOverdueCorrectiveActions;
 import ar.edu.itba.dps.certification.application.finding.usecase.PlanCorrectiveAction;
@@ -28,6 +19,7 @@ import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
+import ar.edu.itba.dps.certification.domain.shared.Actor;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.support.FixedActor;
@@ -36,6 +28,16 @@ import ar.edu.itba.dps.certification.support.InMemoryFindingRepository;
 import ar.edu.itba.dps.certification.support.InMemoryInspectionRepository;
 import ar.edu.itba.dps.certification.support.RecordingEventPublisher;
 import ar.edu.itba.dps.certification.support.TestClock;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CorrectiveActionLifecycleTest {
 
@@ -66,7 +68,7 @@ class CorrectiveActionLifecycleTest {
         InMemoryInspectionRepository inspections = new InMemoryInspectionRepository();
         inspections.save(new Inspection(INSPECTION, AssetId.of("asset-1"), INSPECTOR,
                 LocalDate.parse("2026-03-01")));
-        plan = new PlanCorrectiveAction(findings, audit, clock, actors);
+        plan = new PlanCorrectiveAction(findings, audit, clock, actors, events);
         reportExecution = new ReportCorrectiveActionExecution(findings, clock, audit, actors);
         verify = new VerifyCorrectiveAction(findings, clock, events, audit, actors);
         expire = new ExpireOverdueCorrectiveActions(findings, clock, events, audit);
@@ -336,7 +338,7 @@ class CorrectiveActionLifecycleTest {
 
     private <T> T actingAs(PartyId user, java.util.function.Supplier<T> operation) {
         var previous = actors.current();
-        actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(user, user.value()));
+        actors.actingAs(Actor.user(user, user.value()));
         try {
             return operation.get();
         } finally {

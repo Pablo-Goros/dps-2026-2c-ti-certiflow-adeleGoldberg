@@ -3,32 +3,27 @@ package ar.edu.itba.dps.certification.domain.certification.derivation;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.ResponsiblePartyRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
+import ar.edu.itba.dps.certification.domain.certification.CertificateFixtures;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
 import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
+import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.ValidityPeriod;
-import ar.edu.itba.dps.certification.domain.finding.FindingId;
-import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
-import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
-import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.support.DomainWorld;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import ar.edu.itba.dps.certification.support.TestPolicies;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -38,6 +33,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -153,17 +154,14 @@ class AllSubsystemsMustBeInForceTest {
             }
             case SUSPENDED -> {
                 Certificate certificate = certificate(subsystem, STARTED_AT, IN_A_YEAR);
-                lifecycle.apply(certificate, new CorrectiveActionExpired(INSPECTION,
-                        FindingId.of("finding-1"), CorrectiveActionId.of("action-1"),
-                        CriterionId.of("ELEC"), NOW));
-                yield java.util.Optional.of(certificate);
+                CertificateFixtures.suspend(certificate, NOW);                yield java.util.Optional.of(certificate);
             }
         };
     }
 
     private Certificate certificate(Subsystem subsystem, Instant from, Instant to) {
         return issuer.issue(CertificateId.of("cert-" + subsystem.name()), ASSET, INSPECTION, VERSION,
-                CertificateScope.of(subsystem), new ValidityPeriod(from, to), null);
+                CertificateScope.of(subsystem), new ValidityPeriod(from, to), null, TestPolicies.reference(), CertificateMode.REGULAR);
     }
 
     private Inspection inspectionDeclaring(Subsystem... subsystems) {
@@ -188,11 +186,11 @@ class AllSubsystemsMustBeInForceTest {
         if (subsystems.length == 0) {
             return new AssetSnapshot(ASSET, AssetType.LABORATORY, "Laboratory A", Map.of(),
                     "Building 1", new ResponsiblePartyRef(PartyId.of("owner-1"), "Owner"),
-                    STARTED_AT);
+                    STARTED_AT, JurisdictionId.of("REFERENCE"));
         }
         return new AssetSnapshot(ASSET, AssetType.FACILITY, "Central Facility", Map.of(),
                 "Building 1", new ResponsiblePartyRef(PartyId.of("owner-1"), "Owner"),
-                Set.of(subsystems), STARTED_AT);
+                Set.of(subsystems), STARTED_AT, JurisdictionId.of("REFERENCE"));
     }
 
     @Test

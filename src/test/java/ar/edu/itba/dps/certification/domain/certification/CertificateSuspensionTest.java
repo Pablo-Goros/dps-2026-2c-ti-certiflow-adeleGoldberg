@@ -9,13 +9,17 @@ import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
+import ar.edu.itba.dps.certification.support.TestPolicies;
 
-import org.junit.jupiter.api.Test;
+import java.time.Instant;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import java.time.Instant;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CertificateSuspensionTest {
 
@@ -27,8 +31,8 @@ class CertificateSuspensionTest {
     private static final SuspensionCause FIRST_CAUSE =
             new SuspensionCause.OverdueAction(CorrectiveActionId.of("action-1"));
     private static final SuspensionCause SECOND_CAUSE =
-            new SuspensionCause.RectifiedRejection(CriterionId.of("TEMP"),
-                    RectificationId.of("rect-1"));
+            new SuspensionCause.NonConformity(CriterionId.of("TEMP"), java.util.Optional.empty(),
+                    java.util.Optional.of(RectificationId.of("rect-1")));
 
     private Certificate certificate;
 
@@ -41,7 +45,7 @@ class CertificateSuspensionTest {
                 new SchemaVersionId(SchemaId.of("schema-1"), 1),
                 CertificateScope.global(),
                 new ValidityPeriod(ISSUED_AT, EXPIRES_AT),
-                null);
+                null, TestPolicies.reference(), CertificateMode.REGULAR);
     }
 
     @Test
@@ -132,7 +136,7 @@ class CertificateSuspensionTest {
                 new SchemaVersionId(SchemaId.of("schema-1"), 1),
                 CertificateScope.global(),
                 new ValidityPeriod(ISSUED_AT, EXPIRES_AT),
-                CertificateId.of("cert-1")))
+                CertificateId.of("cert-1"), TestPolicies.reference(), CertificateMode.REGULAR))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("cannot succeed itself");
     }
@@ -177,8 +181,8 @@ class CertificateSuspensionTest {
                 new SchemaVersionId(SchemaId.of("schema-1"), 1),
                 null,
                 new ValidityPeriod(ISSUED_AT, EXPIRES_AT),
-                null))
-                .isInstanceOf(ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException.class)
+                null, TestPolicies.reference(), CertificateMode.REGULAR))
+                .isInstanceOf(InvalidArgumentException.class)
                 .hasMessageContaining("certificate scope");
     }
 

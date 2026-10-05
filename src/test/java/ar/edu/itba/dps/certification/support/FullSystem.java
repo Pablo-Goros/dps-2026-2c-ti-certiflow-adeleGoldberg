@@ -1,35 +1,41 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.adapter.catalogue.CatalogueAssetDirectory;
+import ar.edu.itba.dps.certification.adapter.certification.RegisteredCertificationPolicies;
+import ar.edu.itba.dps.certification.adapter.finding.RepositoryFindingQuery;
+import ar.edu.itba.dps.certification.adapter.schema.PublishedSchemaCatalog;
+import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetResponsible;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RelocateAsset;
+import ar.edu.itba.dps.certification.application.certification.CertificateFactory;
 import ar.edu.itba.dps.certification.application.certification.CertificationReactions;
+import ar.edu.itba.dps.certification.application.certification.usecase.DeriveGlobalCertificate;
 import ar.edu.itba.dps.certification.application.certification.usecase.EvaluateIssuanceEligibility;
 import ar.edu.itba.dps.certification.application.certification.usecase.ExpireDueCertificates;
 import ar.edu.itba.dps.certification.application.certification.usecase.IssueCertificate;
 import ar.edu.itba.dps.certification.application.certification.usecase.RenewCertificate;
 import ar.edu.itba.dps.certification.application.finding.FindingService;
-import ar.edu.itba.dps.certification.adapter.finding.RepositoryFindingQuery;
 import ar.edu.itba.dps.certification.application.finding.usecase.ExpireOverdueCorrectiveActions;
 import ar.edu.itba.dps.certification.application.finding.usecase.PlanCorrectiveAction;
 import ar.edu.itba.dps.certification.application.finding.usecase.ReportCorrectiveActionExecution;
 import ar.edu.itba.dps.certification.application.finding.usecase.VerifyCorrectiveAction;
+import ar.edu.itba.dps.certification.application.inspection.RectificationConsequences;
 import ar.edu.itba.dps.certification.application.inspection.usecase.AssignInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.AttachEvidence;
 import ar.edu.itba.dps.certification.application.inspection.usecase.CloseInspection;
-import ar.edu.itba.dps.certification.application.inspection.usecase.RecordAnswer;
 import ar.edu.itba.dps.certification.application.inspection.usecase.CorrectNote;
+import ar.edu.itba.dps.certification.application.inspection.usecase.RecordAnswer;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RecordNote;
+import ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveAnswer;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveEvidence;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveNote;
-import ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
-import ar.edu.itba.dps.certification.adapter.schema.PublishedSchemaCatalog;
+import ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport;
+import ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct;
 import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
 import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
@@ -37,14 +43,21 @@ import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.PublishSchemaVersion;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.PartyKind;
-import ar.edu.itba.dps.certification.domain.certification.FixedDurationValidityPolicy;
-import ar.edu.itba.dps.certification.domain.certification.issuance.CertificateIssuancePolicy;
+import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
+import ar.edu.itba.dps.certification.domain.certification.derivation.AllSubsystemsMustBeInForce;
+import ar.edu.itba.dps.certification.domain.certification.derivation.GlobalCertificatePolicy;
 import ar.edu.itba.dps.certification.domain.evaluation.CriterionEvaluator;
+import ar.edu.itba.dps.certification.domain.finding.Finding;
+import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.Section;
+import ar.edu.itba.dps.certification.domain.shared.Actor;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
 
 import java.util.Map;
 import java.util.Set;
@@ -69,8 +82,8 @@ public final class FullSystem {
     public final RepositoryFindingQuery findingQuery = new RepositoryFindingQuery(findings);
     public final FindingService findingService =
             new FindingService(findings, ids, clock, audit);
-    public final ar.edu.itba.dps.certification.domain.schema.SchemaApplicability schemaApplicability =
-            new ar.edu.itba.dps.certification.domain.schema.SchemaApplicability();
+    public final SchemaApplicability schemaApplicability =
+            new SchemaApplicability();
     public final RegisterParty registerParty = new RegisterParty(catalogue.parties, ids, audit);
     public final RegisterAsset registerAsset = new RegisterAsset(catalogue.assets, catalogue.parties, ids, audit);
     public final RelocateAsset relocateAsset = new RelocateAsset(catalogue.assets, audit);
@@ -99,11 +112,11 @@ public final class FullSystem {
             assetDirectory, findingService, clock, audit, actors);
     public final RectifyClosedInspection rectifyClosedInspection =
             new RectifyClosedInspection(inspections, findingService,
-                    new ar.edu.itba.dps.certification.application.inspection.RectificationConsequences(findingService, assetDirectory),
+                    new RectificationConsequences(findingService, assetDirectory),
                     events, ids, clock, audit, actors);
 
     public final PlanCorrectiveAction planCorrectiveAction =
-            new PlanCorrectiveAction(findings, audit, clock, actors);
+            new PlanCorrectiveAction(findings, audit, clock, actors, events);
     public final ReportCorrectiveActionExecution reportExecution =
             new ReportCorrectiveActionExecution(findings, clock, audit, actors);
     public final VerifyCorrectiveAction verifyCorrectiveAction =
@@ -111,12 +124,12 @@ public final class FullSystem {
     public final ExpireOverdueCorrectiveActions expireActions =
             new ExpireOverdueCorrectiveActions(findings, clock, events, audit);
 
-    public final CertificateIssuancePolicy issuancePolicy = new CertificateIssuancePolicy();
-    public final ar.edu.itba.dps.certification.domain.certification.derivation.GlobalCertificatePolicy globalPolicy =
-            new ar.edu.itba.dps.certification.domain.certification.derivation.AllSubsystemsMustBeInForce();
-    public final ar.edu.itba.dps.certification.application.certification.CertificateFactory certificateFactory =
-            new ar.edu.itba.dps.certification.application.certification.CertificateFactory(inspections, findingQuery,
-                    certificates, issuancePolicy, FixedDurationValidityPolicy.ofMonths(12), globalPolicy, ids, clock);
+    public final RegisteredCertificationPolicies policies = TestPolicies.registry();
+    public final GlobalCertificatePolicy globalPolicy =
+            new AllSubsystemsMustBeInForce();
+    public final CertificateFactory certificateFactory =
+            new CertificateFactory(inspections, findingQuery,
+                    certificates, assetDirectory, policies, globalPolicy, ids, clock);
     public final IssueCertificate issueCertificate = new IssueCertificate(certificateFactory, certificates, audit);
     public final RenewCertificate renewCertificate =
             new RenewCertificate(certificateFactory, certificates, audit);
@@ -124,37 +137,37 @@ public final class FullSystem {
             new ExpireDueCertificates(certificates, clock, audit);
     public final EvaluateIssuanceEligibility evaluateEligibility =
             new EvaluateIssuanceEligibility(certificateFactory);
-    public final ar.edu.itba.dps.certification.application.certification.usecase.DeriveGlobalCertificate deriveGlobalCertificate =
-            new ar.edu.itba.dps.certification.application.certification.usecase.DeriveGlobalCertificate(certificateFactory);
-    public final ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct generateInspectionAct =
-            new ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct(
+    public final DeriveGlobalCertificate deriveGlobalCertificate =
+            new DeriveGlobalCertificate(certificateFactory);
+    public final GenerateInspectionAct generateInspectionAct =
+            new GenerateInspectionAct(
                     inspections, schemaCatalog);
-    public final ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport generateCertificateReport =
-            new ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport(
+    public final GenerateCertificateReport generateCertificateReport =
+            new GenerateCertificateReport(
                     certificates, inspections, findingQuery);
 
     public FullSystem() {
         events.register(new CertificationReactions(certificates, inspections,
-                new ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle(), audit));
+                new CertificateLifecycle(), audit, findingQuery, clock));
     }
 
     /** Makes the given party the authenticated user for the following operations. */
     public void actAs(Party party) {
-        actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(party.id(), party.name()));
+        actors.actingAs(Actor.user(party.id(), party.name()));
     }
 
     /** Plans the current corrective action of a finding as its responsible, who owns that decision (RF8). */
-    public ar.edu.itba.dps.certification.domain.finding.Finding planAsResponsible(
-            ar.edu.itba.dps.certification.domain.finding.FindingId findingId, String work,
-            ar.edu.itba.dps.certification.domain.shared.PartyId executor, java.time.LocalDate dueDate) {
+    public Finding planAsResponsible(
+            FindingId findingId, String work,
+            PartyId executor, java.time.LocalDate dueDate) {
         var responsible = findings.require(findingId).responsible();
         return actingAs(responsible, () -> planCorrectiveAction.plan(findingId, work, executor, dueDate));
     }
 
-    public <T> T actingAs(ar.edu.itba.dps.certification.domain.shared.PartyId user,
+    public <T> T actingAs(PartyId user,
             java.util.function.Supplier<T> operation) {
         var previous = actors.current();
-        actors.actingAs(ar.edu.itba.dps.certification.domain.shared.Actor.user(user, user.value()));
+        actors.actingAs(Actor.user(user, user.value()));
         try { return operation.get(); }
         finally { actors.actingAs(previous); }
     }
@@ -169,7 +182,7 @@ public final class FullSystem {
 
     public Asset asset(String name, AssetType type, Party responsible) {
         return registerAsset.register(name, type, responsible.id(), "Building 1",
-                Map.of("room", "12"));
+                Map.of("room", "12"), JurisdictionId.of("REFERENCE"));
     }
 
     public SchemaVersion publishSubsystemSchema(AssetType assetType) {

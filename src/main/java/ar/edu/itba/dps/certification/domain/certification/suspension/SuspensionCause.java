@@ -5,9 +5,19 @@ import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectificati
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
+import java.util.Optional;
+
 public sealed interface SuspensionCause {
 
     String describe();
+    record NonConformity(CriterionId criterionId, Optional<CorrectiveActionId> correctiveActionId,
+            Optional<RectificationId> rectificationId) implements SuspensionCause {
+        public NonConformity {
+            Validate.required(criterionId, "criterion id"); Validate.required(correctiveActionId, "action id");
+            Validate.required(rectificationId, "rectification id");
+        }
+        @Override public String describe() { return "criterion " + criterionId + " no longer complies with the certificate policy"; }
+    }
 
     record OverdueAction(CorrectiveActionId correctiveActionId) implements SuspensionCause {
 
@@ -21,18 +31,4 @@ public sealed interface SuspensionCause {
         }
     }
 
-    record RectifiedRejection(CriterionId criterionId, RectificationId rectificationId)
-            implements SuspensionCause {
-
-        public RectifiedRejection {
-            Validate.required(criterionId, "criterion id");
-            Validate.required(rectificationId, "rectification id");
-        }
-
-        @Override
-        public String describe() {
-            return "criterion " + criterionId + " became rejected through rectification "
-                    + rectificationId;
-        }
-    }
 }

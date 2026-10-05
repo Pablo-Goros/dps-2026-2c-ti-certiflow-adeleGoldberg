@@ -2,8 +2,10 @@ package ar.edu.itba.dps.certification.domain.report;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
+import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
+import ar.edu.itba.dps.certification.domain.certification.policy.CertificationPolicySnapshot;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
@@ -27,9 +29,12 @@ public record CertificateReport(
         Optional<CertificateId> previousCertificateId,
         boolean backingInspectionWasRectified,
         List<String> unresolvedSuspensionCauses,
-        List<PendingCommitment> pendingCommitments) {
+        List<PendingCommitment> pendingCommitments,
+        CertificationPolicySnapshot policy,
+        CertificateMode mode) {
 
     public CertificateReport {
+        Validate.required(policy, "policy"); Validate.required(mode, "mode");
         Validate.required(certificateId, "certificate id");
         Validate.required(assetId, "asset id");
         Validate.required(backingInspectionId, "backing inspection id");
@@ -37,6 +42,8 @@ public record CertificateReport(
         Validate.required(scope, "certificate scope");
         Validate.required(issuedAt, "issue instant");
         Validate.required(expiresAt, "expiry instant");
+        Validate.ensure(expiresAt.isAfter(issuedAt), "report validity must end after issuance");
+        Validate.ensure(mode != CertificateMode.CONDITIONAL || policy.allowsConditional(), "conditional mode is forbidden");
         Validate.required(status, "status");
         Validate.required(previousCertificateId, "previous certificate id");
         unresolvedSuspensionCauses =

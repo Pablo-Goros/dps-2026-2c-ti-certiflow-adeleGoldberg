@@ -9,6 +9,7 @@ import java.util.Set;
 public final class Asset {
 
     private final AssetId id;
+    private final JurisdictionId jurisdiction;
     private final String name;
     private final AssetType assetType;
     private final Map<String, String> characteristics;
@@ -17,7 +18,8 @@ public final class Asset {
     private String location;
 
     public Asset(AssetId id, String name, AssetType assetType, Map<String, String> characteristics,
-            ResponsiblePartyRef responsible, String location, Set<Subsystem> subsystems) {
+            ResponsiblePartyRef responsible, String location, Set<Subsystem> subsystems, JurisdictionId jurisdiction) {
+        this.jurisdiction = Validate.required(jurisdiction, "jurisdiction");
         this.id = Validate.required(id, "asset id");
         this.name = Validate.requiredText(name, "asset name");
         this.assetType = Validate.required(assetType, "asset type id");
@@ -28,10 +30,12 @@ public final class Asset {
     }
 
     public Asset(AssetId id, String name, AssetType assetType, Map<String, String> characteristics,
-            ResponsiblePartyRef responsible, String location) {
+            ResponsiblePartyRef responsible, String location, JurisdictionId jurisdiction) {
         this(id, name, assetType, characteristics, responsible, location,
-                Validate.required(assetType, "asset type id").subsystems());
+                Validate.required(assetType, "asset type id").subsystems(), jurisdiction);
     }
+
+    public JurisdictionId jurisdiction() { return jurisdiction; }
 
     public AssetId id() {
         return id;
@@ -77,7 +81,7 @@ public final class Asset {
 
     public AssetSnapshot captureSnapshot(Instant capturedAt) {
         return new AssetSnapshot(id, assetType, name, characteristics, location, responsible,
-                subsystems, capturedAt);
+                subsystems, capturedAt, jurisdiction);
     }
 
     @Override

@@ -1,14 +1,18 @@
 package ar.edu.itba.dps.certification.domain.report;
 
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
+import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
+import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import ar.edu.itba.dps.certification.support.TestPolicies;
 
 import java.util.List;
 import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,16 +38,16 @@ class ReportValueEdgeTest {
         InspectionId inspectionId = InspectionId.of("inspection-1");
         CertificateId certificateId = CertificateId.of("certificate-1");
 
-        assertThat(IssuanceAttemptReport.certified(inspectionId, certificateId).certificateId())
+        assertThat(new IssuanceAttemptReport(inspectionId, true, Optional.of( certificateId), List.of(), CertificateScope.global(), TestPolicies.reference(), Optional.of(CertificateMode.REGULAR)).certificateId())
                 .contains(certificateId);
-        assertThat(IssuanceAttemptReport.blocked(inspectionId, List.of("blocked")).blockingReasons())
+        assertThat(new IssuanceAttemptReport(inspectionId, false, Optional.empty(),  List.of("blocked"), CertificateScope.global(), TestPolicies.reference(), Optional.empty()).blockingReasons())
                 .containsExactly("blocked");
         assertThatThrownBy(() -> new IssuanceAttemptReport(inspectionId, true,
-                Optional.empty(), List.of()))
+                Optional.empty(), List.of(), CertificateScope.global(), TestPolicies.reference(), Optional.of(CertificateMode.REGULAR)))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("either certifies");
         assertThatThrownBy(() -> new IssuanceAttemptReport(inspectionId, true,
-                Optional.of(certificateId), List.of("blocked")))
+                Optional.of(certificateId), List.of("blocked"), CertificateScope.global(), TestPolicies.reference(), Optional.of(CertificateMode.REGULAR)))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("certified issuance has no blockers");
     }
