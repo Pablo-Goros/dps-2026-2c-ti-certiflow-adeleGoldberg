@@ -145,14 +145,18 @@ class ApplicationUseCasesCoverageTest {
         system.openDraft.open(source.id());
         system.editDraft.addSection(source.id(), Section.of("Safety", 1,
                 DomainWorld.temperatureCriterion()));
-        system.publishSchemaVersion.publish(source.id());
+        system.editDraft.addSection(source.id(),
+                DomainWorld.sectionCovering("Parts", 2, AssetType.FACTORY));
+        assertThat(system.publishSchemaVersion.publish(source.id()).published()).isTrue();
 
         InspectionSchema target = system.createSchema.create("Facility inspection",
                 Set.of(AssetType.FACILITY));
         system.openDraft.open(target.id());
         system.editDraft.addSection(target.id(), Section.of("Safety", 1,
                 DomainWorld.documentationCriterion()));
-        system.publishSchemaVersion.publish(target.id());
+        system.editDraft.addSection(target.id(),
+                DomainWorld.sectionCovering("Parts", 2, AssetType.FACILITY));
+        assertThat(system.publishSchemaVersion.publish(target.id()).published()).isTrue();
 
         InspectionSchema updatedTarget = change.transferTo(source.id(), target.id(), AssetType.FACTORY);
 

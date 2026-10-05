@@ -4,6 +4,7 @@ import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 
 public final class Asset {
 
@@ -11,17 +12,25 @@ public final class Asset {
     private final String name;
     private final AssetType assetType;
     private final Map<String, String> characteristics;
+    private final Set<Subsystem> subsystems;
     private ResponsiblePartyRef responsible;
     private String location;
 
     public Asset(AssetId id, String name, AssetType assetType, Map<String, String> characteristics,
-            ResponsiblePartyRef responsible, String location) {
+            ResponsiblePartyRef responsible, String location, Set<Subsystem> subsystems) {
         this.id = Validate.required(id, "asset id");
         this.name = Validate.requiredText(name, "asset name");
         this.assetType = Validate.required(assetType, "asset type id");
         this.characteristics = assetType.validateCharacteristics(characteristics);
+        this.subsystems = assetType.validateSubsystems(subsystems);
         this.responsible = Validate.required(responsible, "asset responsible");
         this.location = Validate.requiredText(location, "asset location");
+    }
+
+    public Asset(AssetId id, String name, AssetType assetType, Map<String, String> characteristics,
+            ResponsiblePartyRef responsible, String location) {
+        this(id, name, assetType, characteristics, responsible, location,
+                Validate.required(assetType, "asset type id").subsystems());
     }
 
     public AssetId id() {
@@ -38,6 +47,10 @@ public final class Asset {
 
     public Map<String, String> characteristics() {
         return characteristics;
+    }
+
+    public Set<Subsystem> subsystems() {
+        return subsystems;
     }
 
     public ResponsiblePartyRef responsible() {
@@ -63,7 +76,8 @@ public final class Asset {
     }
 
     public AssetSnapshot captureSnapshot(Instant capturedAt) {
-        return new AssetSnapshot(id, assetType, name, characteristics, location, responsible, capturedAt);
+        return new AssetSnapshot(id, assetType, name, characteristics, location, responsible,
+                subsystems, capturedAt);
     }
 
     @Override

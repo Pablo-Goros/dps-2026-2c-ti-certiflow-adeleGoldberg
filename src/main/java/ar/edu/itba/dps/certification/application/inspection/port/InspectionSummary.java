@@ -2,6 +2,7 @@ package ar.edu.itba.dps.certification.application.inspection.port;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
+import ar.edu.itba.dps.certification.domain.certification.CertificationPlan;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionStatus;
@@ -23,7 +24,8 @@ public record InspectionSummary(
         Optional<Instant> startedAt,
         Optional<Instant> closedAt,
         Optional<SchemaVersionId> schemaVersionId,
-        Optional<AssetSnapshot> asset) {
+        Optional<AssetSnapshot> asset,
+        CertificationPlan certificationPlan) {
 
     public InspectionSummary {
         Validate.required(id, "inspection id");
@@ -35,6 +37,7 @@ public record InspectionSummary(
         Validate.required(closedAt, "closure instant");
         Validate.required(schemaVersionId, "schema version id");
         Validate.required(asset, "asset snapshot");
+        Validate.required(certificationPlan, "certification plan");
     }
 
     public static InspectionSummary of(Inspection inspection) {
@@ -48,7 +51,8 @@ public record InspectionSummary(
                 inspection.startedAt(),
                 inspection.closedAt(),
                 inspection.frozenSchemaVersionId(),
-                inspection.assetSnapshot());
+                inspection.assetSnapshot(),
+                CertificationPlan.over(inspection.certifiableSubsystems()));
     }
 
     public boolean closed() {

@@ -1,5 +1,6 @@
 package ar.edu.itba.dps.certification.domain.schema;
 
+import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceShortfall;
@@ -179,5 +180,64 @@ class SchemaValueEdgeTest {
         return new NumericRangeRule("ph", BigDecimal.ZERO, BigDecimal.TEN, List.of(
                 new NumericBand(BigDecimal.ZERO, true, BigDecimal.TEN, true,
                         RuleOutcome.approved("OK", "ok"))));
+    }
+
+    @Test
+    @DisplayName("a criterion needs a subsystem option, even an empty one")
+    void aCriterionNeedsASubsystemOption() {
+        assertThatThrownBy(() -> new Criterion(CriterionId.of("PH"), validRule(), List.of(), null))
+                .isInstanceOf(InvalidArgumentException.class)
+                .hasMessageContaining("subsystem");
+        assertThatThrownBy(() -> Criterion.of("PH", validRule(), null))
+                .isInstanceOf(InvalidArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("asking whether a criterion weighs on nothing is refused, not answered")
+    void weighingOnNullIsRefused() {
+        Criterion criterion = Criterion.of("PH", validRule());
+        assertThatThrownBy(() -> criterion.weighsOn(null))
+                .isInstanceOf(InvalidArgumentException.class);
+        assertThatThrownBy(() -> criterion.appliesToAssetHaving(null))
+                .isInstanceOf(InvalidArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("a transversal criterion weighs on every part and on an asset with none")
+    void aTransversalCriterionWeighsOnEverything() {
+        Criterion transversal = Criterion.of("PH", validRule());
+        Subsystem electrical = Subsystem.of("electrical installation");
+
+        assertThat(transversal.weighsOn(electrical)).isTrue();
+        assertThat(transversal.appliesToAssetHaving(Set.of(electrical))).isTrue();
+        assertThat(transversal.appliesToAssetHaving(Set.of())).isTrue();
+    }
+
+    @Test
+    @DisplayName("a criterion of one part does not apply to an asset without that part")
+    void aPartCriterionDoesNotApplyElsewhere() {
+        Subsystem electrical = Subsystem.of("electrical installation");
+        Subsystem pressure = Subsystem.of("pressure system");
+        Criterion ofElectrical = Criterion.of("PH", validRule(), electrical);
+
+        assertThat(ofElectrical.appliesToAssetHaving(Set.of(electrical))).isTrue();
+        assertThat(ofElectrical.appliesToAssetHaving(Set.of(pressure))).isFalse();
+        assertThat(ofElectrical.appliesToAssetHaving(Set.of())).isTrue();
+    }
+
+    @Test
+    @DisplayName("a version answers which part a criterion weighs on, and refuses a null part")
+    void aVersionAnswersAboutParts() {
+        Subsystem electrical = Subsystem.of("electrical installation");
+        SchemaVersion version = new SchemaVersion(
+                new SchemaVersionId(SchemaId.of("s"), 1),
+                List.of(Section.of("Safety", 1, Criterion.of("PH", validRule(), electrical))),
+                Instant.parse("2026-03-01T10:00:00Z"));
+
+        assertThat(version.declaredSubsystems()).containsExactly(electrical);
+        assertThat(version.criterionWeighsOn(CriterionId.of("PH"), electrical)).isTrue();
+        assertThat(version.criterionWeighsOn(CriterionId.of("MISSING"), electrical)).isTrue();
+        assertThatThrownBy(() -> version.criterionWeighsOn(CriterionId.of("PH"), null))
+                .isInstanceOf(InvalidArgumentException.class);
     }
 }

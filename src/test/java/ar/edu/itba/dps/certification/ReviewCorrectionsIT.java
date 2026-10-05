@@ -79,7 +79,7 @@ class ReviewCorrectionsIT {
         Certificate previous = issuedCertificate(system.issueCertificate.issue(close("5")));
         system.clock.advanceDays(400);
         assertThatThrownBy(() -> system.renewCertificate.renew(older)).hasMessageContaining("started after");
-        assertThat(system.certificates.findLatestForAsset(asset.id())).contains(previous);
+        assertThat(system.certificates.findLatestForAsset(asset.id(), CertificateScope.global())).contains(previous);
     }
 
     @Test
@@ -178,8 +178,11 @@ class ReviewCorrectionsIT {
         assertThat(SchemaDraft.class.getDeclaredMethods()).noneMatch(m ->
                 Modifier.isPublic(m.getModifiers()) && Set.of("addSection", "removeSection").contains(m.getName()));
         system.editDraft.addSection(schema.id(), Section.of("Safety", 1, temperatureCriterion()));
-        assertThat(system.publishSchemaVersion.publish(schema.id()).publishedVersion().criteria()).hasSize(1);
-        assertThat(system.auditTrail.withAction(AuditAction.SCHEMA_DRAFT_EDITED)).hasSize(2);
+        system.editDraft.addSection(schema.id(),
+                DomainWorld.sectionCovering("Parts", 2, AssetType.FACTORY));
+        assertThat(system.publishSchemaVersion.publish(schema.id()).publishedVersion().criteria())
+                .hasSize(1 + AssetType.FACTORY.subsystems().size());
+        assertThat(system.auditTrail.withAction(AuditAction.SCHEMA_DRAFT_EDITED)).hasSize(3);
     }
 
     @Test
@@ -188,7 +191,9 @@ class ReviewCorrectionsIT {
         var target = system.createSchema.create("Target", Set.of(AssetType.FACILITY));
         system.openDraft.open(target.id());
         system.editDraft.addSection(target.id(), Section.of("Safety", 1, temperatureCriterion()));
-        system.publishSchemaVersion.publish(target.id());
+        system.editDraft.addSection(target.id(),
+                DomainWorld.sectionCovering("Parts", 2, AssetType.FACILITY));
+        assertThat(system.publishSchemaVersion.publish(target.id()).published()).isTrue();
         var change = new ChangeSchemaApplicability(system.schemas, system.schemaApplicability, system.audit);
         assertThatThrownBy(() -> change.applyTo(target.id(), AssetType.FACTORY)).hasMessageContaining("already covered");
         assertThatThrownBy(() -> change.stopApplyingTo(source.id(), AssetType.FACILITY)).hasMessageContaining("does not apply");
@@ -226,7 +231,8 @@ class ReviewCorrectionsIT {
         var policy = new ar.edu.itba.dps.certification.domain.certification.issuance.CertificateIssuancePolicy(
                 List.of(context -> java.util.Optional.empty()));
         var factory = new CertificateFactory(system.inspections, system.findingQuery, system.certificates,
-                policy, FixedDurationValidityPolicy.ofMonths(12), system.ids, system.clock);
+                policy, FixedDurationValidityPolicy.ofMonths(12), system.globalPolicy, system.ids,
+                system.clock);
         assertThat(factory.issue(id)).isInstanceOf(IssuanceDecision.Blocked.class);
     }
 

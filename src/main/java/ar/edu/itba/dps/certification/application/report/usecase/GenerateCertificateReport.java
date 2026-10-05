@@ -36,13 +36,14 @@ public final class GenerateCertificateReport {
                 certificate.assetId(),
                 certificate.backingInspectionId(),
                 certificate.schemaVersionId(),
+                certificate.scope(),
                 certificate.validity().issuedAt(),
                 certificate.validity().expiresAt(),
                 certificate.status(),
                 certificate.previousCertificateId(),
                 inspections.wasRectified(certificate.backingInspectionId()),
                 certificate.unresolvedCauses().stream().map(SuspensionCause::describe).toList(),
-                pendingCommitmentsOf(certificate.backingInspectionId()));
+                pendingCommitmentsOf(certificate));
     }
 
     public IssuanceAttemptReport reportBlockedAttempt(InspectionId inspectionId,
@@ -52,10 +53,18 @@ public final class GenerateCertificateReport {
                 blockers.stream().map(IssuanceBlocker::describe).toList());
     }
 
-    private List<CertificateReport.PendingCommitment> pendingCommitmentsOf(InspectionId inspectionId) {
+    private List<CertificateReport.PendingCommitment> pendingCommitmentsOf(Certificate certificate) {
+        InspectionId inspectionId = certificate.backingInspectionId();
+        var inspection = inspections.require(inspectionId);
         List<CertificateReport.PendingCommitment> commitments = new ArrayList<>();
         for (Finding finding : findings.findingsOf(inspectionId)) {
             if (finding.obligationVoided() || finding.correctiveAction().status().terminal()) {
+                continue;
+            }
+            boolean inScope = certificate.scope().coveredSubsystem()
+                    .map(subsystem -> inspection.criterionWeighsOn(finding.criterionId(), subsystem))
+                    .orElse(true);
+            if (!inScope) {
                 continue;
             }
             finding.correctiveAction().plan().ifPresent(plan ->

@@ -4,6 +4,7 @@ import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 
 public record AssetSnapshot(
         AssetId assetId,
@@ -12,6 +13,7 @@ public record AssetSnapshot(
         Map<String, String> characteristics,
         String location,
         ResponsiblePartyRef responsible,
+        Set<Subsystem> subsystems,
         Instant capturedAt) {
 
     public AssetSnapshot {
@@ -21,6 +23,14 @@ public record AssetSnapshot(
         characteristics = assetType.validateCharacteristics(characteristics);
         location = Validate.requiredText(location, "location");
         Validate.required(responsible, "responsible");
+        subsystems = assetType.validateSubsystems(subsystems);
         Validate.required(capturedAt, "capture instant");
+    }
+
+    public AssetSnapshot(AssetId assetId, AssetType assetType, String name,
+            Map<String, String> characteristics, String location, ResponsiblePartyRef responsible,
+            Instant capturedAt) {
+        this(assetId, assetType, name, characteristics, location, responsible,
+                Validate.required(assetType, "asset type id").subsystems(), capturedAt);
     }
 }

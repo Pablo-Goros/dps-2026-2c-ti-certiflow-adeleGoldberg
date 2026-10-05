@@ -2,6 +2,7 @@ package ar.edu.itba.dps.certification.domain.report;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
+import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
@@ -19,6 +20,7 @@ public record CertificateReport(
         AssetId assetId,
         InspectionId backingInspectionId,
         SchemaVersionId schemaVersionId,
+        CertificateScope scope,
         Instant issuedAt,
         Instant expiresAt,
         CertificateStatus status,
@@ -32,6 +34,7 @@ public record CertificateReport(
         Validate.required(assetId, "asset id");
         Validate.required(backingInspectionId, "backing inspection id");
         Validate.required(schemaVersionId, "schema version id");
+        Validate.required(scope, "certificate scope");
         Validate.required(issuedAt, "issue instant");
         Validate.required(expiresAt, "expiry instant");
         Validate.required(status, "status");

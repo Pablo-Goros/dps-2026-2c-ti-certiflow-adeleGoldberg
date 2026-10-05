@@ -28,6 +28,15 @@ el razonamiento y las consecuencias de cada una.
 | D15 | Proyecciones de consulta / DTO de dominio | `InspectionAct`, `FindingsSummary`, `CertificateReport`, `ReportedValue` | Separar información del dominio de su formato de presentación | Generar PDF o mezclar reporting con entidades | Las salidas son estructuradas y testeables; una capa externa deberá elegir JSON, HTML o PDF |
 | D16 | Validación antes de mutar | `Validate`, rectificaciones y constructores de entidades/valores | Evitar cambios parciales cuando una operación inválida afecta varias partes | Mutar y validar paso a paso, o depender de transacciones inexistentes | Se obtiene atomicidad lógica en memoria; la persistencia futura deberá agregar transacciones reales |
 
+| D17 | Scope como tipo sellado | `CertificateScope` (`Global` \ | `Partial`), `Certificate.scope`, `CertificationContext.scope` | Distinguir qué cubre un certificado sin campos nulables ni banderas | `Optional<Subsystem>` suelto en `Certificate`, o un `boolean partial` | El `switch` sobre alcance es exhaustivo; cada consulta de certificado por activo o inspección pasa a necesitar el alcance |
+| D18 | Subsistema como concepto del catálogo, asociado al criterio por el esquema | `catalogue.Subsystem`, `AssetType.subsystems()`, `Criterion.subsystem` | El subsistema es una parte del activo; el esquema solo dice qué criterio evalúa cuál | Tener el concepto en `domain.schema`, o declararlo en `Section` | Mantiene la dependencia `schema → catalogue` en un solo sentido, sin ciclo; un criterio sin subsistema pesa sobre todos los parciales |
+| D19 | Filtrado por alcance en los hechos, no en la política | `CertificationContext.inScope()` | Que los seis requisitos de emisión respondan a un parcial sin saber que existen subsistemas | Un requisito nuevo por subsistema, o duplicar la política | `CertificateIssuancePolicy` e `IssuanceRequirements` quedan sin modificar; el alcance viaja en los hechos |
+| D20 | Certificado global derivado, no persistido | `GlobalCertificatePolicy`, `AllSubsystemsMustBeInForce`, `GlobalCertificate`, `DeriveGlobalCertificate` | Que el global no pueda contradecir a sus parciales | Persistir un `Certificate` de alcance `Global` y reconciliarlo | No hay identidad ni auditoría propia del global; a cambio no hay paso de sincronización al suspender un parcial |
+| D21 | Ruteo de eventos por alcance | `CertificationReactions` | Que una acción vencida de un subsistema no suspenda a los demás | Suspender todos los certificados de la inspección, o llevar el subsistema en cada evento | `CertificationReactions` recibe `InspectionQuery` para resolver criterio→subsistema; los cuatro eventos quedan sin cambios |
+| D22 | El activo declara qué partes tiene | `Asset.subsystems`, `AssetSnapshot.subsystems`, `Inspection.certifiableSubsystems()` | No todo activo de un tipo tiene todas las partes del tipo | Asumir que todos los activos de un tipo son homogéneos | La derivación global exige solo los subsistemas del activo; los criterios de una parte ausente quedan evaluados pero no bloquean |
+| D23 | Criterio no aplicable, no un cuarto resultado | `Criterion.appliesToAssetHaving()`, `CriterionRecord.applicable`, `Inspection.start/close`, `ActCriterionLine.applicable` | Que los criterios de una parte ausente no generen hallazgos | Un cuarto `CriterionResult` NOT_APPLICABLE, o no crear el registro | RF5 conserva tres resultados; el registro se conserva y el acta declara que no aplicó, en lugar de dejar un hueco |
+| D24 | El modo de certificación es un tipo sellado, no un booleano | `CertificationPlan`, `InspectionSummary.certificationPlan()` | Que el llamador no tenga que leer «sin subsistemas» como «certificalo entero» | Un `boolean certifiedAsAWhole()` con `if/else`, o exponer el conjunto crudo | La regla vive en una sola fábrica y el `switch` del llamador es exhaustivo; hay un tipo más |
+
 ### Patrones deliberadamente no aplicados
 
 Además de las alternativas específicas de la tabla, se decidió no aplicar estos patrones
@@ -84,6 +93,19 @@ El supuesto S1 se implementa con nombres predefinidos en `AssetType`: laboratori
 
 `Asset.relocate` y `Asset.assignResponsible` son comandos. El caso de uso conserva el valor anterior y construye el `FieldChange` para auditoría, de la misma forma que en los cambios de aplicabilidad.
 
+**Subsistemas.** Un activo puede dividirse en partes certificables por separado. El concepto
+pertenece al catálogo: `Subsystem` vive en `domain.catalogue` y `AssetType` declara qué partes puede
+tener un activo de ese tipo, igual que ya declaraba sus características (S1). Cada activo declara
+cuáles tiene de ese catálogo; por omisión se le asignan todas, y declarar ninguna significa que se
+certifica entero, con todos los criterios contando contra el activo y no contra una parte. El
+`AssetSnapshot` las captura al iniciar, como la ubicación y el responsable.
+
+Tener el concepto en el catálogo y no en el esquema no es solo ontológico: `domain.schema` ya importa
+`domain.catalogue` y no al revés, de modo que declarar las partes en el activo con `Subsystem` en el
+esquema habría cerrado un ciclo entre ambos paquetes. `ArchitectureBoundaryTest` lo impide ahora.
+Se descartó modelarlo como un enum propio: qué partes existen es vocabulario por tipo de activo y ya
+lo declara `AssetType`.
+
 ## 3. Versiones inmutables y datos históricos
 
 **Decisiones adoptadas.** Cada tipo de activo tiene un único esquema aplicable; un esquema puede servir a varios tipos y activos. Cada inspección corresponde a un activo y un inspector, y comprende el esquema completo. Compartir esquema no comparte respuestas ni evidencias.
@@ -98,6 +120,18 @@ Se eligieron **versiones compartidas e inmutables y capturas de datos mutables**
 
 Las versiones referenciadas deben seguir siendo recuperables. Las reglas actuales son inmutables y cualquier extensión deberá conservar esa propiedad. El responsable capturado al inicio puede diferir del responsable al que se asigna un hallazgo al cierre: representan momentos distintos.
 
+**Cobertura de subsistemas.** Una versión no se publica si deja sin evaluar una parte que los activos
+de sus tipos aplicables pueden tener: `InspectionSchema.publish` lo informa como violación, nombrando
+tipo y subsistema. Sin esa regla, un activo con sistema de presión podía quedar certificado «como un
+todo» por un esquema que nunca lo inspeccionó.
+
+La invariante relaciona dos cosas que cambian por separado —los criterios de la versión y el conjunto
+de tipos aplicables—, así que se verifica en los dos puntos de mutación. `SchemaApplicability` la
+exige también al agregar un tipo a un esquema ya publicado y al transferirlo, junto a la regla
+hermana de que el esquema destino tenga una versión publicada. Validarla solo al publicar dejaba
+abierta la vía de la aplicabilidad, porque la versión publicada es inmutable y nadie la vuelve a
+revisar.
+
 ## 4. Estrategias de evaluación y carga progresiva
 
 **Decisiones adoptadas.** Cada criterio pertenece a una sección y tiene una regla de rango numérico, sí/no u opciones con resultado asignado, además de requisitos de evidencia. La severidad depende del resultado concreto. Antes de publicar se exige un resultado único para toda respuesta admitida; las bandas numéricas declaran unidad y límites sin huecos ni superposiciones.
@@ -111,6 +145,20 @@ Se aplica **Strategy**: `Criterion` compone una `EvaluationRule` y `CriterionEva
 Se descartó un motor externo de reglas por la complejidad adicional de ejecución y diagnóstico. Tampoco se aplica Composite: inicialmente hay una regla por criterio y no se necesitan combinaciones ni secciones anidadas arbitrariamente.
 
 Cada nueva estrategia necesita pruebas de admisibilidad y evaluación. La severidad de faltantes está fijada en `EvaluationReason.MISSING_MANDATORY_DATA`. Los requisitos de evidencia se identifican por etiqueta, y `Criterion` exige que sean únicas dentro del criterio: sin esa unicidad una adjunción no podía atribuirse a un requisito concreto y un faltante obligatorio podía darse por cubierto.
+
+**A qué parte responde cada criterio.** La asociación criterio→subsistema es metodología y pertenece
+al esquema: `Criterion.subsystem` dice qué parte evalúa cada criterio. Se declara en el criterio y no
+en la sección —la consigna admite ambos niveles— para que una sección pueda agrupar criterios de
+distintas partes sin necesitar una regla de coherencia entre ambas. Un criterio que no declara parte
+es **transversal** y pesa sobre todas: la regla vive solo en `Criterion.weighsOn`, y `SchemaVersion` e
+`Inspection` delegan en ella.
+
+Los criterios de una parte que el activo no tiene quedan **no aplicables** al iniciar la inspección.
+No se pueden contestar, no se evalúan al cerrar y no generan hallazgo; el acta conserva la línea y
+declara que no aplicó, en lugar de dejar un hueco indistinguible de «sin evaluar todavía». Pedirle al
+inspector que contestara por una parte inexistente convertía su ausencia en una no conformidad. No se
+agregó un cuarto resultado al criterio: RF5 conserva aprobado, observado y rechazado, y la
+aplicabilidad es un dato del registro.
 
 ## 5. Ciclos de vida con estados explícitos
 
@@ -146,6 +194,52 @@ Los resultados son variantes explícitas: emitido, bloqueado o ya emitido, sin c
 
 La misma razón que impide renovar con una inspección antigua impide emitir con una inspección superada: el requisito estándar `InspectionMustBeTheLatestOfTheAsset` bloquea la emisión cuando el activo tiene otra inspección cerrada iniciada después (`IssuanceBlocker.SupersededInspection`), porque certificaría un estado del activo que ya fue reemplazado por uno más reciente. Además, una vez vencido el certificado de un activo, `issue` se rechaza: el siguiente certificado se obtiene renovando, y así conserva el vínculo con el anterior que exige RF9.
 
+**Certificación por partes.** El alcance de un certificado es un tipo sellado, `CertificateScope`:
+`Global` para el activo entero o `Partial` para una parte. `Certificate` lo conserva como dato propio,
+de modo que la unicidad «un activo no puede tener dos certificados vivos» pasa a valer por alcance y
+dos partes pueden estar certificadas a la vez, cada una con su vigencia.
+
+Los hechos sobre los que decide la política se filtran por alcance en `CertificationContext`, no en
+los requisitos: los seis `IssuanceRequirement` responden a un parcial sin saber que existen partes,
+porque simplemente ven menos criterios. Se descartó agregar un requisito por subsistema, que habría
+multiplicado `IssuanceRequirements` y mezclado el alcance con las reglas de negocio.
+
+**El certificado global se deriva, no se emite.** `GlobalCertificatePolicy` es una interfaz del
+dominio y `AllSubsystemsMustBeInForce` su implementación por defecto: el activo está certificado como
+un todo mientras cada parte que tiene posea un parcial en vigor —ni suspendido, ni vencido, ni fuera
+de su ventana—, y la vigencia derivada es la ventana común, así que el global no sobrevive a la parte
+más débil. Se recalcula en cada consulta, por lo que no puede contradecir a sus parciales ni exige
+reconciliar nada cuando uno se suspende, se reactiva o vence. Se descartó persistirlo como un
+`Certificate` de alcance `Global`: quedaba uniforme con el resto, pero obligaba a sincronizarlo y un
+global desincronizado afirma algo que sus parciales contradicen.
+
+La derivación exige las partes **del activo**, no las que la versión evalúa. Son dos preguntas
+distintas: qué parciales se pueden emitir es la intersección de ambas, pero si el activo está entero
+lo deciden las partes que tiene. Un esquema que no evaluara una de ellas produciría un global que
+afirma más de lo inspeccionado; la regla de cobertura de la sección 3 evita que ese esquema exista.
+
+Qué operación corresponde lo responde `InspectionSummary.certificationPlan()`, un tipo sellado
+`AsAWhole` o `ByParts`. El llamador no interpreta un conjunto vacío ni necesita saber cómo está
+construido el activo, y el `switch` es exhaustivo: una tercera forma de certificar detiene la
+compilación en lugar de tomar una rama equivocada en silencio. No se unificó en una sola operación
+que emitiera todo, porque la vigencia independiente existe justamente para certificar cada parte
+cuando cierran sus propias acciones correctivas.
+
+**Comportamiento resultante.** Con un mismo esquema publicado para un tipo y tres activos que
+declaran sus partes distinto:
+
+| | sin partes declaradas | menos partes que su tipo | todas sus partes |
+|---|---|---|---|
+| plan de certificación | `AsAWhole` | `ByParts(1)` | `ByParts(3)` |
+| criterios evaluados al cerrar | todos | solo los de su parte y los transversales | todos |
+| certificados emitidos | 1, alcance `Global` | 1 parcial | 3 parciales |
+| global derivado | no corresponde | sobre 1 parte | sobre 3 partes |
+
+La primera y la última columna evalúan los mismos criterios y producen estructuras opuestas; lo único
+que cambia es la declaración del activo. Ante un rechazo en una parte, el activo sin partes declaradas
+no obtiene ningún certificado, mientras que el certificado por partes emite las partes que cumplen y
+bloquea solo la rechazada, que es lo que exige aprobar algunos subsistemas y rechazar otros.
+
 ## 7. Eventos para coordinar efectos entre agregados
 
 **Política adoptada.** Un certificado se suspende por vencimiento de una acción asociada o por un rechazo descubierto al rectificar su inspección de respaldo. Una observación nueva no suspende de inmediato. Se conservan todas las causas y la reactivación ocurre al resolver la última, siempre que el certificado no haya vencido. Reactivar conserva el vencimiento original; si ya venció, corresponde renovar.
@@ -155,6 +249,12 @@ Los agregados acumulan eventos como `CorrectiveActionExpired`, `CorrectiveAction
 Así, las operaciones sobre acciones e inspecciones comunican hechos sin conocer cómo se actualiza un certificado. Invocar certificación desde esas entidades introduciría dependencias entre ciclos de vida. Un broker, una saga o un outbox durable no se incorporan en esta entrega.
 
 La composición debe registrar el consumidor. Una publicación fallida mantiene el evento pendiente. `PublishPendingDomainEvents` permite reintentarlo sin repetir la operación de negocio; los consumidores de certificación toleran duplicados. Los adaptadores deben conservar también los eventos pendientes al persistir el agregado. No hay garantías de entrega durable ni atomicidad entre guardados, auditoría y eventos. Los errores de validación deben evitar cambios parciales incluso en memoria; los eventos por sí solos no resuelven esa consistencia.
+
+**Ruteo por alcance.** Una inspección respalda un certificado por alcance, así que un evento alcanza
+a aquellos cuya parte pesa sobre el criterio afectado: un criterio de una parte mueve solo su
+certificado, y uno transversal mueve todos. `CertificationReactions` resuelve esa correspondencia
+consultando la inspección; los cuatro eventos quedaron sin cambios, en lugar de hacerles llevar el
+subsistema y tocar también a sus publicadores.
 
 ## 8. Rectificaciones e historial sin Event Sourcing
 
@@ -189,6 +289,11 @@ Los generadores construyen **proyecciones de consulta**. `ReportedValue` disting
 Se descartó generar PDF dentro del dominio. Tampoco se aplica CQRS completo con almacenes distintos: la separación de algunos contratos de consulta basta y evita sincronizar dos modelos persistidos.
 
 Los informes se construyen al consultar y no son copias archivadas de un documento emitido. Sus datos actuales pueden cambiar, pero deben conservar la atribución de las rectificaciones. Ante rectificaciones sucesivas sobre un mismo valor, el valor original proviene de la primera y la atribución de la última, que es la que produjo el valor vigente; atribuirla a la primera hacía que el acta mostrara un motivo que contradecía el valor exhibido. El encadenamiento completo sigue estando en la lista de rectificaciones del acta.
+
+**Alcance en los informes.** El certificado informa qué cubre, y sus compromisos pendientes se filtran
+por ese alcance: sin el filtro, el certificado de una parte listaba las acciones pendientes de otra,
+que es información equivocada y no apenas faltante. El acta declara si cada criterio aplicó al activo
+y omite los faltantes de evidencia de los que no, por el mismo motivo.
 
 ## 10. Pruebas de comportamiento con dependencias controladas
 

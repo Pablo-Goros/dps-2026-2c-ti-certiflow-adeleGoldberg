@@ -112,9 +112,11 @@ public final class FullSystem {
             new ExpireOverdueCorrectiveActions(findings, clock, events, audit);
 
     public final CertificateIssuancePolicy issuancePolicy = new CertificateIssuancePolicy();
+    public final ar.edu.itba.dps.certification.domain.certification.derivation.GlobalCertificatePolicy globalPolicy =
+            new ar.edu.itba.dps.certification.domain.certification.derivation.AllSubsystemsMustBeInForce();
     public final ar.edu.itba.dps.certification.application.certification.CertificateFactory certificateFactory =
             new ar.edu.itba.dps.certification.application.certification.CertificateFactory(inspections, findingQuery,
-                    certificates, issuancePolicy, FixedDurationValidityPolicy.ofMonths(12), ids, clock);
+                    certificates, issuancePolicy, FixedDurationValidityPolicy.ofMonths(12), globalPolicy, ids, clock);
     public final IssueCertificate issueCertificate = new IssueCertificate(certificateFactory, certificates, audit);
     public final RenewCertificate renewCertificate =
             new RenewCertificate(certificateFactory, certificates, audit);
@@ -122,9 +124,18 @@ public final class FullSystem {
             new ExpireDueCertificates(certificates, clock, audit);
     public final EvaluateIssuanceEligibility evaluateEligibility =
             new EvaluateIssuanceEligibility(certificateFactory);
+    public final ar.edu.itba.dps.certification.application.certification.usecase.DeriveGlobalCertificate deriveGlobalCertificate =
+            new ar.edu.itba.dps.certification.application.certification.usecase.DeriveGlobalCertificate(certificateFactory);
+    public final ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct generateInspectionAct =
+            new ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct(
+                    inspections, schemaCatalog);
+    public final ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport generateCertificateReport =
+            new ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport(
+                    certificates, inspections, findingQuery);
 
     public FullSystem() {
-        events.register(new CertificationReactions(certificates, new ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle(), audit));
+        events.register(new CertificationReactions(certificates, inspections,
+                new ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle(), audit));
     }
 
     /** Makes the given party the authenticated user for the following operations. */
@@ -159,6 +170,20 @@ public final class FullSystem {
     public Asset asset(String name, AssetType type, Party responsible) {
         return registerAsset.register(name, type, responsible.id(), "Building 1",
                 Map.of("room", "12"));
+    }
+
+    public SchemaVersion publishSubsystemSchema(AssetType assetType) {
+        InspectionSchema schema = createSchema.create("Facility inspection", Set.of(assetType));
+        openDraft.open(schema.id());
+        editDraft.addSection(schema.id(),
+                Section.of("Electrical", 1, DomainWorld.electricalCriterion()));
+        editDraft.addSection(schema.id(),
+                Section.of("Pressure", 2, DomainWorld.pressureCriterion()));
+        editDraft.addSection(schema.id(),
+                Section.of("Safety", 3, DomainWorld.buildingSafetyCriterion()));
+        editDraft.addSection(schema.id(),
+                Section.of("Common", 4, DomainWorld.documentationCriterion()));
+        return publishSchemaVersion.publish(schema.id()).publishedVersion();
     }
 
     public SchemaVersion publishLaboratorySchema(AssetType laboratory) {

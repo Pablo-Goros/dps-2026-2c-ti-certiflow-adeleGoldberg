@@ -2,6 +2,7 @@ package ar.edu.itba.dps.certification.domain.inspection;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
+import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.evaluation.CriterionEvaluator;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
@@ -24,9 +25,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class Inspection {
 
@@ -86,6 +90,22 @@ public final class Inspection {
         return frozenSchemaVersionId;
     }
 
+    public Set<Subsystem> certifiableSubsystems() {
+        if (frozenSchemaVersion == null || assetSnapshot == null) {
+            return Set.of();
+        }
+        Set<Subsystem> evaluated = frozenSchemaVersion.declaredSubsystems();
+        Set<Subsystem> present = assetSnapshot.subsystems();
+        return evaluated.stream().filter(present::contains)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    public boolean criterionWeighsOn(CriterionId criterionId, Subsystem subsystem) {
+        Validate.required(subsystem, "subsystem");
+        return frozenSchemaVersion == null
+                || frozenSchemaVersion.criterionWeighsOn(criterionId, subsystem);
+    }
+
     public Optional<AssetSnapshot> assetSnapshot() {
         return Optional.ofNullable(assetSnapshot);
     }
@@ -118,14 +138,15 @@ public final class Inspection {
         this.startedAt = at;
         this.status = InspectionStatus.IN_PROGRESS;
         for (Criterion criterion : version.criteria()) {
-            records.put(criterion.id(), new CriterionRecord(criterion.id()));
+            records.put(criterion.id(), new CriterionRecord(criterion.id(),
+                    criterion.appliesToAssetHaving(snapshot.subsystems())));
         }
     }
 
     public void recordAnswer(PartyId actor, CriterionId criterionId, Answer answer) {
         requireInProgress("record an answer");
         requireAssignedInspector(actor, "record an answer");
-        CriterionRecord record = requireRecord(criterionId);
+        CriterionRecord record = requireApplicableRecord(criterionId, "answered");
         Validate.required(answer, "answer");
         frozenSchemaVersion.requireCriterion(criterionId).rule().admissibilityViolation(answer)
                 .ifPresent(violation -> { throw new DomainException("answer refused for criterion "
@@ -136,7 +157,7 @@ public final class Inspection {
     public void removeAnswer(PartyId actor, CriterionId criterionId) {
         requireInProgress("remove an answer");
         requireAssignedInspector(actor, "remove an answer");
-        requireRecord(criterionId).clearAnswer();
+        requireApplicableRecord(criterionId, "answered").clearAnswer();
     }
 
     /**
@@ -147,7 +168,7 @@ public final class Inspection {
             String evidenceId, String reference, Instant at) {
         requireInProgress("attach evidence");
         requireAssignedInspector(actor, "attach evidence");
-        CriterionRecord record = requireRecord(criterionId);
+        CriterionRecord record = requireApplicableRecord(criterionId, "given evidence");
         Validate.requiredText(requirementLabel, "evidence requirement label");
         var requirement = frozenSchemaVersion.requireCriterion(criterionId).evidenceRequirements().stream()
                 .filter(declared -> declared.label().equals(requirementLabel.strip()))
@@ -162,7 +183,7 @@ public final class Inspection {
     public EvidenceRecord removeEvidence(PartyId actor, CriterionId criterionId, String evidenceId) {
         requireInProgress("remove evidence");
         requireAssignedInspector(actor, "remove evidence");
-        return requireRecord(criterionId).detach(evidenceId);
+        return requireApplicableRecord(criterionId, "given evidence").detach(evidenceId);
     }
 
     /** The note is authored by the acting inspector; the aggregate builds it so authorship cannot be forged. */
@@ -204,7 +225,11 @@ public final class Inspection {
         Validate.ensure(!at.isBefore(startedAt), "closure cannot precede the inspection start");
         Map<CriterionId, CriterionEvaluation> evaluations = new LinkedHashMap<>();
         for (Criterion criterion : frozenSchemaVersion.criteria()) {
-            evaluations.put(criterion.id(), evaluator.evaluate(criterion, requireRecord(criterion.id()), at));
+            CriterionRecord record = requireRecord(criterion.id());
+            if (!record.applicable()) {
+                continue;
+            }
+            evaluations.put(criterion.id(), evaluator.evaluate(criterion, record, at));
         }
         evaluations.forEach((criterionId, evaluation) -> requireRecord(criterionId).recordClosureEvaluation(evaluation));
         this.status = InspectionStatus.CLOSED;
@@ -331,6 +356,13 @@ public final class Inspection {
         if (record == null) {
             throw new DomainException("criterion " + criterionId + " does not belong to inspection " + id);
         }
+        return record;
+    }
+
+    private CriterionRecord requireApplicableRecord(CriterionId criterionId, String operation) {
+        CriterionRecord record = requireRecord(criterionId);
+        Validate.ensure(record.applicable(), "criterion " + criterionId + " evaluates a part that "
+                + "asset " + assetId + " does not have, so it cannot be " + operation);
         return record;
     }
 

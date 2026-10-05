@@ -72,10 +72,13 @@ public final class GenerateInspectionAct {
         Optional<CriterionEvaluation> current = record.currentEvaluation();
         return new InspectionAct.ActCriterionLine(
                 criterion.id(),
+                record.applicable(),
                 answerOf(inspection, record),
                 record.evidence().stream().map(evidence -> evidenceOf(inspection, record, evidence)).toList(),
-                criterion.shortfalls(record.evidenceCountByRequirement()).stream()
-                        .map(shortfall -> shortfall.describe()).toList(),
+                record.applicable()
+                        ? criterion.shortfalls(record.evidenceCountByRequirement()).stream()
+                                .map(shortfall -> shortfall.describe()).toList()
+                        : List.of(),
                 resultOf(record),
                 current.flatMap(CriterionEvaluation::optionalSeverity),
                 current.map(evaluation -> evaluation.reasons().stream()

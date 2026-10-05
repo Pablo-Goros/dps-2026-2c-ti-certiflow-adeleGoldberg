@@ -1,11 +1,14 @@
 package ar.edu.itba.dps.certification.domain.schema;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
+import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class SchemaApplicability {
 
@@ -19,6 +22,7 @@ public final class SchemaApplicability {
 
     public void applyTo(InspectionSchema schema, AssetType type, Optional<SchemaId> registeredOwner) {
         requireAvailable(type, Validate.required(registeredOwner, "registered schema owner"));
+        requireVersionEvaluatesEveryPartOf(schema, type);
         schema.applyTo(type);
     }
 
@@ -42,8 +46,20 @@ public final class SchemaApplicability {
                 "source schema must be the registered owner of the asset type");
         Validate.ensure(target.latestPublishedVersion().isPresent(),
                 "the replacement schema must have a published version");
+        requireVersionEvaluatesEveryPartOf(target, type);
         source.stopApplyingTo(type);
         target.applyTo(type);
+    }
+
+    private void requireVersionEvaluatesEveryPartOf(InspectionSchema schema, AssetType type) {
+        schema.latestPublishedVersion().ifPresent(version -> {
+            Set<Subsystem> unevaluated = type.subsystems().stream()
+                    .filter(subsystem -> !version.declaredSubsystems().contains(subsystem))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            Validate.ensure(unevaluated.isEmpty(), "version " + version.id() + " of schema "
+                    + schema.id() + " evaluates no criterion for " + unevaluated
+                    + ", which assets of type " + type + " may have");
+        });
     }
 
     private void requireAvailable(AssetType type, Set<AssetType> alreadyCoveredAssetTypes) {

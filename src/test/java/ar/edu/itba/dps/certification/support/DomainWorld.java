@@ -1,7 +1,8 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.adapter.catalogue.CatalogueAssetDirectory;
+import ar.edu.itba.dps.certification.adapter.schema.PublishedSchemaCatalog;
+import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetResponsible;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
@@ -12,7 +13,6 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.CloseInspect
 import ar.edu.itba.dps.certification.application.inspection.usecase.RecordAnswer;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
-import ar.edu.itba.dps.certification.adapter.schema.PublishedSchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
 import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
@@ -22,6 +22,7 @@ import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.PartyKind;
+import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.evaluation.CriterionEvaluator;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
@@ -47,6 +48,13 @@ public final class DomainWorld {
     public static final CriterionId TEMPERATURE = CriterionId.of("TEMP");
     public static final CriterionId DOCUMENTATION = CriterionId.of("DOC");
     public static final String SAFETY_MANUAL = "safety manual";
+
+    public static final Subsystem ELECTRICAL = Subsystem.of("electrical installation");
+    public static final Subsystem PRESSURE = Subsystem.of("pressure system");
+    public static final Subsystem BUILDING_SAFETY = Subsystem.of("building safety");
+    public static final CriterionId ELECTRICAL_WIRING = CriterionId.of("ELEC");
+    public static final CriterionId PRESSURE_VALVES = CriterionId.of("PRES");
+    public static final CriterionId BUILDING_EXITS = CriterionId.of("SAFE");
 
     public final TestClock clock = TestClock.at("2026-03-01T10:00:00Z");
     public final SequentialIds ids = new SequentialIds();
@@ -143,6 +151,30 @@ public final class DomainWorld {
                         RuleOutcome.observed("DOC_PARTIAL", Severity.LOW,
                                 "documentation is incomplete")),
                 List.of(EvidenceRequirement.mandatory(EvidenceType.DOCUMENT, SAFETY_MANUAL)));
+    }
+
+    public static Criterion electricalCriterion() {
+        return Criterion.of(ELECTRICAL_WIRING.value(), housekeepingRule(), ELECTRICAL);
+    }
+
+    public static Criterion pressureCriterion() {
+        return Criterion.of(PRESSURE_VALVES.value(), housekeepingRule(), PRESSURE);
+    }
+
+    public static Criterion buildingSafetyCriterion() {
+        return Criterion.of(BUILDING_EXITS.value(), housekeepingRule(), BUILDING_SAFETY);
+    }
+
+    public static List<Criterion> criteriaCovering(AssetType assetType) {
+        return assetType.subsystems().stream()
+                .map(subsystem -> Criterion.of(
+                        subsystem.name().toUpperCase().replace(' ', '_'),
+                        housekeepingRule(), subsystem))
+                .toList();
+    }
+
+    public static Section sectionCovering(String name, int order, AssetType assetType) {
+        return new Section(name, order, criteriaCovering(assetType));
     }
 
     public static MappedOptionsRule housekeepingRule() {

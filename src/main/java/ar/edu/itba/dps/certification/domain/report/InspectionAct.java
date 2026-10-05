@@ -56,6 +56,7 @@ public record InspectionAct(
 
     public record ActCriterionLine(
             CriterionId criterionId,
+            boolean applicable,
             ReportedValue<String> answer,
             List<ReportedValue<String>> evidenceReferences,
             List<String> missingEvidence,

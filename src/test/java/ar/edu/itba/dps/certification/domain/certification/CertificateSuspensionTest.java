@@ -39,6 +39,7 @@ class CertificateSuspensionTest {
                 AssetId.of("asset-1"),
                 InspectionId.of("inspection-1"),
                 new SchemaVersionId(SchemaId.of("schema-1"), 1),
+                CertificateScope.global(),
                 new ValidityPeriod(ISSUED_AT, EXPIRES_AT),
                 null);
     }
@@ -129,6 +130,7 @@ class CertificateSuspensionTest {
                 AssetId.of("asset-1"),
                 InspectionId.of("inspection-1"),
                 new SchemaVersionId(SchemaId.of("schema-1"), 1),
+                CertificateScope.global(),
                 new ValidityPeriod(ISSUED_AT, EXPIRES_AT),
                 CertificateId.of("cert-1")))
                 .isInstanceOf(DomainException.class)
@@ -163,5 +165,38 @@ class CertificateSuspensionTest {
             assertThat(record.unresolved()).isTrue();
             assertThat(record.resolution()).isEmpty();
         });
+    }
+
+    @Test
+    @DisplayName("a certificate has to say what it covers")
+    void aCertificateNeedsAScope() {
+        assertThatThrownBy(() -> new Certificate(
+                CertificateId.of("cert-2"),
+                AssetId.of("asset-1"),
+                InspectionId.of("inspection-1"),
+                new SchemaVersionId(SchemaId.of("schema-1"), 1),
+                null,
+                new ValidityPeriod(ISSUED_AT, EXPIRES_AT),
+                null))
+                .isInstanceOf(ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException.class)
+                .hasMessageContaining("certificate scope");
+    }
+
+    @Test
+    @DisplayName("a suspended certificate still covers its period but is no longer in force")
+    void aSuspendedCertificateIsNotInForce() {
+        certificate.suspend(FIRST_CAUSE, DURING);
+
+        assertThat(certificate.coversMoment(DURING)).isTrue();
+        assertThat(certificate.inForceAt(DURING)).isFalse();
+    }
+
+    @Test
+    @DisplayName("a valid certificate outside its period is not in force either")
+    void aValidCertificateOutsideItsPeriodIsNotInForce() {
+        assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
+        assertThat(certificate.inForceAt(ISSUED_AT.minusSeconds(1))).isFalse();
+        assertThat(certificate.inForceAt(EXPIRES_AT)).isFalse();
+        assertThat(certificate.inForceAt(DURING)).isTrue();
     }
 }

@@ -3,6 +3,7 @@ package ar.edu.itba.dps.certification.application.certification.port;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
+import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 
@@ -21,11 +22,13 @@ public interface CertificateRepository {
                 .orElseThrow(() -> new DomainException("certificate " + id + " does not exist"));
     }
 
-    Optional<Certificate> findByBackingInspection(InspectionId inspectionId);
+    List<Certificate> findByBackingInspection(InspectionId inspectionId);
 
-    Optional<Certificate> findNonExpiredForAsset(AssetId assetId);
+    Optional<Certificate> findByBackingInspection(InspectionId inspectionId, CertificateScope scope);
 
-    Optional<Certificate> findLatestForAsset(AssetId assetId);
+    Optional<Certificate> findNonExpiredForAsset(AssetId assetId, CertificateScope scope);
+
+    Optional<Certificate> findLatestForAsset(AssetId assetId, CertificateScope scope);
 
     List<Certificate> findDueForExpiry(Instant moment);
 

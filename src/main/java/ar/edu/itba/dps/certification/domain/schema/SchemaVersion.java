@@ -1,12 +1,16 @@
 package ar.edu.itba.dps.certification.domain.schema;
 
+import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public record SchemaVersion(
         SchemaVersionId id,
@@ -31,6 +35,19 @@ public record SchemaVersion(
 
     public List<Criterion> criteria() {
         return sections.stream().flatMap(section -> section.criteria().stream()).toList();
+    }
+
+    public Set<Subsystem> declaredSubsystems() {
+        return criteria().stream()
+                .map(Criterion::subsystem)
+                .flatMap(Optional::stream)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    public boolean criterionWeighsOn(CriterionId criterionId, Subsystem subsystem) {
+        Validate.required(subsystem, "subsystem");
+        return findCriterion(criterionId).map(criterion -> criterion.weighsOn(subsystem))
+                .orElse(true);
     }
 
     public Optional<Criterion> findCriterion(CriterionId criterionId) {

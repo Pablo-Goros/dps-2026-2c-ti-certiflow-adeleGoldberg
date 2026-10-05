@@ -16,12 +16,18 @@ import java.util.Optional;
 public final class CriterionRecord {
 
     private final CriterionId criterionId;
+    private final boolean applicable;
     private final List<EvidenceRecord> evidence = new ArrayList<>();
     private final List<CriterionEvaluation> evaluations = new ArrayList<>();
     private Answer answer;
 
-    public CriterionRecord(CriterionId criterionId) {
+    public CriterionRecord(CriterionId criterionId, boolean applicable) {
         this.criterionId = Validate.required(criterionId, "criterion id");
+        this.applicable = applicable;
+    }
+
+    public CriterionRecord(CriterionId criterionId) {
+        this(criterionId, true);
     }
 
     public CriterionRecord(CriterionId criterionId, Answer answer,
@@ -33,6 +39,10 @@ public final class CriterionRecord {
 
     public CriterionId criterionId() {
         return criterionId;
+    }
+
+    public boolean applicable() {
+        return applicable;
     }
 
     public Optional<Answer> answer() {

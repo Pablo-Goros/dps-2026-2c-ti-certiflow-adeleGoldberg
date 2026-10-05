@@ -19,18 +19,20 @@ public final class Certificate {
     private final AssetId assetId;
     private final InspectionId backingInspectionId;
     private final SchemaVersionId schemaVersionId;
+    private final CertificateScope scope;
     private final ValidityPeriod validity;
     private final CertificateId previousCertificateId;
     private final List<SuspensionRecord> suspensions = new ArrayList<>();
     private CertificateStatus status = CertificateStatus.VALID;
 
     Certificate(CertificateId id, AssetId assetId, InspectionId backingInspectionId,
-            SchemaVersionId schemaVersionId, ValidityPeriod validity,
+            SchemaVersionId schemaVersionId, CertificateScope scope, ValidityPeriod validity,
             CertificateId previousCertificateId) {
         this.id = Validate.required(id, "certificate id");
         this.assetId = Validate.required(assetId, "asset id");
         this.backingInspectionId = Validate.required(backingInspectionId, "backing inspection id");
         this.schemaVersionId = Validate.required(schemaVersionId, "schema version id");
+        this.scope = Validate.required(scope, "certificate scope");
         this.validity = Validate.required(validity, "validity period");
         Validate.ensure(!this.id.equals(previousCertificateId),
                 "certificate " + id + " cannot succeed itself");
@@ -51,6 +53,14 @@ public final class Certificate {
 
     public SchemaVersionId schemaVersionId() {
         return schemaVersionId;
+    }
+
+    public CertificateScope scope() {
+        return scope;
+    }
+
+    public boolean covers(CertificateScope candidate) {
+        return scope.equals(candidate);
     }
 
     public ValidityPeriod validity() {
@@ -137,6 +147,10 @@ public final class Certificate {
         return !status.expired() && validity.coversMoment(moment);
     }
 
+    public boolean inForceAt(Instant moment) {
+        return status == CertificateStatus.VALID && validity.coversMoment(moment);
+    }
+
     private boolean expiredAt(Instant at) {
         return status.expired() || validity.expiredAt(at);
     }
@@ -158,6 +172,6 @@ public final class Certificate {
 
     @Override
     public String toString() {
-        return "Certificate " + id + " (" + status + ")";
+        return "Certificate " + id + " over " + scope.describe() + " (" + status + ")";
     }
 }

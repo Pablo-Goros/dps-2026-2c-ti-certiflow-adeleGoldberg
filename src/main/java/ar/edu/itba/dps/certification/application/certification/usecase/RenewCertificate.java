@@ -6,6 +6,7 @@ import ar.edu.itba.dps.certification.application.certification.port.CertificateR
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
+import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 
@@ -22,12 +23,20 @@ public final class RenewCertificate {
     }
 
     public IssuanceDecision renew(InspectionId inspectionId) {
-        IssuanceDecision decision = factory.renew(inspectionId);
+        return record(inspectionId, factory.renew(inspectionId));
+    }
+
+    public IssuanceDecision renewPartial(InspectionId inspectionId, Subsystem subsystem) {
+        return record(inspectionId, factory.renewPartial(inspectionId, subsystem));
+    }
+
+    private IssuanceDecision record(InspectionId inspectionId, IssuanceDecision decision) {
         if (decision instanceof IssuanceDecision.Issued issued) {
             var certificate = issued.certificate();
             certificates.save(certificate);
             audit.record(AuditedElementRef.certificate(certificate.id().value()), AuditAction.CERTIFICATE_ISSUED,
-                    AuditDetail.created("renewed certificate backed by inspection " + inspectionId));
+                    AuditDetail.created("renewed certificate over " + certificate.scope().describe()
+                            + " backed by inspection " + inspectionId));
             audit.record(AuditedElementRef.certificate(certificate.previousCertificateId().orElseThrow().value()),
                     AuditAction.CERTIFICATE_RENEWED,
                     AuditDetail.decision("renew the certificate", "succeeded by " + certificate.id()));

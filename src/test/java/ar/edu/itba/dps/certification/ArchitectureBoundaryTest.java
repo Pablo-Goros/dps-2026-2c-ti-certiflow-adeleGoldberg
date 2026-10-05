@@ -30,6 +30,13 @@ final class ArchitectureBoundaryTest {
     }
 
     @Test
+    void theCatalogueDoesNotDependOnTheSchema() throws IOException {
+        assertNoSourceContains(
+                MAIN_SOURCES.resolve(Path.of("ar", "edu", "itba", "dps", "certification", "domain", "catalogue")),
+                List.of("import " + ROOT_PACKAGE + ".domain.schema."));
+    }
+
+    @Test
     void domainDoesNotDeclarePorts() throws IOException {
         Path domain = MAIN_SOURCES.resolve(Path.of("ar", "edu", "itba", "dps", "certification", "domain"));
         try (var files = Files.walk(domain)) {

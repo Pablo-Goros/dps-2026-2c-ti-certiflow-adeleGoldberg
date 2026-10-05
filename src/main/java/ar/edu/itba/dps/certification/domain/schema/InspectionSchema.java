@@ -1,6 +1,7 @@
 package ar.edu.itba.dps.certification.domain.schema;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
@@ -11,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class InspectionSchema {
 
@@ -106,7 +108,8 @@ public final class InspectionSchema {
     public PublicationResult publish(Instant publishedAt) {
         SchemaDraft open = requireDraft();
         Validate.required(publishedAt, "publication instant");
-        List<String> violations = open.publicationViolations();
+        List<String> violations = new ArrayList<>(open.publicationViolations());
+        violations.addAll(partsLeftUnevaluated(open));
         if (!violations.isEmpty()) {
             return PublicationResult.refused(violations);
         }
@@ -117,6 +120,26 @@ public final class InspectionSchema {
         publishedVersions.add(version);
         draft = null;
         return PublicationResult.published(version);
+    }
+
+    /**
+     * Subsystems that assets of the applicable types may have and that the draft evaluates with no
+     * criterion. Publishing such a version would let an asset hold a global certificate while one
+     * of its parts was never inspected, so the gap is refused here rather than silently excluded
+     * when the global certificate is derived.
+     */
+    private List<String> partsLeftUnevaluated(SchemaDraft open) {
+        Set<Subsystem> evaluated = open.criteria().stream()
+                .map(Criterion::subsystem)
+                .flatMap(Optional::stream)
+                .collect(Collectors.toSet());
+        return applicableAssetTypes.stream()
+                .flatMap(assetType -> assetType.subsystems().stream()
+                        .filter(subsystem -> !evaluated.contains(subsystem))
+                        .map(subsystem -> "assets of type " + assetType + " may have subsystem "
+                                + subsystem + ", which no criterion of this version evaluates"))
+                .distinct()
+                .toList();
     }
 
     private int nextVersionNumber() {
