@@ -16,6 +16,8 @@ import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
 import ar.edu.itba.dps.certification.application.shared.port.Clock;
 
+import java.time.Instant;
+
 public final class StartInspection {
 
     private final InspectionRepository inspections;
@@ -39,11 +41,12 @@ public final class StartInspection {
         var actor = actors.requireUser();
         Inspection inspection = inspections.require(inspectionId);
         AssetType assetType = assets.assetTypeOf(inspection.assetId());
-        SchemaVersion version = schemas.latestPublishedVersionFor(assetType)
+        Instant now = clock.now();
+        SchemaVersion version = schemas.effectiveVersionFor(assetType, now)
                 .orElseThrow(() -> new DomainException("asset type " + assetType
-                        + " has no published schema version, so the inspection cannot start"));
+                        + " has no published schema version effective at " + now + ", so the inspection cannot start"));
         AssetSnapshot snapshot = assets.captureSnapshot(inspection.assetId());
-        inspection.start(actor.partyId(), version, snapshot, clock.now());
+        inspection.start(actor.partyId(), version, snapshot, now);
         inspections.save(inspection);
         audit.recordAs(actor, AuditedElementRef.inspection(inspection.id().value()),
                 AuditAction.INSPECTION_STARTED, AuditDetail.stateChanged("ASSIGNED", "IN_PROGRESS"));

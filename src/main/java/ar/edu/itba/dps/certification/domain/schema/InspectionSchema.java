@@ -105,9 +105,28 @@ public final class InspectionSchema {
         return versionId.schemaId().equals(id) ? findVersion(versionId.number()) : Optional.empty();
     }
 
+    public Optional<SchemaVersion> effectiveVersionAt(Instant at) {
+        Validate.required(at, "evaluation instant");
+        return publishedVersions.stream()
+                .filter(version -> !version.effectiveFrom().isAfter(at))
+                .max(Comparator.comparing(SchemaVersion::effectiveFrom)
+                        .thenComparingInt(SchemaVersion::number));
+    }
+
     public PublicationResult publish(Instant publishedAt) {
+        return publish(publishedAt, publishedAt);
+    }
+
+    public PublicationResult publish(Instant publishedAt, Instant effectiveFrom) {
         SchemaDraft open = requireDraft();
         Validate.required(publishedAt, "publication instant");
+        Validate.required(effectiveFrom, "effective from instant");
+        Validate.ensure(!effectiveFrom.isBefore(publishedAt), "effectiveFrom cannot be earlier than publishedAt");
+
+        latestPublishedVersion().ifPresent(latest ->
+                Validate.ensure(!effectiveFrom.isBefore(latest.effectiveFrom()),
+                        "effectiveFrom " + effectiveFrom + " cannot be earlier than previous version effectiveFrom " + latest.effectiveFrom()));
+
         List<String> violations = new ArrayList<>(open.publicationViolations());
         violations.addAll(partsLeftUnevaluated(open));
         if (!violations.isEmpty()) {
@@ -116,7 +135,8 @@ public final class InspectionSchema {
         SchemaVersion version = new SchemaVersion(
                 new SchemaVersionId(id, nextVersionNumber()),
                 open.sections(),
-                publishedAt);
+                publishedAt,
+                effectiveFrom);
         publishedVersions.add(version);
         draft = null;
         return PublicationResult.published(version);

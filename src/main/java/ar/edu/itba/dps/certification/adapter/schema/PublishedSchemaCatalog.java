@@ -9,6 +9,7 @@ import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
+import java.time.Instant;
 import java.util.Optional;
 
 public final class PublishedSchemaCatalog implements SchemaCatalog {
@@ -17,6 +18,14 @@ public final class PublishedSchemaCatalog implements SchemaCatalog {
 
     public PublishedSchemaCatalog(SchemaRepository schemas) {
         this.schemas = schemas;
+    }
+
+    @Override
+    public Optional<SchemaVersion> effectiveVersionFor(AssetType assetType, Instant at) {
+        Validate.required(assetType, "asset type");
+        Validate.required(at, "evaluation instant");
+        return schemas.findByApplicableAssetType(assetType)
+                .flatMap(schema -> schema.effectiveVersionAt(at));
     }
 
     @Override

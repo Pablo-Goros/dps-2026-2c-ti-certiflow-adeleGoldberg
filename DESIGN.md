@@ -36,6 +36,8 @@ el razonamiento y las consecuencias de cada una.
 | D22 | El activo declara qué partes tiene | `Asset.subsystems`, `AssetSnapshot.subsystems`, `Inspection.certifiableSubsystems()` | No todo activo de un tipo tiene todas las partes del tipo | Asumir que todos los activos de un tipo son homogéneos | La derivación global exige solo los subsistemas del activo; los criterios de una parte ausente quedan evaluados pero no bloquean |
 | D23 | Criterio no aplicable, no un cuarto resultado | `Criterion.appliesToAssetHaving()`, `CriterionRecord.applicable`, `Inspection.start/close`, `ActCriterionLine.applicable` | Que los criterios de una parte ausente no generen hallazgos | Un cuarto `CriterionResult` NOT_APPLICABLE, o no crear el registro | RF5 conserva tres resultados; el registro se conserva y el acta declara que no aplicó, en lugar de dejar un hueco |
 | D24 | El modo de certificación es un tipo sellado, no un booleano | `CertificationPlan`, `InspectionSummary.certificationPlan()` | Que el llamador no tenga que leer «sin subsistemas» como «certificalo entero» | Un `boolean certifiedAsAWhole()` con `if/else`, o exponer el conjunto crudo | La regla vive en una sola fábrica y el `switch` del llamador es exhaustivo; hay un tipo más |
+| D25 | Vigencia temporal diferida (`effectiveFrom`) | `SchemaVersion`, `InspectionSchema`, `PublishSchemaVersion` | Permitir preparar y publicar versiones normativas antes de su entrada en vigencia operativa | Activar la versión mediante un proceso batch/cron o cronograma externo | Las inspecciones iniciadas antes de la fecha futura siguen usando la versión anterior de forma automática |
+| D26 | Consulta temporal de esquemas (`effectiveVersionAt`) | `SchemaCatalog`, `PublishedSchemaCatalog`, `InspectionSchema` | Resolver cuál era/será la versión válida en cualquier punto de la línea de tiempo sin mutar el historial | Filtrar solo la última versión ordenada por número | Permite simular y auditar qué reglas aplicaban o aplicarán en una fecha pasada o futura determinada |
 
 ### Patrones deliberadamente no aplicados
 
@@ -423,11 +425,11 @@ mensajes de bloqueos que los tests comprueban por tipo/datos. No se impone cober
 100% global: se priorizan decisiones de negocio y efectos observables; las garantías
 de persistencia y concurrencia continúan requiriendo las pruebas reales pendientes.
 
-**Deuda de integración.** El núcleo F3 no completa la aplicación de la Entrega 2:
+**Deuda de integración.** El núcleo F2/F3 no completa la aplicación de la Entrega 2:
 faltan adaptadores persistentes y migración explícita de datos anteriores, transacción
 certificado/auditoría y unicidad concurrente, REST con contratos de error, frontend,
 pruebas reales de repositorio/API y CI con protección de ramas. También quedan fuera
-administración dinámica o aprobación de políticas, vigencia futura, F2 y cambio de
+administración dinámica o aprobación de políticas y cambio de
 jurisdicción de un activo. No se ofrece atomicidad durable entre guardados, auditoría
 y eventos con los adaptadores actuales. Estas dependencias corresponden a la sección 8
 del plan y no se ocultan mediante defaults de producción.

@@ -15,12 +15,19 @@ import java.util.stream.Collectors;
 public record SchemaVersion(
         SchemaVersionId id,
         List<Section> sections,
-        Instant publishedAt) {
+        Instant publishedAt,
+        Instant effectiveFrom) {
+
+    public SchemaVersion(SchemaVersionId id, List<Section> sections, Instant publishedAt) {
+        this(id, sections, publishedAt, publishedAt);
+    }
 
     public SchemaVersion {
         Validate.required(id, "schema version id");
         Validate.requiredNonEmpty(sections, "sections");
         Validate.required(publishedAt, "publication instant");
+        Validate.required(effectiveFrom, "effective from instant");
+        Validate.ensure(!effectiveFrom.isBefore(publishedAt), "effectiveFrom cannot be earlier than publishedAt");
         sections = sections.stream().sorted(Comparator.comparingInt(Section::order)).toList();
         var criteria = sections.stream().flatMap(section -> section.criteria().stream()).toList();
         Validate.ensure(criteria.stream().map(Criterion::id).distinct().count() == criteria.size(),

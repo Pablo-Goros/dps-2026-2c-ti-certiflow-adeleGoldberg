@@ -10,6 +10,8 @@ import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.application.shared.port.Clock;
 
+import java.time.Instant;
+
 public final class PublishSchemaVersion {
 
     private final SchemaRepository schemas;
@@ -23,8 +25,13 @@ public final class PublishSchemaVersion {
     }
 
     public PublicationResult publish(SchemaId schemaId) {
+        return publish(schemaId, clock.now());
+    }
+
+    public PublicationResult publish(SchemaId schemaId, Instant effectiveFrom) {
         InspectionSchema schema = schemas.require(schemaId);
-        PublicationResult result = schema.publish(clock.now());
+        Instant now = clock.now();
+        PublicationResult result = schema.publish(now, effectiveFrom);
         if (!result.published()) {
             // A refused draft stays open and unchanged: there is nothing to save, but the attempt is
             // a decision worth auditing, and it must not read as a publication.
@@ -34,9 +41,11 @@ public final class PublishSchemaVersion {
             return result;
         }
         schemas.save(schema);
+        String detailText = "published version " + result.publishedVersion().number()
+                + (effectiveFrom.isAfter(now) ? " (effective from " + effectiveFrom + ")" : "");
         audit.record(AuditedElementRef.schema(schema.id().value()),
                 AuditAction.SCHEMA_VERSION_PUBLISHED,
-                AuditDetail.decision("publish the draft", "published version " + result.publishedVersion().number()));
+                AuditDetail.decision("publish the draft", detailText));
         return result;
     }
 }

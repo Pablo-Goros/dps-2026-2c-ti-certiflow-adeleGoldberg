@@ -105,6 +105,61 @@ class SchemaPublicationTest {
         assertThat(schema.draft()).isEmpty();
     }
 
+    @Test
+    @DisplayName("publishing with future effectiveFrom makes version effective only at or after that date")
+    void futureEffectiveVersionIsOnlyEffectiveOnOrAfterEffectiveDate() {
+        InspectionSchema schema = aSchema();
+        Instant futureDate = PUBLISHED_AT.plusSeconds(86400 * 10);
+
+        schema.openDraft();
+        schema.addSection(Section.of("Safety", 1, criterion(validNumericRule())));
+        PublicationResult result = schema.publish(PUBLISHED_AT, futureDate);
+
+        assertThat(result.published()).isTrue();
+        SchemaVersion version = result.publishedVersion();
+        assertThat(version.publishedAt()).isEqualTo(PUBLISHED_AT);
+        assertThat(version.effectiveFrom()).isEqualTo(futureDate);
+
+        // Before effective date: no effective version
+        assertThat(schema.effectiveVersionAt(PUBLISHED_AT)).isEmpty();
+        assertThat(schema.effectiveVersionAt(futureDate.minusSeconds(1))).isEmpty();
+
+        // On or after effective date: version is effective
+        assertThat(schema.effectiveVersionAt(futureDate)).contains(version);
+        assertThat(schema.effectiveVersionAt(futureDate.plusSeconds(100))).contains(version);
+    }
+
+    @Test
+    @DisplayName("effectiveFrom earlier than publishedAt is rejected")
+    void effectiveFromBeforePublishedAtIsRejected() {
+        InspectionSchema schema = aSchema();
+        schema.openDraft();
+        schema.addSection(Section.of("Safety", 1, criterion(validNumericRule())));
+
+        Instant pastDate = PUBLISHED_AT.minusSeconds(3600);
+        assertThatThrownBy(() -> schema.publish(PUBLISHED_AT, pastDate))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("effectiveFrom cannot be earlier than publishedAt");
+    }
+
+    @Test
+    @DisplayName("effectiveFrom earlier than previous version effectiveFrom is rejected")
+    void nonMonotonicEffectiveFromIsRejected() {
+        InspectionSchema schema = aSchema();
+        Instant effectiveV1 = PUBLISHED_AT.plusSeconds(86400 * 10);
+        
+        schema.openDraft();
+        schema.addSection(Section.of("Safety", 1, criterion(validNumericRule())));
+        schema.publish(PUBLISHED_AT, effectiveV1);
+
+        Instant effectiveV2Earlier = PUBLISHED_AT.plusSeconds(86400 * 5);
+        schema.openDraft();
+
+        assertThatThrownBy(() -> schema.publish(PUBLISHED_AT.plusSeconds(3600), effectiveV2Earlier))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("cannot be earlier than previous version effectiveFrom");
+    }
+
     private SchemaVersion publishValid(InspectionSchema schema) {
         schema.openDraft();
         if (schema.requireDraft().sections().isEmpty()) {
