@@ -89,6 +89,11 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <version>${spring-boot.version}</version>
+        <configuration>
+          <!-- Keep the plain jar as the main artifact: failsafe runs after repackage and would
+               otherwise find only BOOT-INF/classes, so the tests could not see the application. -->
+          <classifier>exec</classifier>
+        </configuration>
         <executions>
           <execution>
             <goals><goal>repackage</goal></goals>

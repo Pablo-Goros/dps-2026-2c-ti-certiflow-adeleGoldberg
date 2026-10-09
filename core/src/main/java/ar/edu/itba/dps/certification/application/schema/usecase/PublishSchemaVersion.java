@@ -24,13 +24,18 @@ public final class PublishSchemaVersion {
         this.clock = clock;
     }
 
+    /** Publishes with effect from the moment of publication, read from the clock once. */
     public PublicationResult publish(SchemaId schemaId) {
-        return publish(schemaId, clock.now());
+        Instant now = clock.now();
+        return publish(schemaId, now, now);
     }
 
     public PublicationResult publish(SchemaId schemaId, Instant effectiveFrom) {
+        return publish(schemaId, clock.now(), effectiveFrom);
+    }
+
+    private PublicationResult publish(SchemaId schemaId, Instant now, Instant effectiveFrom) {
         InspectionSchema schema = schemas.require(schemaId);
-        Instant now = clock.now();
         PublicationResult result = schema.publish(now, effectiveFrom);
         if (!result.published()) {
             // A refused draft stays open and unchanged: there is nothing to save, but the attempt is
