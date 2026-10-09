@@ -614,3 +614,50 @@ certificados, vencimiento de acciones correctivas y publicación de eventos pend
 - *Eventos `DEAD` se revisan a mano* (`GET /api/admin/outbox?status=DEAD`, `POST /api/admin/outbox/retry-dead`);
   no hay alertas.
 - *Pruebas del outbox corridas sobre H2 en la integración continua;* no se validó contra otra base.
+
+## 16. Entrega 2: front end mínimo (`app/frontend`)
+
+**Qué se agregó.** Una aplicación de una sola página (React 19, TypeScript, Vite) en castellano, que usa la API
+REST y que Spring Boot sirve en `/`. El build de Maven instala su propio Node (`frontend-maven-plugin`), corre los
+tests del front, compila y deja el resultado en `target/classes/static`: una sola orden (`mvn verify`) y un solo
+jar ejecutable. Cubre el flujo completo: personas, activos, esquemas (con editor de secciones, criterios, reglas y
+evidencia, publicación inmediata o programada: F2), inspecciones (responder, adjuntar evidencia, notas, cerrar),
+hallazgos y acciones correctivas (planificar, ejecutar, verificar), certificación global y por subsistema (F1)
+con los bloqueos de la política jurisdiccional (F3), certificados con su informe, auditoría y procesos.
+
+**Archivos agregados.** `app/frontend/**` (`src/lib`: cliente HTTP, tipos del contrato, etiquetas, formatos, conversión
+de formularios de reglas; `src/components`; `src/pages`, una por pantalla), `FrontendIT` (prueba de que el servidor
+entrega la página y sus recursos). **Modificados:** `app/pom.xml` (plugin del front, propiedad `skip.frontend`).
+
+**Decisiones.**
+- *Sin librerías de interfaz ni de estado.* React, el enrutador y fuentes empaquetadas (sin CDN). Cada pantalla pide
+  lo que muestra (`useLoad`) y ejecuta lo que el usuario pide (`useAction`: bloquea el doble clic y muestra el error
+  junto al formulario). Alternativa descartada: Redux/React Query/Material, que suman dependencias y conceptos sin
+  que el alcance los necesite.
+- *Un solo lugar habla HTTP* (`api.ts`): agrega el header `X-Actor-Id`, convierte los errores del contrato en
+  `ApiError` y conserva el cuerpo completo de una emisión bloqueada (422 con su evaluación).
+- *Rutas con `#`* (`/#/activos`): el servidor no necesita reenviar rutas del front a `index.html`.
+- *El front no repite reglas del dominio:* muestra lo que la API decide (bloqueos, elegibilidad) y deja que la API
+  rechace lo inválido; sólo valida lo que evita un pedido imposible (campos vacíos, opciones repetidas).
+- *Los controles de respuesta salen del esquema congelado de la inspección:* la API devuelve el id de versión y el
+  front lo busca en `/schemas` para saber si el criterio es sí/no, opciones o medición.
+- *Quién actúa* se elige en un selector y viaja en `X-Actor-Id` (coherente con la deuda de autenticación de la sección 14).
+
+**Refactorizaciones.** Ninguna en el núcleo ni en la API.
+
+**Pruebas.** Vitest (20): cliente HTTP, conversión de formularios de reglas (regla de opciones, tramos numéricos,
+secciones), formatos y etiquetas. `FrontendIT` (3): la página, sus scripts y la API conviven. Además se recorrió el
+flujo completo en un navegador real contra una imitación del contrato (esa imitación no se incluye en el repositorio).
+
+**Deuda técnica deliberada.**
+- *Sin pruebas de componentes ni de extremo a extremo versionadas;* la interfaz se probó a mano y con un recorrido
+  automatizado que no forma parte del repositorio.
+- *La interfaz no cubre* la rectificación de inspecciones, la reasignación de inspector, la transferencia de
+  aplicabilidad entre esquemas ni la consulta de versiones por número (están en la API).
+- *Textos de dominio en inglés:* los nombres de subsistemas y características, y los mensajes de error y de motivos
+  que arma el núcleo, se muestran como llegan; un diccionario (`labels.ts`) traduce los conocidos y el resto se
+  muestra legible pero sin traducir. Internacionalizar bien exige que la API devuelva códigos en lugar de frases.
+- *Datos sin traducción propia:* política, detalle de auditoría y evaluación se muestran con un visor genérico (`Tree`).
+- *Evidencia como texto,* igual que en la API; no hay subida de archivos.
+- *Sin paginación* en las tablas (igual que la API); diseño pensado para escritorio, utilizable en pantallas chicas.
+- *Descarga de Node en cada `mvn clean`:* se cachea en `~/.m2`, pero el primer build necesita red.
