@@ -6,7 +6,7 @@ Este proyecto queda organizado como una arquitectura hexagonal pura: el dominio 
 
 ### Dominio
 
-Ubicacion: `src/main/java/ar/edu/itba/dps/certification/domain`
+Ubicacion: `core/src/main/java/ar/edu/itba/dps/certification/domain`
 
 Contiene el modelo de negocio y las reglas propias de certificacion: activos, inspecciones, hallazgos, esquemas, certificados, reglas de evaluacion, eventos de dominio y objetos de valor. No declara puertos ni importa clases de `application` o `adapter`.
 
@@ -18,7 +18,7 @@ Ejemplos:
 
 ### Aplicacion
 
-Ubicacion: `src/main/java/ar/edu/itba/dps/certification/application`
+Ubicacion: `core/src/main/java/ar/edu/itba/dps/certification/application`
 
 Contiene los casos de uso y los puertos que necesita el sistema para hablar con el exterior. Esta capa orquesta entidades de dominio, aplica transacciones logicas y delega persistencia, reloj, identidad, auditoria y publicacion de eventos a interfaces.
 
@@ -54,7 +54,7 @@ guardarlo y auditar el cambio.
 
 ### Adaptadores
 
-Ubicacion: `src/main/java/ar/edu/itba/dps/certification/adapter`
+Ubicacion: `core/src/main/java/ar/edu/itba/dps/certification/adapter`
 
 Contiene implementaciones concretas de puertos. Estos componentes pueden depender de aplicacion y dominio, porque estan fuera del hexagono y conectan detalles con el nucleo.
 
@@ -65,7 +65,7 @@ Adaptadores actuales:
 - `adapter.schema.PublishedSchemaCatalog`: implementa `SchemaCatalog` usando `SchemaRepository`.
 - `adapter.certification.RegisteredCertificationPolicies`: implementa `CertificationPolicyRegistry` mediante un registro explícito versionado.
 
-Los adaptadores en memoria usados por tests viven en `src/test/java/.../support` y cumplen el mismo rol externo para escenarios de integracion.
+Los adaptadores en memoria usados por tests viven en `core/src/test/java/.../support` y cumplen el mismo rol externo para escenarios de integracion.
 
 ## Regla de dependencias
 

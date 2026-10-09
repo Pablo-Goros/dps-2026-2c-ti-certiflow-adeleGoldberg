@@ -5,180 +5,18 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>ar.edu.itba.dps</groupId>
-  <artifactId>certification-domain</artifactId>
+  <artifactId>certiflow</artifactId>
   <version>1.0.0-SNAPSHOT</version>
-  <packaging>jar</packaging>
+  <packaging>pom</packaging>
 
-  <name>Asset Inspection and Certification :: Hexagonal Core</name>
+  <name>CertiFlow :: Parent</name>
   <description>
-    Hexagonal core for the asset inspection, authorization and certification platform.
-    Contains the business model, application use cases, application-owned ports and
-    lightweight adapters that connect ports without adding framework dependencies.
+    Aggregator of the CertiFlow modules. The hexagonal core lives in the core module and has no
+    framework dependencies; the delivery mechanisms (REST API, persistence) are added as
+    separate modules that depend on it, never the other way around.
   </description>
 
-  <properties>
-    <java.version>25</java.version>
-    <maven.compiler.release>${java.version}</maven.compiler.release>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-
-    <junit.version>5.11.4</junit.version>
-    <assertj.version>3.27.3</assertj.version>
-    <mockito.version>5.23.0</mockito.version>
-    <!-- AssertJ ships an older Byte Buddy that cannot read Java 25 class files;
-         pinning it here keeps Mockito working on the JDK this module targets. -->
-    <bytebuddy.version>1.18.14</bytebuddy.version>
-
-    <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
-    <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
-    <maven.failsafe.plugin.version>3.5.2</maven.failsafe.plugin.version>
-    <maven.dependency.plugin.version>3.8.1</maven.dependency.plugin.version>
-    <maven.enforcer.plugin.version>3.5.0</maven.enforcer.plugin.version>
-    <jacoco.plugin.version>0.8.13</jacoco.plugin.version>
-  </properties>
-
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>net.bytebuddy</groupId>
-        <artifactId>byte-buddy</artifactId>
-        <version>${bytebuddy.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>net.bytebuddy</groupId>
-        <artifactId>byte-buddy-agent</artifactId>
-        <version>${bytebuddy.version}</version>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
-
-  <!-- The production code has no external dependencies on purpose: the business
-       rules and use cases must not be coupled to any framework, container or
-       persistence library. -->
-  <dependencies>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>${junit.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.assertj</groupId>
-      <artifactId>assertj-core</artifactId>
-      <version>${assertj.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-junit-jupiter</artifactId>
-      <version>${mockito.version}</version>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <version>${maven.enforcer.plugin.version}</version>
-        <executions>
-          <execution>
-            <id>enforce-java-version</id>
-            <goals><goal>enforce</goal></goals>
-            <configuration>
-              <rules>
-                <requireJavaVersion><version>[${java.version},)</version></requireJavaVersion>
-              </rules>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>${maven.compiler.plugin.version}</version>
-        <configuration>
-          <compilerArgs>
-            <arg>-Xlint:all,-serial</arg>
-          </compilerArgs>
-        </configuration>
-      </plugin>
-
-      <!-- Exposes ${org.mockito:mockito-core:jar} so Mockito can be attached as a
-           java agent instead of self-attaching, which the JDK no longer allows. -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <version>${maven.dependency.plugin.version}</version>
-        <executions>
-          <execution>
-            <id>resolve-agent-paths</id>
-            <goals><goal>properties</goal></goals>
-          </execution>
-        </executions>
-      </plugin>
-
-      <!-- Unit tests: *Test -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>${maven.surefire.plugin.version}</version>
-        <configuration>
-          <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
-          <includes>
-            <include>**/*Test.java</include>
-          </includes>
-        </configuration>
-      </plugin>
-
-      <!-- Integration tests: *IT, driving several use cases through in-memory adapters -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-failsafe-plugin</artifactId>
-        <version>${maven.failsafe.plugin.version}</version>
-        <configuration>
-          <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
-          <includes>
-            <include>**/*IT.java</include>
-          </includes>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>integration-test</goal>
-              <goal>verify</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.jacoco</groupId>
-        <artifactId>jacoco-maven-plugin</artifactId>
-        <version>${jacoco.plugin.version}</version>
-        <configuration>
-          <includes>
-            <include>ar/edu/itba/dps/certification/**</include>
-          </includes>
-          <!-- Runtime-generated Mockito classes follow the running JDK rather than compiler release. -->
-          <excludes>
-            <exclude>**/*MockitoMock*</exclude>
-          </excludes>
-        </configuration>
-        <executions>
-          <execution>
-            <id>prepare-agent</id>
-            <goals><goal>prepare-agent</goal></goals>
-          </execution>
-          <execution>
-            <id>coverage-report</id>
-            <phase>verify</phase>
-            <goals><goal>report</goal></goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
+  <modules>
+    <module>core</module>
+  </modules>
 </project>
