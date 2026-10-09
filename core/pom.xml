@@ -37,6 +37,7 @@
     <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
     <maven.failsafe.plugin.version>3.5.2</maven.failsafe.plugin.version>
+    <maven.jar.plugin.version>3.4.2</maven.jar.plugin.version>
     <maven.dependency.plugin.version>3.8.1</maven.dependency.plugin.version>
     <maven.enforcer.plugin.version>3.5.0</maven.enforcer.plugin.version>
     <jacoco.plugin.version>0.8.13</jacoco.plugin.version>
@@ -155,6 +156,19 @@
               <goal>integration-test</goal>
               <goal>verify</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Publishes the test fixtures (FullSystem, in-memory adapters) as a test-jar so other
+           modules can reuse them as an executable oracle instead of copying them. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>${maven.jar.plugin.version}</version>
+        <executions>
+          <execution>
+            <goals><goal>test-jar</goal></goals>
           </execution>
         </executions>
       </plugin>

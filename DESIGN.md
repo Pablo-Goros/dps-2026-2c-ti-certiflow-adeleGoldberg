@@ -433,3 +433,79 @@ administración dinámica o aprobación de políticas y cambio de
 jurisdicción de un activo. No se ofrece atomicidad durable entre guardados, auditoría
 y eventos con los adaptadores actuales. Estas dependencias corresponden a la sección 8
 del plan y no se ocultan mediante defaults de producción.
+
+
+## 13. Entrega 2: persistencia JDBC (módulo `infrastructure`)
+
+**Qué se agregó.** Un módulo Maven nuevo, `certification-infrastructure`, que depende del núcleo
+y nunca al revés. Implementa los siete puertos de repositorio y la auditoría sobre H2 con JDBC
+plano y migraciones Flyway (`V1__create_persistence_schema.sql`). El núcleo no se modificó; sólo
+publica su carpeta de pruebas `support` como `test-jar` para reutilizar `FullSystem` y los
+adaptadores en memoria.
+
+**Clases agregadas** (paquete `infrastructure.persistence`):
+`JdbcPersistence` (fábrica y migración), `codec.StateCodec` y `codec.Json` (serialización),
+`jdbc.JdbcTransactions` (unidad de trabajo), `jdbc.DocumentRepository` (base común),
+`JdbcPartyRepository`, `JdbcAssetRepository`, `JdbcSchemaRepository`, `JdbcInspectionRepository`,
+`JdbcFindingRepository`, `JdbcCertificateRepository`, `JdbcAuditTrail`, y las excepciones técnicas
+`PersistenceException`, `DuplicateKeyException`, `StaleAggregateException`.
+
+**Decisión: agregado como documento.** Cada agregado es una fila `(seq, id, row_version,
+columnas indexadas, doc)`. El documento es el estado completo en JSON; las columnas indexadas son
+una proyección que se reescribe en cada guardado y sólo sirven para acotar búsquedas. Las
+comparaciones exactas se rehacen en Java sobre el agregado reconstruido (por ejemplo, los
+vencimientos se indexan en milisegundos redondeados hacia arriba y luego se filtran con exactitud).
+Alternativa descartada: mapear cada entidad a tablas normalizadas (o JPA). Obligaba a modificar el
+dominio (constructores sin argumentos, campos no finales, setters) o a duplicar el modelo en
+entidades de persistencia, y las colecciones inmutables y los registros del núcleo no encajan.
+
+**Decisión: códec reflexivo.** `StateCodec` escribe campos por nombre; los registros se
+reconstruyen por su constructor canónico (validan igual que en el dominio) y las clases sin
+constructor público se instancian con `ReflectionFactory`, escribiendo los campos directamente.
+Sólo se instancian clases bajo `ar.edu.itba.dps.certification.` y escalares JDK de una lista
+cerrada. Los ciclos, lambdas y clases anónimas fallan indicando la ruta del campo.
+
+**Decisión: unidad de trabajo.** `JdbcTransactions.execute` agrupa varios guardados en una
+transacción; las llamadas anidadas se unen a la existente y una excepción deshace todo y se
+relanza sin envolver. Dentro de una transacción un mismo registro devuelve la misma instancia
+(mapa de identidad), lo que conserva la semántica de referencias que los casos de uso esperan de
+los repositorios en memoria. El bloqueo optimista usa `row_version`: un guardado sobre una versión
+vieja lanza `StaleAggregateException`.
+
+**Reglas impuestas por la base**, no sólo por el código: un esquema por tipo de activo (clave
+primaria de `schema_applicability.asset_type`) y un certificado por inspección y alcance (índice
+único `certificate(backing_inspection_id, scope_key)`). Una violación de unicidad (SQLState 23505)
+se traduce a `DuplicateKeyException`. Esto cubre la "unicidad concurrente" que la sección 12
+dejaba pendiente.
+
+**Cómo se prueba.** Las pruebas de repositorio usan H2 real, no mocks. `RepositoryParityIT` ejecuta
+el mismo escenario sobre los repositorios JDBC y sobre los en memoria (que actúan como oráculo) y
+compara resultados; `JdbcTransactionsIT` cubre commit, rollback, anidamiento, mapa de identidad y
+escritura obsoleta con hilos; `DatabaseConstraintsIT` verifica las restricciones; `JdbcLifecycleIT`
+corre los casos de uso reales (ciclo completo con reinicio de la base, rectificación que suspende
+un certificado de forma atómica, operación rechazada sin rastro). `StateCodecTest` cubre el códec.
+
+**Refactorizaciones del núcleo:** ninguna. **Clases del núcleo modificadas:** ninguna (sólo
+`core/pom.xml`, para publicar el `test-jar`).
+
+**Deuda técnica deliberada.**
+- *Formato almacenado.* Los nombres de clase y de campo forman parte del formato y no hay
+  migración de documentos: renombrar un campo del dominio exige migrar los datos. `FORMAT_VERSION`
+  existe para habilitarlo, pero no se implementó.
+- *JEP 500.* Escribir campos `final` por reflexión funciona en Java 25 con advertencia futura; a
+  partir de JDK 26 la plataforma empieza a restringirlo. Es la deuda más seria del códec; la salida
+  es agregar constructores o fábricas de reconstrucción al dominio.
+- *Consultas.* Los métodos que no tienen columna indexada (por ejemplo `PublishPendingDomainEvents`
+  sobre `findAll()`) recorren la tabla completa. Aceptable para el volumen de la entrega.
+- *Eventos y transacciones.* Los casos de uso publican eventos de forma síncrona dentro de la misma
+  transacción; si un manejador falla se deshace toda la operación, lo que contradice la semántica
+  documentada de "publicación fallida deja el evento pendiente". Se resuelve con un *outbox*
+  transaccional en el paso de procesos de infraestructura (encolar en la misma transacción,
+  despachar luego del commit, reintentar).
+- *Portabilidad de SQL.* Se usa SQL portable (`FETCH FIRST`, `LOCATE`, `GENERATED ALWAYS AS
+  IDENTITY`) para no atar los repositorios a H2; no se probó contra otro motor en producción.
+- *Referencias compartidas.* Cada lectura fuera de una transacción devuelve una instancia nueva.
+  Las pruebas de integración del núcleo que dependen de compartir referencias siguen corriendo
+  sólo en memoria; las de este módulo reconstruyen el estado desde la base.
+- *Políticas.* Siguen siendo configuración (`RegisteredCertificationPolicies`); cada certificado
+  persiste su instantánea de política.
