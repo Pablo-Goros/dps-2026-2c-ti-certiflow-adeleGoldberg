@@ -35,6 +35,13 @@ class ApiExceptionHandler {
         return reply(HttpStatus.UNPROCESSABLE_ENTITY, "BUSINESS_RULE", e.getMessage());
     }
 
+    @ExceptionHandler(PublicationRefusedException.class)
+    ResponseEntity<ApiError> publicationRefused(PublicationRefusedException e) {
+        var status = HttpStatus.UNPROCESSABLE_ENTITY;
+        return ResponseEntity.status(status).body(ApiError.of(status.value(),
+                "SCHEMA_NOT_PUBLISHABLE", e.getMessage(), e.violations()));
+    }
+
     @ExceptionHandler(NotFoundException.class)
     ResponseEntity<ApiError> notFound(NotFoundException e) {
         return reply(HttpStatus.NOT_FOUND, "NOT_FOUND", e.getMessage());

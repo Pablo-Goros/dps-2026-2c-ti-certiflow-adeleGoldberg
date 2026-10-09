@@ -19,6 +19,14 @@ public final class YesNoRule implements EvaluationRule {
         this.whenNegative = Validate.required(whenNegative, "outcome for no");
     }
 
+    public RuleOutcome whenAffirmative() {
+        return whenAffirmative;
+    }
+
+    public RuleOutcome whenNegative() {
+        return whenNegative;
+    }
+
     @Override
     public Optional<String> admissibilityViolation(Answer answer) {
         return answer instanceof YesNoAnswer

@@ -20,6 +20,11 @@ public final class MappedOptionsRule implements EvaluationRule {
         this.outcomeByOption = Map.copyOf(outcomeByOption);
     }
 
+    /** The admitted options and the outcome each one produces (read-only view). */
+    public Map<String, RuleOutcome> options() {
+        return outcomeByOption;
+    }
+
     @Override
     public Optional<String> admissibilityViolation(Answer answer) {
         if (!(answer instanceof OptionAnswer option)) {
