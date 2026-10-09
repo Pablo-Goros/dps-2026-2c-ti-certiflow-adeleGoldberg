@@ -4,6 +4,7 @@ import ar.edu.itba.dps.certification.infrastructure.persistence.codec.StateCodec
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcAssetRepository;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcAuditTrail;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcCertificateRepository;
+import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcEventOutbox;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcFindingRepository;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcInspectionRepository;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcPartyRepository;
@@ -28,6 +29,7 @@ public final class JdbcPersistence {
     private final JdbcFindingRepository findings;
     private final JdbcCertificateRepository certificates;
     private final JdbcAuditTrail auditTrail;
+    private final JdbcEventOutbox eventOutbox;
 
     private JdbcPersistence(DataSource dataSource) {
         StateCodec codec = new StateCodec();
@@ -39,6 +41,7 @@ public final class JdbcPersistence {
         this.findings = new JdbcFindingRepository(transactions, codec);
         this.certificates = new JdbcCertificateRepository(transactions, codec);
         this.auditTrail = new JdbcAuditTrail(transactions, codec);
+        this.eventOutbox = new JdbcEventOutbox(transactions, codec);
     }
 
     /** Applies the pending migrations and returns the adapters over {@code dataSource}. */
@@ -90,5 +93,9 @@ public final class JdbcPersistence {
 
     public JdbcAuditTrail auditTrail() {
         return auditTrail;
+    }
+
+    public JdbcEventOutbox eventOutbox() {
+        return eventOutbox;
     }
 }

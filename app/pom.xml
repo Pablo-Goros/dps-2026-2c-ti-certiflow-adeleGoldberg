@@ -108,6 +108,10 @@
         <version>3.5.2</version>
         <configuration>
           <includes><include>**/*IT.java</include></includes>
+          <!-- The schedule is exercised on demand (/api/admin/jobs/run), not by the clock. -->
+          <systemPropertyVariables>
+            <certiflow.jobs.enabled>false</certiflow.jobs.enabled>
+          </systemPropertyVariables>
         </configuration>
         <executions>
           <execution>

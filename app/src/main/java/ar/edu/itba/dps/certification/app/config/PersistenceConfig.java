@@ -8,6 +8,7 @@ import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
 import ar.edu.itba.dps.certification.application.inspection.port.InspectionRepository;
 import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.infrastructure.persistence.JdbcPersistence;
+import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcEventOutbox;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -61,5 +62,10 @@ class PersistenceConfig {
     @Bean
     AuditTrail auditTrail(JdbcPersistence persistence) {
         return persistence.auditTrail();
+    }
+
+    @Bean
+    JdbcEventOutbox eventOutbox(JdbcPersistence persistence) {
+        return persistence.eventOutbox();
     }
 }

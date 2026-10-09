@@ -13,8 +13,8 @@ import java.util.UUID;
 
 /**
  * Turns the immutable report values of the core (records, ids, optionals, sealed variants) into
- * plain maps, lists and scalars so they serialize as readable JSON: identifier records such as
- * {@code PartyId} become their text, optionals become the value or null, and each variant of a
+ * plain maps, lists and scalars so they serialize as readable JSON: single-text records such as
+ * {@code PartyId} or {@code Subsystem} become their text, optionals become the value or null, and each variant of a
  * sealed interface carries a {@code type} field naming it.
  */
 final class Plain {
@@ -56,7 +56,7 @@ final class Plain {
         Class<?> type = value.getClass();
         RecordComponent[] components = type.getRecordComponents();
         boolean variant = isSealedVariant(type);
-        if (!variant && components.length == 1 && components[0].getName().equals("value")) {
+        if (!variant && components.length == 1 && components[0].getType() == String.class) {
             return of(read(components[0], value));
         }
         Map<String, Object> fields = new LinkedHashMap<>();

@@ -509,3 +509,108 @@ un certificado de forma atómica, operación rechazada sin rastro). `StateCodecT
   sólo en memoria; las de este módulo reconstruyen el estado desde la base.
 - *Políticas.* Siguen siendo configuración (`RegisteredCertificationPolicies`); cada certificado
   persiste su instantánea de política.
+
+
+## 14. Entrega 2: API REST (módulo `app`)
+
+**Qué se agregó.** El módulo `certiflow-app` (Spring Boot 4.1.1) es el único que conoce el framework.
+Contiene la raíz de composición, los controladores y el contrato de errores; el listado de endpoints
+está en `docs/API.md`.
+
+**Clases agregadas** (paquete `app`): `CertiflowApplication`; en `config`: `ApplicationConfig` (cablea
+todos los casos de uso), `PersistenceConfig`, `PolicyConfig` (perfiles de F3), `SupportConfig`,
+`RequestActor`, `SystemClock`, `JurisdictionCatalog`,
+`AuthenticationRequiredException`; en `web`: `PartyController`, `AssetController`, `MetaController`,
+`SchemaController`, `InspectionController`, `FindingController`, `CertificateController`,
+`AuditController`, `ApiExceptionHandler`, `ActorInterceptor`, `WebConfig`, `Plain`, `Views`,
+`NotFoundException`, `PublicationRefusedException`; DTOs en `web.dto`.
+
+**Decisiones.**
+- *El controlador no tiene reglas.* Abre una transacción, llama a un caso de uso y convierte el
+  resultado. Toda validación de negocio sigue en el núcleo; el controlador sólo traduce.
+- *Una transacción por petición* (`JdbcTransactions.execute`): si algo falla se deshace todo,
+  incluida la auditoría de esa operación.
+- *Errores en un solo lugar* (`ApiExceptionHandler`): 400/401/404/409/422/500 con un cuerpo estable.
+  Alternativa descartada: crear una jerarquía de excepciones HTTP en el dominio, que lo acoplaría a la web.
+- *404 antes de operar.* Los controladores comprueban la existencia con el repositorio; el núcleo
+  responde con `DomainException`, que se mapea a 422 y no distingue "no existe" de "regla violada".
+- *Una emisión bloqueada no es un error de formato:* se responde 422 con el análisis completo de
+  bloqueos, que es lo que el front necesita mostrar.
+- *Los reportes del núcleo son registros inmutables;* `Plain` los convierte en JSON legible (los
+  identificadores quedan como texto, cada variante de una interfaz sellada lleva su nombre en `type`).
+  Alternativa descartada: anotar el dominio con Jackson, que lo acoplaría a una librería.
+- *Pruebas de API* con servidor real en puerto aleatorio y H2 real; cada clase usa su propia base
+  en memoria para que las reglas de unicidad (un esquema por tipo de activo) no interfieran entre clases.
+
+**Refactorización y cambios en el núcleo.** (1) `PublishSchemaVersion.publish(id)` leía el reloj dos
+veces: con un reloj real la fecha de vigencia quedaba unos microsegundos antes de la de publicación y
+el dominio la rechazaba. Nunca se vio con el reloj fijo de las pruebas de la Entrega 1; lo detectaron
+las pruebas de API. Ahora lee el reloj una vez (`PublishWithRealisticClockTest`). (2) Se agregaron
+accesores de sólo lectura a `YesNoRule` (`whenAffirmative`, `whenNegative`) y `MappedOptionsRule`
+(`options`) para poder devolver los esquemas por la API.
+
+**Deuda técnica deliberada.**
+- *Autenticación.* El actor se toma del header `X-Actor-Id`; cualquiera puede suplantar a otro. Un
+  sistema real necesita login y tokens; aquí basta para que la auditoría registre quién actúa.
+- *Sin paginación* en los listados ni filtros en base de datos para inspecciones y certificados
+  (se filtra en memoria sobre `findAll`).
+- *Eventos síncronos* (resuelto en la sección 15): la primera versión usaba un publicador síncrono
+  dentro de la transacción de la petición, de modo que un manejador que fallaba hacía fallar la petición.
+  Se reemplazó por un *outbox* transaccional.
+- *Sin OpenAPI generado;* el contrato se documenta a mano en `docs/API.md` para no sumar una librería
+  cuya compatibilidad con la versión de Spring no pudimos verificar.
+- *Políticas de certificación en código* (`PolicyConfig`): agregar una jurisdicción exige recompilar.
+- *Subida de evidencias:* la evidencia es una referencia de texto (nombre o URL); no se almacenan archivos.
+- *Contenido del cuerpo de errores* en inglés; la traducción es responsabilidad del front.
+
+## 15. Entrega 2: procesos de infraestructura (outbox y tareas programadas)
+
+**Qué se agregó.** (1) Un *outbox transaccional* para los eventos de dominio con reintentos. (2) Tareas
+programadas que ejecutan los barridos que el núcleo ya tenía como casos de uso: vencimiento de
+certificados, vencimiento de acciones correctivas y publicación de eventos pendientes.
+
+**Clases agregadas.** `infrastructure`: migración `V2__create_event_outbox.sql`, `JdbcEventOutbox`,
+`OutboxDispatcher`, `OutboxEventPublisher` (implementa el puerto `DomainEventPublisher`), y
+`JdbcPersistence.eventOutbox()`. `app`: `jobs.MaintenanceJobs`, `jobs.JobsConfig`, `web.AdminController`.
+**Clases modificadas.** `SupportConfig` (cablea el outbox en lugar del publicador síncrono),
+`PersistenceConfig`. **Clases eliminadas.** `SynchronousEventPublisher`.
+
+**Cómo funciona.**
+- Publicar un evento lo *escribe en la tabla `domain_event_outbox` dentro de la misma transacción* que
+  el cambio de estado: o se guardan los dos o ninguno. Nunca hay un cambio sin su evento ni un evento
+  de un cambio deshecho.
+- Una vez confirmada la transacción (`afterCommit`) se despachan los pendientes. Cada evento se entrega
+  en *su propia transacción*, que primero lo *reclama* (`UPDATE ... SET status='DONE' WHERE seq=? AND
+  status='PENDING'`, debe afectar una fila). Si un manejador falla, se deshace el reclamo y lo que el
+  manejador haya escrito; el fallo se registra en una segunda transacción (`attempts + 1`, `last_error`)
+  y, al superar `certiflow.outbox.max-attempts` (10), el evento pasa a `DEAD`.
+- Una pasada entrega cada evento a lo sumo una vez; el reintento lo hace la tarea programada
+  (cada 5 s), no un bucle inmediato. Un `ReentrantLock` evita despachos simultáneos dentro de la JVM y el
+  reclamo condicional protege aun si hubiera varios despachadores.
+- Un manejador que falla *no deshace la petición* que originó el evento (a diferencia del publicador
+  síncrono anterior) y el evento no se pierde.
+- `MaintenanceJobs.runAll()` ejecuta en orden: acciones vencidas, despacho, certificados vencidos,
+  republicación de eventos pendientes del núcleo, despacho. Se programa con `@Scheduled`
+  (`certiflow.jobs.sweep-interval`, `certiflow.jobs.dispatch-interval`) y se apaga con
+  `certiflow.jobs.enabled=false` (lo usan las pruebas de integración para que los hilos de fondo no
+  interfieran). `AdminController` permite ejecutarlas a demanda para la demostración.
+
+**Decisiones.**
+- *Outbox en la misma base* y no un broker: no suma infraestructura y da atomicidad real con el cambio.
+  Alternativa descartada: Kafka/RabbitMQ (demasiado para el alcance, y exigiría instalar un servicio).
+- *Reclamar antes de procesar* da "a lo sumo una aplicación" de los manejadores aun con varios
+  despachadores. Alternativa descartada: marcar como hecho después, que da "al menos una vez" y exige
+  manejadores idempotentes.
+- *Documento CLOB con el tipo del evento* reutilizando el `StateCodec`, que ya serializa agregados.
+
+**Deuda técnica deliberada.**
+- *Consistencia eventual:* los efectos de los eventos (p. ej. `CertificationReactions`) ocurren después
+  de confirmar la petición. En la práctica el despacho corre en el mismo hilo antes de responder, pero
+  si el despachador está ocupado puede demorarse hasta la siguiente pasada.
+- *Bloqueo sólo dentro de la JVM:* con varias instancias de la aplicación la unicidad la garantiza el
+  reclamo condicional en la base, no el candado.
+- `PublishPendingDomainEvents` recorre `findAll` de los agregados: no escala a muchos datos.
+- *Endpoints de administración sin protección* (misma deuda de autenticación de la sección 14).
+- *Eventos `DEAD` se revisan a mano* (`GET /api/admin/outbox?status=DEAD`, `POST /api/admin/outbox/retry-dead`);
+  no hay alertas.
+- *Pruebas del outbox corridas sobre H2 en la integración continua;* no se validó contra otra base.

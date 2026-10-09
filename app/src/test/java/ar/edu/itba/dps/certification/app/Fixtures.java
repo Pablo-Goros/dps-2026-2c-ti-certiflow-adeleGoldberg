@@ -60,4 +60,25 @@ final class Fixtures {
     static Map<String, Object> yes() {
         return Map.of("type", "YES_NO", "affirmative", true);
     }
+
+    /** A facility section: one housekeeping check per subsystem, so partial certificates are possible (F1). */
+    static Map<String, Object> facilitySection() {
+        return Map.of("name", "Subsystems", "order", 1, "criteria", List.of(
+                subsystemCriterion("ELEC", "electrical installation"),
+                subsystemCriterion("PRES", "pressure system"),
+                subsystemCriterion("SAFE", "building safety")));
+    }
+
+    private static Map<String, Object> subsystemCriterion(String id, String subsystem) {
+        var options = Map.of(
+                "clean", outcome("HK_OK", "APPROVED", null, "area is clean"),
+                "untidy", outcome("HK_UNTIDY", "OBSERVED", "MEDIUM", "area is untidy"),
+                "hazardous", outcome("HK_HAZARD", "REJECTED", "HIGH", "area is unsafe"));
+        return Map.of("id", id, "subsystem", subsystem, "evidence", List.of(),
+                "rule", Map.of("type", "OPTIONS", "options", options));
+    }
+
+    static Map<String, Object> option(String key) {
+        return Map.of("type", "OPTION", "option", key);
+    }
 }

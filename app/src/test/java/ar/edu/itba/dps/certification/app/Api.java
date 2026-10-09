@@ -24,6 +24,10 @@ final class Api {
             return JSON.readValue(body, java.util.List.class);
         }
 
+        java.util.List<Map<String, Object>> jsonListOrEmpty() {
+            return body == null || body.isBlank() ? java.util.List.of() : jsonList();
+        }
+
         String text(String field) {
             Object value = json().get(field);
             return value == null ? null : value.toString();
