@@ -12,7 +12,7 @@ La Entrega 2 también exige REST, frontend, persistencia real, pruebas de reposi
 
 ## 2. Arquitectura y comportamiento actuales
 
-Las rutas de clases de producción indicadas a continuación son relativas a `src/main/java/ar/edu/itba/dps/certification/`; las de tests, a `src/test/java/ar/edu/itba/dps/certification/`.
+Las rutas de clases de producción indicadas a continuación son relativas a `core/src/main/java/ar/edu/itba/dps/certification/`; las de tests, a `core/src/test/java/ar/edu/itba/dps/certification/`.
 
 | Punto actual | Evidencia en el proyecto | Consecuencia para F3 |
 |---|---|---|
