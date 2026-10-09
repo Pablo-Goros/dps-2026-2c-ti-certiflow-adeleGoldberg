@@ -1,0 +1,69 @@
+package ar.edu.itba.dps.certification.app.web;
+
+import ar.edu.itba.dps.certification.app.config.AuthenticationRequiredException;
+import ar.edu.itba.dps.certification.app.web.dto.ApiError;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
+import ar.edu.itba.dps.certification.infrastructure.persistence.DuplicateKeyException;
+import ar.edu.itba.dps.certification.infrastructure.persistence.StaleAggregateException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+/**
+ * One place that turns exceptions into the HTTP contract:
+ * 400 malformed input, 401 no/unknown actor, 404 missing resource,
+ * 409 concurrent change or duplicate, 422 business rule refused, 500 anything else.
+ */
+@RestControllerAdvice
+class ApiExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    @ExceptionHandler(InvalidArgumentException.class)
+    ResponseEntity<ApiError> invalidArgument(InvalidArgumentException e) {
+        return reply(HttpStatus.BAD_REQUEST, "INVALID_INPUT", e.getMessage());
+    }
+
+    @ExceptionHandler(DomainException.class)
+    ResponseEntity<ApiError> businessRule(DomainException e) {
+        return reply(HttpStatus.UNPROCESSABLE_ENTITY, "BUSINESS_RULE", e.getMessage());
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    ResponseEntity<ApiError> notFound(NotFoundException e) {
+        return reply(HttpStatus.NOT_FOUND, "NOT_FOUND", e.getMessage());
+    }
+
+    @ExceptionHandler(AuthenticationRequiredException.class)
+    ResponseEntity<ApiError> unauthenticated(AuthenticationRequiredException e) {
+        return reply(HttpStatus.UNAUTHORIZED, "ACTOR_REQUIRED", e.getMessage());
+    }
+
+    @ExceptionHandler({StaleAggregateException.class, DuplicateKeyException.class})
+    ResponseEntity<ApiError> conflict(RuntimeException e) {
+        return reply(HttpStatus.CONFLICT, "CONFLICT",
+                "the resource was changed concurrently or already exists; reload and retry");
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
+    ResponseEntity<ApiError> malformed(Exception e) {
+        return reply(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST",
+                "the request body or a parameter could not be understood");
+    }
+
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ApiError> unexpected(Exception e) {
+        log.error("unexpected failure", e);
+        return reply(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "unexpected error");
+    }
+
+    private static ResponseEntity<ApiError> reply(HttpStatus status, String code, String message) {
+        return ResponseEntity.status(status).body(ApiError.of(status.value(), code, message));
+    }
+}

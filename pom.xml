@@ -19,5 +19,6 @@
   <modules>
     <module>core</module>
     <module>infrastructure</module>
+    <module>app</module>
   </modules>
 </project>
