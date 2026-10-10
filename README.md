@@ -1,71 +1,87 @@
-# CertiFlow
+﻿# CertiFlow
 
-Sistema de certificación de activos (Entrega 2): inspecciones con esquemas versionados, hallazgos y acciones
-correctivas, y certificados globales o parciales por subsistema, con políticas por jurisdicción.
-Spring Boot 4 + Java 25 en el servidor, React + TypeScript en el front, H2 embebida como base.
+CertiFlow is an asset certification application developed for Delivery 2 of the
+project. It manages inspections, versioned inspection schemas, findings,
+corrective actions, and certificates governed by jurisdiction-specific policies.
 
-## Requisitos
+The backend uses Java 25 and Spring Boot 4. The frontend uses React and TypeScript,
+with a Spanish-language interface. Data is stored in an embedded H2 database.
 
-- **JDK 25** y **Maven 3.9+**.
-- Red la primera vez: Maven descarga Node (para el front) y las dependencias. Después queda en caché de `~/.m2`.
+## Features
 
-## Compilar y probar
+- **Inspection management:** asset and inspector assignment, criterion responses,
+  evidence, notes, closure, and rectification of closed inspections.
+- **Partial certification (F1):** independently valid certificates for asset
+  subsystems, with global certification derived through an explicit policy.
+- **Schema scheduling (F2):** published versions with future effective dates and
+  historical version lookup. Inspections retain the version selected at startup.
+- **Jurisdiction policies (F3):** configurable blocking severities, validity
+  periods, and conditional certification, with the applied policy recorded.
+- **Corrective actions:** planning, execution, verification, and expiration,
+  linked to findings and certificate lifecycle changes.
+- **Audit and reporting:** actor-attributed audit records, inspection acts,
+  findings summaries, and certificate reports.
+- **Background processing:** expiration sweeps, transactional event delivery,
+  retries, and corrective-action expiration notifications.
 
-```
+The main workflow connects asset registration and schema publication to
+inspection, corrective action, eligibility assessment, and certification. The
+interface also provides audit views and on-demand maintenance processes.
+
+## Project structure
+
+| Module | Contents |
+|---|---|
+| `core` (`certification-domain`) | Domain model, application use cases, and core adapters. |
+| `infrastructure` | JDBC persistence, Flyway migrations, event outbox, and notifications. |
+| `app` | Spring Boot composition, REST controllers, scheduled jobs, and the frontend in `app/frontend`. |
+
+The project follows a hexagonal architecture. Architecture tests check dependency
+boundaries across the modules and within the core.
+
+## Build and runtime
+
+The build requires JDK 25 and Maven 3.9 or later. Maven provisions Node for the
+frontend; the initial build downloads the required tools and dependencies.
+
+```sh
 mvn verify
 ```
 
-Compila los tres módulos, corre las pruebas unitarias (Surefire) y de integración (Failsafe: repositorios y API con
-una base H2 real), los tests del front y arma el jar ejecutable con el front incluido. Los reportes quedan en
-`*/target/surefire-reports`, `*/target/failsafe-reports` y `*/target/site/jacoco`.
-`-Dskip.frontend=true` omite todo lo del front (más rápido si solo tocás el back).
+This command builds all three modules, runs backend unit and integration tests
+and frontend tests, and packages an executable JAR containing the frontend.
+Repository and API integration tests use a real H2 database. Test and coverage
+reports are generated under each module's `target/surefire-reports`,
+`target/failsafe-reports`, and `target/site/jacoco` directories.
 
-## Ejecutar
+The packaged application starts with:
 
-```
+```sh
 java -jar app/target/certiflow-app-1.0.0-SNAPSHOT-exec.jar
 ```
 
-- Interfaz: <http://localhost:8080/>
-- API: <http://localhost:8080/api> (contrato en [`docs/API.md`](docs/API.md))
-- La base es un archivo en `./data/certiflow` (se crea sola y está en `.gitignore`). Para empezar de cero, borrá `data/`.
-- Otra base o puerto: variables de entorno estándar de Spring, por ejemplo `SPRING_DATASOURCE_URL` o `SERVER_PORT`.
-- Aviso de acciones correctivas vencidas: por defecto va al log; con `certiflow.notifications.webhook-url=<url>`
-  se envía como POST JSON a esa dirección.
+The default interface address is <http://localhost:8080/> and the REST API is
+available at <http://localhost:8080/api>. The database is created at
+`./data/certiflow`; local database files are excluded from version control.
+Spring configuration supports overrides such as `SERVER_PORT` and
+`SPRING_DATASOURCE_URL`.
 
-### Primer recorrido
+Corrective-action expiration notifications use logging by default. The
+`certiflow.notifications.webhook-url` property configures a JSON POST webhook.
 
-1. Elegir quién actúa arriba a la izquierda (si no hay nadie, crear una persona en **Personas**; la acción se
-   registra en la auditoría con ese actor).
-2. Registrar un activo y elegir su jurisdicción (`REFERENCE`, `AR-BA` o `AR-CBA`).
-3. Crear un esquema de inspección, armar un borrador con secciones y criterios, y publicarlo (inmediato o con
-   fecha de vigencia futura: F2).
-4. Crear la inspección, responder los criterios y cerrarla.
-5. En la inspección, ver la elegibilidad y emitir el certificado global o por subsistema (F1). Según la jurisdicción
-   la misma inspección puede emitirse, quedar condicional o bloquearse (F3).
-6. En **Procesos** se pueden ejecutar a demanda los vencimientos y el despacho de eventos.
+## Continuous integration
 
-## Estructura
+The [CI workflow](.github/workflows/ci.yml) runs `mvn verify` with JDK 25 on pull
+requests and pushes to `main`, and uploads test and coverage reports.
 
-| Módulo | Qué contiene |
-|---|---|
-| `core` (`certification-domain`) | Dominio y casos de uso. No conoce Spring ni la base. |
-| `infrastructure` | Persistencia JDBC + Flyway sobre H2, outbox de eventos, notificaciones. |
-| `app` | Spring Boot: composición, controladores REST, tareas programadas y el front (`app/frontend`). |
+## Documentation
 
-La regla de dependencias es `app → infrastructure → core`, y dentro del núcleo `adapter → application → domain`;
-lo verifican pruebas de arquitectura en cada módulo.
-
-## Documentación
-
-- [`DESIGN.md`](DESIGN.md): decisiones de diseño, clases agregadas/modificadas por funcionalidad (F1, F2, F3),
-  refactorizaciones y deuda técnica deliberada.
-- [`docs/API.md`](docs/API.md): endpoints y contrato de errores.
-- [`docs/arquitectura-hexagonal.md`](docs/arquitectura-hexagonal.md): arquitectura.
-- [`app/frontend/README.md`](app/frontend/README.md): desarrollo del front.
-
-## Integración continua
-
-`.github/workflows/ci.yml` corre `mvn verify` con JDK 25 en cada PR y en cada push a `main`. Para que un PR con
-tests rotos no pueda integrarse, en GitHub hay que exigir el chequeo **Build and test** en la protección de la rama
-principal (Settings → Branches).
+- [Delivery 1 requirements](docs/entrega_1.md) and
+  [Delivery 2 requirements](docs/entrega_2.md): functional and delivery scope.
+- [Design record](DESIGN.md): design decisions, classes added or modified for
+  F1-F3, refactorings, and deliberate technical debt.
+- [REST API](docs/API.md): endpoints, actor identification, and error contracts.
+- [Architecture](docs/arquitectura-hexagonal.md): hexagonal architecture overview.
+- [Frontend README](app/frontend/README.md): frontend structure and development.
+- [Project instructions](AGENTS.md): contributor and agent rules, validation,
+  and review workflow.
