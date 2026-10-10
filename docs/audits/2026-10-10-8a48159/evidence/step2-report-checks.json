@@ -1,0 +1,23 @@
+{
+  "command": "python target/audit-evidence/2026-10-10-8a48159/step2_check.py",
+  "cwd": "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2",
+  "start": "2026-10-10T19:35:39.785497-03:00",
+  "end": "2026-10-10T19:35:41.186377-03:00",
+  "HEAD": "8a4815960670ac1d467df4a8f0932c8932d2fab4",
+  "relative_links_checked": 658,
+  "requirement_count": 113,
+  "assessments": {
+    "Satisfied": 97,
+    "Ambiguous": 2,
+    "Partial": 10,
+    "Unverified": 4
+  },
+  "finding_records": 11,
+  "correctness_scenarios": 35,
+  "application_test_contract_diff_empty": true,
+  "untracked_application_test_contract_files": "",
+  "baseline_jar_sha256_matches": "91a192ed7dea02a09f3dca1a96ff4c8f73281a714ec132d535872dee11beb076",
+  "status_evidence": "step2-final-status.txt",
+  "errors": [],
+  "exit_code": 0
+}

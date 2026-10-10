@@ -1,0 +1,27 @@
+[INFO] --- enforcer:3.5.0:enforce (enforce-java-version) @ certification-domain ---
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for CertiFlow :: Parent 1.0.0-SNAPSHOT:
+[INFO] 
+[INFO] CertiFlow :: Parent ................................ SUCCESS [  0.010 s]
+[INFO] Asset Inspection and Certification :: Hexagonal Core FAILURE [  1.550 s]
+[INFO] Asset Inspection and Certification :: Infrastructure SKIPPED
+[INFO] CertiFlow :: Application (REST API) ................ SKIPPED
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  2.664 s
+[INFO] Finished at: 2026-10-10T19:08:26-03:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-enforcer-plugin:3.5.0:enforce (enforce-java-version) on project certification-domain: 
+[ERROR] Rule 0: org.apache.maven.enforcer.rules.version.RequireJavaVersion failed with message:
+[ERROR] Detected JDK version 21.0.10 (JAVA_HOME=C:\Program Files\Java\jdk-21.0.10) is not in the allowed range [25,).
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException
+[ERROR] 
+[ERROR] After correcting the problems, you can resume the build with the command
+[ERROR]   mvn <args> -rf :certification-domain

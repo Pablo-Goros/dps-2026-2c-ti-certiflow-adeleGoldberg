@@ -1,0 +1,6 @@
+ M AGENTS.md
+ D docs/correcciones-informe.md
+ D docs/informe-certiflow-adeleGoldberg.md
+?? docs/audits/
+?? docs/entrega_1_correcciones.md
+?? docs/system-audit-plan.md

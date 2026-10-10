@@ -1,0 +1,15 @@
+{
+  "started": "2026-10-10T19:22:01.595447-03:00",
+  "ended": "2026-10-10T19:22:02.807092-03:00",
+  "checked_markdown_links": 586,
+  "requirements": 113,
+  "assessments": {
+    "Satisfied": 101,
+    "Ambiguous": 2,
+    "Partial": 6,
+    "Unverified": 4
+  },
+  "head": "8a4815960670ac1d467df4a8f0932c8932d2fab4",
+  "application_diff_empty": true,
+  "errors": []
+}
