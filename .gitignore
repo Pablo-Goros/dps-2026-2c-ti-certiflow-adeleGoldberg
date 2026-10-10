@@ -19,3 +19,7 @@ target/
 
 # Local H2 database files
 data/
+
+# Logs (Derby/H2 test runs leave derby.log files behind)
+derby.log
+*.log
