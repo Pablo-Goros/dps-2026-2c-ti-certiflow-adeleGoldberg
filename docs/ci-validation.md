@@ -34,6 +34,20 @@ se pueden descargar en el artefacto `reports`; los resultados de Vitest aparecen
 La protección debe estar activa, apuntar a `main`, exigir PR y el chequeo `Build and test`,
 y no conceder bypass. No alcanza con que el workflow falle: su chequeo debe ser obligatorio.
 
+### Evidencia remota del 10 de octubre de 2026
+
+- [PR temporal #3](https://github.com/Pablo-Goros/dps-2026-2c-ti-certiflow-adeleGoldberg/pull/3).
+- [Ejecución con fallo intencional](https://github.com/Pablo-Goros/dps-2026-2c-ti-certiflow-adeleGoldberg/actions/runs/38073814666).
+- Surefire ejecutó 238 pruebas del núcleo: 237 correctas y un fallo en
+  `CiFailureTest.intentionalFailureBlocksThePullRequest`. Maven terminó con `BUILD FAILURE`.
+- El job `Build and test` terminó con `conclusion: failure` y el PR informó
+  `mergeable_state: blocked`, aunque no tenía conflictos (`mergeable: true`).
+- El ruleset `Main Protection` está activo, apunta a `refs/heads/main`, exige PR y el
+  chequeo de GitHub Actions `Build and test`. No tiene actores con permiso de bypass.
+- La opción de exigir actualización con `main` está desactivada. Esto no impide el
+  bloqueo por fallos, pero conviene activarla para validar también los cambios recientes de la rama base.
+- La prueba intencional se eliminó antes de la ejecución de recuperación; no debe incorporarse a `main`.
+
 ## Revisión de cobertura funcional
 
 Las pruebas actuales incluyen rollback completo, rechazo de escrituras obsoletas,
