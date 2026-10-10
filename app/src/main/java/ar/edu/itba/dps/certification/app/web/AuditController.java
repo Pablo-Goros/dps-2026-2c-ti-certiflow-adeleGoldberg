@@ -1,6 +1,6 @@
 package ar.edu.itba.dps.certification.app.web;
 
-import ar.edu.itba.dps.certification.application.audit.port.AuditTrail;
+import ar.edu.itba.dps.certification.application.audit.usecase.BrowseAuditTrail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef.ElementType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,9 +15,9 @@ import java.util.List;
 @RequestMapping("/api/audit")
 class AuditController {
 
-    private final AuditTrail trail;
+    private final BrowseAuditTrail trail;
 
-    AuditController(AuditTrail trail) {
+    AuditController(BrowseAuditTrail trail) {
         this.trail = trail;
     }
 
@@ -26,7 +26,7 @@ class AuditController {
     Object entries(@RequestParam(name = "type", required = false) ElementType type,
             @RequestParam(name = "id", required = false) String id) {
         if (type != null && id != null) {
-            return Plain.of(trail.entriesFor(new AuditedElementRef(type, id)));
+            return Plain.of(trail.historyOf(new AuditedElementRef(type, id)));
         }
         return Plain.of(trail.all());
     }

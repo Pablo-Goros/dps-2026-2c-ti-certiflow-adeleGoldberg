@@ -2,10 +2,10 @@ package ar.edu.itba.dps.certification.app.web;
 
 import ar.edu.itba.dps.certification.app.web.dto.PartyRequest;
 import ar.edu.itba.dps.certification.app.web.dto.PartyResponse;
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
+import ar.edu.itba.dps.certification.application.catalogue.usecase.BrowseParties;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
+import ar.edu.itba.dps.certification.application.shared.port.Transactions;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,10 +22,10 @@ import java.util.List;
 class PartyController {
 
     private final RegisterParty registerParty;
-    private final PartyRepository parties;
-    private final JdbcTransactions transactions;
+    private final BrowseParties parties;
+    private final Transactions transactions;
 
-    PartyController(RegisterParty registerParty, PartyRepository parties, JdbcTransactions transactions) {
+    PartyController(RegisterParty registerParty, BrowseParties parties, Transactions transactions) {
         this.registerParty = registerParty;
         this.parties = parties;
         this.transactions = transactions;
@@ -40,12 +40,12 @@ class PartyController {
 
     @GetMapping
     List<PartyResponse> list() {
-        return parties.findAll().stream().map(PartyResponse::of).toList();
+        return parties.all().stream().map(PartyResponse::of).toList();
     }
 
     @GetMapping("/{id}")
     PartyResponse get(@PathVariable("id") String id) {
-        return parties.findById(new PartyId(id))
+        return parties.find(new PartyId(id))
                 .map(PartyResponse::of)
                 .orElseThrow(() -> new NotFoundException("party " + id + " does not exist"));
     }

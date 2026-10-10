@@ -1,20 +1,21 @@
 package ar.edu.itba.dps.certification.app.web;
 
 import ar.edu.itba.dps.certification.app.web.dto.CertificateDtos.IssueRequest;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
+import ar.edu.itba.dps.certification.application.certification.usecase.BrowseCertificates;
 import ar.edu.itba.dps.certification.application.certification.usecase.DeriveGlobalCertificate;
 import ar.edu.itba.dps.certification.application.certification.usecase.EvaluateIssuanceEligibility;
 import ar.edu.itba.dps.certification.application.certification.usecase.IssueCertificate;
 import ar.edu.itba.dps.certification.application.certification.usecase.RenewCertificate;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionRepository;
+import ar.edu.itba.dps.certification.application.inspection.usecase.BrowseInspections;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport;
+import ar.edu.itba.dps.certification.application.shared.port.Transactions;
+import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Certificates (F1 partial by subsystem, plus the global one) issued from a closed inspection under
@@ -42,14 +44,14 @@ class CertificateController {
     private final EvaluateIssuanceEligibility eligibility;
     private final DeriveGlobalCertificate derivation;
     private final GenerateCertificateReport report;
-    private final CertificateRepository certificates;
-    private final InspectionRepository inspections;
-    private final JdbcTransactions transactions;
+    private final BrowseCertificates certificates;
+    private final BrowseInspections inspections;
+    private final Transactions transactions;
 
     CertificateController(IssueCertificate issue, RenewCertificate renew,
             EvaluateIssuanceEligibility eligibility, DeriveGlobalCertificate derivation,
-            GenerateCertificateReport report, CertificateRepository certificates,
-            InspectionRepository inspections, JdbcTransactions transactions) {
+            GenerateCertificateReport report, BrowseCertificates certificates,
+            BrowseInspections inspections, Transactions transactions) {
         this.issue = issue;
         this.renew = renew;
         this.eligibility = eligibility;
@@ -105,14 +107,9 @@ class CertificateController {
             @RequestParam(name = "assetId", required = false) String assetId,
             @RequestParam(name = "inspectionId", required = false) String inspectionId,
             @RequestParam(name = "status", required = false) CertificateStatus status) {
-        List<Certificate> found = inspectionId != null
-                ? certificates.findByBackingInspection(InspectionId.of(inspectionId))
-                : certificates.findAll();
-        return found.stream()
-                .filter(c -> assetId == null || c.assetId().value().equals(assetId))
-                .filter(c -> status == null || c.status() == status)
-                .map(Views::certificate)
-                .toList();
+        return certificates.search(Optional.ofNullable(assetId).map(AssetId::new),
+                        Optional.ofNullable(inspectionId).map(InspectionId::of), Optional.ofNullable(status))
+                .stream().map(Views::certificate).toList();
     }
 
     @GetMapping("/certificates/{id}")
@@ -149,12 +146,12 @@ class CertificateController {
     }
 
     private Certificate existing(String id) {
-        return certificates.findById(CertificateId.of(id))
+        return certificates.find(CertificateId.of(id))
                 .orElseThrow(() -> new NotFoundException("certificate " + id + " does not exist"));
     }
 
     private void requireInspection(String id) {
-        if (inspections.findById(InspectionId.of(id)).isEmpty()) {
+        if (inspections.find(InspectionId.of(id)).isEmpty()) {
             throw new NotFoundException("inspection " + id + " does not exist");
         }
     }

@@ -11,9 +11,10 @@ Todos tienen la forma `{ "status", "code", "message", "details": [], "timestamp"
 
 | HTTP | `code` | Cuándo |
 |------|--------|--------|
-| 400 | `INVALID_INPUT` / `MALFORMED_REQUEST` | dato inválido, JSON roto, enum desconocido |
+| 400 | `INVALID_INPUT` / `MALFORMED_REQUEST` | dato inválido, JSON roto, enum desconocido, jurisdicción desconocida al registrar un activo, instante mal formado |
 | 401 | `ACTOR_REQUIRED` | falta el actor o el id no existe |
-| 404 | `NOT_FOUND` | el recurso no existe |
+| 404 | `NOT_FOUND` | el recurso o la ruta no existe (en `effective-version`: ninguna versión regía en esa fecha) |
+| 405, 415… | `REQUEST_REFUSED` | método no permitido, tipo de contenido no soportado (los errores 4xx del framework conservan su estado) |
 | 409 | `CONFLICT` | cambio concurrente o duplicado |
 | 422 | `BUSINESS_RULE` | el dominio rechazó la operación |
 | 422 | `SCHEMA_NOT_PUBLISHABLE` | borrador no publicable; `details` lista los motivos |
@@ -28,6 +29,7 @@ Todos tienen la forma `{ "status", "code", "message", "details": [], "timestamp"
 | `PUT /assets/{id}/location`, `PUT /assets/{id}/responsible` | reubicar / cambiar responsable |
 | `GET /meta/asset-types`, `GET /meta/jurisdictions` | datos para armar formularios |
 | `POST /schemas`, `GET /schemas`, `GET /schemas/{id}`, `GET /schemas/{id}/versions/{n}` | esquemas de inspección |
+| `GET /schemas/{id}/effective-version?at=<instante ISO-8601>` | qué versión regía (o regirá) en esa fecha (F2); sin `at` usa el instante actual; 404 si ninguna regía; 400 si `at` no es un instante |
 | `POST` / `DELETE /schemas/{id}/draft` | abrir / descartar borrador |
 | `POST /schemas/{id}/draft/sections`, `DELETE .../sections/{name}` | editar el borrador |
 | `POST /schemas/{id}/publish` | publicar; `{"effectiveFrom": "<instante futuro>"}` opcional (F2) |
@@ -55,3 +57,11 @@ Todos tienen la forma `{ "status", "code", "message", "details": [], "timestamp"
 
 Una emisión bloqueada responde **422** con `{"outcome": "BLOCKED", "assessment": {... "blockers": [...]}}`;
 una emisión repetida responde 200 con `"outcome": "ALREADY_ISSUED"`.
+
+## Notificaciones
+
+Al vencer una acción correctiva el sistema avisa a su responsable por un canal configurable. Por defecto el aviso va
+al log; con `certiflow.notifications.webhook-url=<url>` se envía como `POST` JSON
+(`recipientId`, `recipientName`, `subject`, `message`, `occurredAt`) con tiempo de espera
+`certiflow.notifications.timeout-seconds` (3 por defecto). Es al mejor esfuerzo: si el canal falla se registra y no
+afecta a la suspensión del certificado.

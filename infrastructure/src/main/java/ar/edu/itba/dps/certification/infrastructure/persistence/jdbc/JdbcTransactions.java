@@ -1,5 +1,6 @@
 package ar.edu.itba.dps.certification.infrastructure.persistence.jdbc;
 
+import ar.edu.itba.dps.certification.application.shared.port.Transactions;
 import ar.edu.itba.dps.certification.infrastructure.persistence.DuplicateKeyException;
 import ar.edu.itba.dps.certification.infrastructure.persistence.PersistenceException;
 
@@ -29,7 +30,7 @@ import java.util.function.Supplier;
  * <p>Outside a unit of work each statement runs on its own connection in auto-commit mode, with
  * neither identity map nor version check.
  */
-public final class JdbcTransactions {
+public final class JdbcTransactions implements Transactions {
 
     private static final System.Logger LOG = System.getLogger(JdbcTransactions.class.getName());
     private static final String UNIQUE_VIOLATION = "23505";
@@ -42,6 +43,7 @@ public final class JdbcTransactions {
     }
 
     /** Runs {@code work} in a transaction, or joins the one already running on this thread. */
+    @Override
     public <T> T execute(Supplier<T> work) {
         if (running.get() != null) {
             return work.get();
@@ -63,6 +65,7 @@ public final class JdbcTransactions {
         return result;
     }
 
+    @Override
     public void execute(Runnable work) {
         execute(() -> {
             work.run();
@@ -198,7 +201,7 @@ public final class JdbcTransactions {
         }
     }
 
-    private static PersistenceException translate(String sql, SQLException e) {
+    private static RuntimeException translate(String sql, SQLException e) {
         String message = "database failure (" + e.getSQLState() + ") on: " + sql + " -> " + e.getMessage();
         if (UNIQUE_VIOLATION.equals(e.getSQLState())) {
             return new DuplicateKeyException(message, e);

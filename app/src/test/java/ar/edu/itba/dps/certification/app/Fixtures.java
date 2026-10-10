@@ -78,6 +78,19 @@ final class Fixtures {
                 "rule", Map.of("type", "OPTIONS", "options", options));
     }
 
+    /** A single check that is not tied to a subsystem, answered with clean / untidy (observed, medium) / hazardous (rejected, high). */
+    static Map<String, Object> housekeepingSection() {
+        var housekeeping = new java.util.HashMap<String, Object>();
+        housekeeping.put("id", "HK");
+        housekeeping.put("subsystem", null);
+        housekeeping.put("evidence", List.of());
+        housekeeping.put("rule", Map.of("type", "OPTIONS", "options", Map.of(
+                "clean", outcome("HK_OK", "APPROVED", null, "area is clean"),
+                "untidy", outcome("HK_UNTIDY", "OBSERVED", "MEDIUM", "area is untidy"),
+                "hazardous", outcome("HK_HAZARD", "REJECTED", "HIGH", "area is unsafe"))));
+        return Map.of("name", "Housekeeping", "order", 1, "criteria", List.of(housekeeping));
+    }
+
     static Map<String, Object> option(String key) {
         return Map.of("type", "OPTION", "option", key);
     }

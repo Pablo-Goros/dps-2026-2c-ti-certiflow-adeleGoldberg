@@ -11,9 +11,9 @@ import ar.edu.itba.dps.certification.app.web.dto.InspectionDtos.NoteRequest;
 import ar.edu.itba.dps.certification.app.web.dto.InspectionDtos.NoteTextRequest;
 import ar.edu.itba.dps.certification.app.web.dto.InspectionDtos.ReassignRequest;
 import ar.edu.itba.dps.certification.app.web.dto.InspectionDtos.RectifyRequest;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionRepository;
 import ar.edu.itba.dps.certification.application.inspection.usecase.AssignInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.AttachEvidence;
+import ar.edu.itba.dps.certification.application.inspection.usecase.BrowseInspections;
 import ar.edu.itba.dps.certification.application.inspection.usecase.CloseInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.CorrectNote;
 import ar.edu.itba.dps.certification.application.inspection.usecase.ReassignInspection;
@@ -25,14 +25,13 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveEviden
 import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveNote;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
+import ar.edu.itba.dps.certification.application.shared.port.Transactions;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionStatus;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -70,16 +69,14 @@ class InspectionController {
     private final CloseInspection close;
     private final RectifyClosedInspection rectify;
     private final GenerateInspectionAct act;
-    private final InspectionRepository inspections;
-    private final SchemaCatalog schemas;
-    private final JdbcTransactions transactions;
+    private final BrowseInspections inspections;
+    private final Transactions transactions;
 
     InspectionController(AssignInspection assign, ReassignInspection reassign, StartInspection start,
             RecordAnswer recordAnswer, RemoveAnswer removeAnswer, AttachEvidence attachEvidence,
             RemoveEvidence removeEvidence, RecordNote recordNote, CorrectNote correctNote,
             RemoveNote removeNote, CloseInspection close, RectifyClosedInspection rectify,
-            GenerateInspectionAct act, InspectionRepository inspections, SchemaCatalog schemas,
-            JdbcTransactions transactions) {
+            GenerateInspectionAct act, BrowseInspections inspections, Transactions transactions) {
         this.assign = assign;
         this.reassign = reassign;
         this.start = start;
@@ -94,7 +91,6 @@ class InspectionController {
         this.rectify = rectify;
         this.act = act;
         this.inspections = inspections;
-        this.schemas = schemas;
         this.transactions = transactions;
     }
 
@@ -112,12 +108,9 @@ class InspectionController {
             @RequestParam(name = "assetId", required = false) String assetId,
             @RequestParam(name = "inspectorId", required = false) String inspectorId,
             @RequestParam(name = "status", required = false) InspectionStatus status) {
-        return inspections.findAll().stream()
-                .filter(i -> assetId == null || i.assetId().value().equals(assetId))
-                .filter(i -> inspectorId == null || i.inspector().value().equals(inspectorId))
-                .filter(i -> status == null || i.status() == status)
-                .map(InspectionRow::of)
-                .toList();
+        return inspections.search(Optional.ofNullable(assetId).map(AssetId::new),
+                        Optional.ofNullable(inspectorId).map(PartyId::new), Optional.ofNullable(status))
+                .stream().map(InspectionRow::of).toList();
     }
 
     @GetMapping("/{id}")
@@ -216,12 +209,12 @@ class InspectionController {
     }
 
     private Inspection existing(String id) {
-        return inspections.findById(InspectionId.of(id))
+        return inspections.find(InspectionId.of(id))
                 .orElseThrow(() -> new NotFoundException("inspection " + id + " does not exist"));
     }
 
     private InspectionResponse view(Inspection inspection) {
-        var version = inspection.frozenSchemaVersionId().map(schemas::requireVersion).orElse(null);
+        var version = inspections.frozenVersion(inspection).orElse(null);
         return InspectionResponse.of(inspection, version, Plain::of);
     }
 }

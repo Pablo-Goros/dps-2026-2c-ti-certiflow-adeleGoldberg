@@ -23,6 +23,7 @@
 
   <properties>
     <java.version>25</java.version>
+    <jacoco.plugin.version>0.8.13</jacoco.plugin.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -165,7 +166,35 @@
         <version>3.5.2</version>
         <configuration>
           <includes><include>**/*Test.java</include></includes>
+          <!-- Mockito attaches its agent to the running JVM; newer JDKs only allow that when asked. -->
+          <argLine>@{argLine} -XX:+EnableDynamicAgentLoading</argLine>
         </configuration>
+      </plugin>
+
+      <!-- Coverage report (target/site/jacoco), same setup as the core. -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.plugin.version}</version>
+        <configuration>
+          <includes>
+            <include>ar/edu/itba/dps/certification/**</include>
+          </includes>
+          <excludes>
+            <exclude>**/*MockitoMock*</exclude>
+          </excludes>
+        </configuration>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals><goal>prepare-agent</goal></goals>
+          </execution>
+          <execution>
+            <id>coverage-report</id>
+            <phase>verify</phase>
+            <goals><goal>report</goal></goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

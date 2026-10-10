@@ -5,9 +5,11 @@ import ar.edu.itba.dps.certification.adapter.finding.RepositoryFindingQuery;
 import ar.edu.itba.dps.certification.adapter.schema.PublishedSchemaCatalog;
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.application.audit.port.AuditTrail;
+import ar.edu.itba.dps.certification.application.audit.usecase.BrowseAuditTrail;
 import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.application.catalogue.port.AssetRepository;
 import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
+import ar.edu.itba.dps.certification.application.catalogue.usecase.BrowseParties;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetResponsible;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
@@ -17,6 +19,7 @@ import ar.edu.itba.dps.certification.application.certification.CertificateFactor
 import ar.edu.itba.dps.certification.application.certification.CertificationReactions;
 import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
 import ar.edu.itba.dps.certification.application.certification.port.CertificationPolicyRegistry;
+import ar.edu.itba.dps.certification.application.certification.usecase.BrowseCertificates;
 import ar.edu.itba.dps.certification.application.certification.usecase.DeriveGlobalCertificate;
 import ar.edu.itba.dps.certification.application.certification.usecase.EvaluateIssuanceEligibility;
 import ar.edu.itba.dps.certification.application.certification.usecase.ExpireDueCertificates;
@@ -25,6 +28,7 @@ import ar.edu.itba.dps.certification.application.certification.usecase.RenewCert
 import ar.edu.itba.dps.certification.application.finding.FindingService;
 import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
 import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
+import ar.edu.itba.dps.certification.application.finding.usecase.BrowseFindings;
 import ar.edu.itba.dps.certification.application.finding.usecase.ExpireOverdueCorrectiveActions;
 import ar.edu.itba.dps.certification.application.finding.usecase.PlanCorrectiveAction;
 import ar.edu.itba.dps.certification.application.finding.usecase.ReportCorrectiveActionExecution;
@@ -33,6 +37,7 @@ import ar.edu.itba.dps.certification.application.inspection.RectificationConsequ
 import ar.edu.itba.dps.certification.application.inspection.port.InspectionRepository;
 import ar.edu.itba.dps.certification.application.inspection.usecase.AssignInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.AttachEvidence;
+import ar.edu.itba.dps.certification.application.inspection.usecase.BrowseInspections;
 import ar.edu.itba.dps.certification.application.inspection.usecase.CloseInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.CorrectNote;
 import ar.edu.itba.dps.certification.application.inspection.usecase.ReassignInspection;
@@ -46,8 +51,11 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspect
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateFindingsSummary;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct;
+import ar.edu.itba.dps.certification.application.notification.NotifyCorrectiveActionExpiry;
+import ar.edu.itba.dps.certification.application.notification.port.NotificationSender;
 import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
+import ar.edu.itba.dps.certification.application.schema.usecase.BrowseSchemas;
 import ar.edu.itba.dps.certification.application.schema.usecase.ChangeSchemaApplicability;
 import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
 import ar.edu.itba.dps.certification.application.schema.usecase.DiscardDraft;
@@ -278,6 +286,38 @@ class ApplicationConfig {
         return new DeriveGlobalCertificate(factory);
     }
 
+    // Read side used by the REST controllers, so they never touch a repository directly.
+
+    @Bean
+    BrowseParties browseParties(PartyRepository parties) {
+        return new BrowseParties(parties);
+    }
+
+    @Bean
+    BrowseSchemas browseSchemas(SchemaRepository schemas) {
+        return new BrowseSchemas(schemas);
+    }
+
+    @Bean
+    BrowseInspections browseInspections(InspectionRepository inspections, SchemaCatalog schemaCatalog) {
+        return new BrowseInspections(inspections, schemaCatalog);
+    }
+
+    @Bean
+    BrowseFindings browseFindings(FindingRepository findings) {
+        return new BrowseFindings(findings);
+    }
+
+    @Bean
+    BrowseCertificates browseCertificates(CertificateRepository certificates) {
+        return new BrowseCertificates(certificates);
+    }
+
+    @Bean
+    BrowseAuditTrail browseAuditTrail(AuditTrail trail) {
+        return new BrowseAuditTrail(trail);
+    }
+
     @Bean
     GenerateInspectionAct generateInspectionAct(InspectionRepository inspections, SchemaCatalog schemaCatalog) {
         return new GenerateInspectionAct(inspections, schemaCatalog);
@@ -310,4 +350,13 @@ class ApplicationConfig {
         return new CertificationReactions(certificates, inspections, lifecycle, audit, findingQuery, clock);
     }
 
+    /** Tells the finding's responsible when a corrective action expires; a failing channel never blocks the event. */
+    @Bean
+    NotifyCorrectiveActionExpiry notifyCorrectiveActionExpiry(FindingRepository findings, PartyRepository parties,
+            NotificationSender sender) {
+        System.Logger log = System.getLogger(NotifyCorrectiveActionExpiry.class.getName());
+        return new NotifyCorrectiveActionExpiry(findings, parties, sender, (notification, failure) ->
+                log.log(System.Logger.Level.WARNING, "could not notify " + notification.recipientId()
+                        + " about '" + notification.subject() + "'", failure));
+    }
 }

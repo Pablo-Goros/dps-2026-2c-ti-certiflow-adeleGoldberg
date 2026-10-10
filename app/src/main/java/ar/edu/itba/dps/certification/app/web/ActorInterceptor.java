@@ -3,7 +3,7 @@ package ar.edu.itba.dps.certification.app.web;
 import ar.edu.itba.dps.certification.app.config.ActorHeader;
 import ar.edu.itba.dps.certification.app.config.AuthenticationRequiredException;
 import ar.edu.itba.dps.certification.app.config.RequestActor;
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
+import ar.edu.itba.dps.certification.application.catalogue.usecase.BrowseParties;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,10 +17,10 @@ import org.springframework.web.servlet.HandlerInterceptor;
  */
 final class ActorInterceptor implements HandlerInterceptor {
 
-    private final PartyRepository parties;
+    private final BrowseParties parties;
     private final RequestActor actors;
 
-    ActorInterceptor(PartyRepository parties, RequestActor actors) {
+    ActorInterceptor(BrowseParties parties, RequestActor actors) {
         this.parties = parties;
         this.actors = actors;
     }
@@ -31,7 +31,7 @@ final class ActorInterceptor implements HandlerInterceptor {
         if (id == null || id.isBlank()) {
             return true;
         }
-        var party = parties.findById(new PartyId(id.trim()))
+        var party = parties.find(new PartyId(id.trim()))
                 .orElseThrow(() -> new AuthenticationRequiredException(
                         "unknown actor " + id.trim() + " in the " + ActorHeader.NAME + " header"));
         actors.set(Actor.user(party.id(), party.name()));

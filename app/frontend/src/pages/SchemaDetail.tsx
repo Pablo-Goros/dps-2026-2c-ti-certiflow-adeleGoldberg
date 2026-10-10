@@ -5,7 +5,7 @@ import { formatInstant, isFuture, localDateTimeToInstant } from '../lib/format'
 import { useLoad } from '../lib/hooks'
 import { label } from '../lib/labels'
 import { describeRule } from '../lib/rules'
-import type { AssetType, AssetTypeInfo, Schema, Section } from '../lib/types'
+import type { AssetType, AssetTypeInfo, Schema, SchemaVersion, Section } from '../lib/types'
 import { SectionEditor } from '../components/SectionEditor'
 import { Badge, Card, ErrorLine, Field, Loading, LoadError, Notice, Page, useAction } from '../components/ui'
 
@@ -128,6 +128,8 @@ export function SchemaDetail() {
         </Card>
       )}
 
+      {s.versions.length > 0 && <VersionAtDate schemaId={s.id} />}
+
       <Card title="Versiones publicadas">
         {s.versions.length === 0 ? <p className="muted" style={{ margin: 0 }}>Todavía no se publicó ninguna versión.</p> : (
           <div className="stack">
@@ -148,6 +150,57 @@ export function SchemaDetail() {
         )}
       </Card>
     </Page>
+  )
+}
+
+/** F2: which version was (or will be) in force on a given date. */
+function VersionAtDate({ schemaId }: { schemaId: string }) {
+  const [at, setAt] = useState('')
+  const [found, setFound] = useState<SchemaVersion | null>(null)
+  const [answer, setAnswer] = useState<string | null>(null)
+  const [failure, setFailure] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function consult() {
+    const instant = localDateTimeToInstant(at)
+    if (!instant) {
+      setFailure('Elegí una fecha y hora.')
+      return
+    }
+    setBusy(true)
+    setFailure(null)
+    setFound(null)
+    setAnswer(null)
+    try {
+      const version = await api.get<SchemaVersion>(`/schemas/${schemaId}/effective-version?at=${encodeURIComponent(instant)}`)
+      setFound(version)
+      setAnswer(`En esa fecha regía la versión v${version.number} (vigente desde ${formatInstant(version.effectiveFrom)}).`)
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) setAnswer('En esa fecha todavía no regía ninguna versión.')
+      else setFailure(e instanceof ApiError ? e.message : 'No se pudo consultar.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card title="¿Qué versión regía en una fecha?">
+      <div className="form">
+        <Field label="Fecha y hora" hint="Sirve para el pasado y para el futuro: una versión programada rige recién desde su fecha de vigencia.">
+          <input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} />
+        </Field>
+        <div className="form-actions">
+          <button disabled={busy} onClick={consult}>Consultar</button>
+        </div>
+      </div>
+      <ErrorLine message={failure} />
+      {answer && <div style={{ marginTop: 14 }}><Notice kind={found ? 'ok' : 'info'}>{answer}</Notice></div>}
+      {found && (
+        <div className="stack" style={{ marginTop: 10 }}>
+          {found.sections.map((section) => <SectionView key={section.name} section={section} />)}
+        </div>
+      )}
+    </Card>
   )
 }
 

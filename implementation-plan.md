@@ -1,6 +1,6 @@
 # Plan de implementación — F3: políticas de certificación por jurisdicción
 
-Seguimiento de implementación: etapas 1–7 del núcleo F3 completadas. `mvn verify` pasó con 220 unitarios y 124 pruebas de integración. Las decisiones definitivas se trasladaron a `DESIGN.md`; la sección 8 permanece como integración posterior pendiente.
+Seguimiento de implementación: etapas 1–7 del núcleo F3 completadas. `mvn verify` pasó con 220 unitarios y 124 pruebas de integración. Las decisiones definitivas se trasladaron a `DESIGN.md`; la sección 8 (integración con la aplicación completa) se realizó en la Entrega 2: ver `DESIGN.md`, secciones 13 a 18, con lo que quedó pendiente señalado en cada ítem.
 
 ## 1. Objetivo y alcance
 
@@ -223,12 +223,12 @@ mvn verify
 
 Estos pasos dependen de incorporar infraestructura/API/frontend al proyecto. Mantener los contratos anteriores como frontera del núcleo.
 
-- [ ] **Persistencia:** guardar jurisdicción, definición/revisión de políticas, metadata del certificado y decisiones auditadas. Conservar revisiones históricas; definir migración explícita para activos/certificados anteriores sin esos datos. Implementar transacción para guardado del certificado y auditoría, y unicidad por inspección/alcance frente a concurrencia.
-- [ ] **REST:** admitir jurisdicción en alta/consulta de activo; consultar políticas disponibles; devolver evaluación con política, alcance, bloqueos y modalidad; emitir/renovar devolviendo metadata histórica. Definir contratos y mapeo de errores de validación, recurso ausente y configuración sin filtrar detalles internos al usuario.
-- [ ] **Frontend mínimo:** elegir jurisdicción al registrar activo y mostrar resultado, razones de bloqueo, modalidad, vencimiento y política aplicada en certificación. La política debe seleccionarla el backend a partir del activo.
-- [ ] **Pruebas de repositorio reales:** persistir/recuperar jurisdicción y políticas versionadas; comprobar certificados/auditoría tras una nueva sesión, unicidad y rollback con la base elegida.
-- [ ] **Pruebas de API reales:** alta → inspección → elegibilidad → emisión/renovación para las dos jurisdicciones; validar JSON, códigos y persistencia real, incluidos bloqueos, datos inválidos y jurisdicción sin política.
-- [ ] **CI:** configurar JDK 25 y `mvn verify`, agregar ejecución de tests de infraestructura/API según su configuración y exigir checks exitosos para integrar PRs. La protección de ramas requiere configuración del hosting del repositorio.
+- [x] **Persistencia** (`DESIGN.md` §13; pendiente: migración de documentos ante cambios de formato, `FORMAT_VERSION` existe pero no se implementó): guardar jurisdicción, definición/revisión de políticas, metadata del certificado y decisiones auditadas. Conservar revisiones históricas; definir migración explícita para activos/certificados anteriores sin esos datos. Implementar transacción para guardado del certificado y auditoría, y unicidad por inspección/alcance frente a concurrencia.
+- [x] **REST** (§14, `docs/API.md`): admitir jurisdicción en alta/consulta de activo; consultar políticas disponibles; devolver evaluación con política, alcance, bloqueos y modalidad; emitir/renovar devolviendo metadata histórica. Definir contratos y mapeo de errores de validación, recurso ausente y configuración sin filtrar detalles internos al usuario.
+- [x] **Frontend mínimo** (§16): elegir jurisdicción al registrar activo y mostrar resultado, razones de bloqueo, modalidad, vencimiento y política aplicada en certificación. La política debe seleccionarla el backend a partir del activo.
+- [x] **Pruebas de repositorio reales** (§13, §18.4): persistir/recuperar jurisdicción y políticas versionadas; comprobar certificados/auditoría tras una nueva sesión, unicidad y rollback con la base elegida.
+- [x] **Pruebas de API reales** (`JurisdictionPolicyApiIT`, `CertificationApiIT`, §17.3): alta → inspección → elegibilidad → emisión/renovación para las dos jurisdicciones; validar JSON, códigos y persistencia real, incluidos bloqueos, datos inválidos y jurisdicción sin política.
+- [~] **CI** (`.github/workflows/ci.yml` hecho; falta activar en GitHub la protección de rama que exige el chequeo «Build and test», §18.4): configurar JDK 25 y `mvn verify`, agregar ejecución de tests de infraestructura/API según su configuración y exigir checks exitosos para integrar PRs. La protección de ramas requiere configuración del hosting del repositorio.
 
 ## 9. Riesgos y deuda a registrar
 

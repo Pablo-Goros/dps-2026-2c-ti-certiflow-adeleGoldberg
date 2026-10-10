@@ -1,5 +1,6 @@
 package ar.edu.itba.dps.certification.app.web;
 
+import ar.edu.itba.dps.certification.app.config.JurisdictionCatalog;
 import ar.edu.itba.dps.certification.app.web.dto.AssetRequest;
 import ar.edu.itba.dps.certification.app.web.dto.AssetResponse;
 import ar.edu.itba.dps.certification.app.web.dto.LocationRequest;
@@ -8,13 +9,14 @@ import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetRe
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RelocateAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.SearchAssets;
+import ar.edu.itba.dps.certification.application.shared.port.Transactions;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
+import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,20 +41,26 @@ class AssetController {
     private final RelocateAsset relocateAsset;
     private final ChangeAssetResponsible changeResponsible;
     private final SearchAssets searchAssets;
-    private final JdbcTransactions transactions;
+    private final Transactions transactions;
+    private final JurisdictionCatalog jurisdictions;
 
     AssetController(RegisterAsset registerAsset, RelocateAsset relocateAsset,
             ChangeAssetResponsible changeResponsible, SearchAssets searchAssets,
-            JdbcTransactions transactions) {
+            Transactions transactions, JurisdictionCatalog jurisdictions) {
         this.registerAsset = registerAsset;
         this.relocateAsset = relocateAsset;
         this.changeResponsible = changeResponsible;
         this.searchAssets = searchAssets;
         this.transactions = transactions;
+        this.jurisdictions = jurisdictions;
     }
 
     @PostMapping
     ResponseEntity<AssetResponse> register(@RequestBody AssetRequest request) {
+        if (request.jurisdiction() == null || !jurisdictions.names().contains(request.jurisdiction().trim())) {
+            throw new InvalidArgumentException("unknown jurisdiction '" + request.jurisdiction()
+                    + "'; known ones: " + jurisdictions.names());
+        }
         Asset asset = transactions.execute(() -> {
             var responsible = new PartyId(request.responsibleId());
             var jurisdiction = JurisdictionId.of(request.jurisdiction());

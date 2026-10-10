@@ -6,7 +6,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -18,46 +17,13 @@ import static org.assertj.core.api.Assertions.assertThat;
         properties = "spring.datasource.url=jdbc:h2:mem:certiflow-certification-it;DB_CLOSE_DELAY=-1")
 class CertificationApiIT extends ApiTest {
 
-    private static boolean schemaPublished;
-
-    private record Inspected(String owner, String inspector, String assetId, String inspectionId) {
-    }
-
     @BeforeEach
-    void publishTheFacilitySchemaOnce() {
-        if (schemaPublished) {
-            return;
-        }
-        String id = api.post("/api/schemas", Map.of("name", "Facility", "assetTypes", List.of("FACILITY")),
-                null).text("id");
-        api.post("/api/schemas/" + id + "/draft", Map.of(), null);
-        api.post("/api/schemas/" + id + "/draft/sections", Fixtures.facilitySection(), null);
-        var published = api.post("/api/schemas/" + id + "/publish", Map.of(), null);
-        assertThat(published.status()).as(published.body()).isEqualTo(201);
-        schemaPublished = true;
+    void publishTheFacilitySchema() {
+        publishFacilitySchemaOnce();
     }
 
-    /** Registers a facility, inspects it with the given answers and closes the inspection. */
     private Inspected closedInspection(String electrical, String pressure, String safety) {
-        String owner = organization("Owner");
-        String inspector = person("Inspector");
-        var asset = new HashMap<String, Object>();
-        asset.put("name", "Plant " + System.nanoTime());
-        asset.put("assetType", "FACILITY");
-        asset.put("responsibleId", owner);
-        asset.put("location", "Building 1");
-        asset.put("characteristics", Map.of("room", "1"));
-        asset.put("jurisdiction", "REFERENCE");
-        String assetId = api.post("/api/assets", asset, null).text("id");
-        String id = api.post("/api/inspections",
-                Map.of("assetId", assetId, "inspectorId", inspector, "expectedDate", "2027-01-15"), null).text("id");
-        assertThat(api.post("/api/inspections/" + id + "/start", Map.of(), inspector).status()).isEqualTo(200);
-        api.put("/api/inspections/" + id + "/answers/ELEC", Fixtures.option(electrical), inspector);
-        api.put("/api/inspections/" + id + "/answers/PRES", Fixtures.option(pressure), inspector);
-        api.put("/api/inspections/" + id + "/answers/SAFE", Fixtures.option(safety), inspector);
-        var closed = api.post("/api/inspections/" + id + "/close", Map.of(), inspector);
-        assertThat(closed.status()).as(closed.body()).isEqualTo(200);
-        return new Inspected(owner, inspector, assetId, id);
+        return closedFacilityInspection("REFERENCE", electrical, pressure, safety);
     }
 
     @Test

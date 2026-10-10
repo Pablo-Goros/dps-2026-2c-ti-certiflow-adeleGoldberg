@@ -1,6 +1,6 @@
 # Decisiones de diseño
 
-El proyecto corresponde a la Entrega 1: un módulo de dominio Java con modelos, contratos, casos de uso concretos y pruebas. La consigna no exige API REST, persistencia real, frontend, seguridad ni despliegue.
+El proyecto abarca dos entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 18 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14).
 
 Además de las decisiones técnicas, se explicitan las interpretaciones adoptadas por el equipo para precisar comportamientos que el enunciado deja abiertos. Estas interpretaciones delimitan el alcance del modelo; no son requisitos adicionales impuestos por la consigna.
 
@@ -20,7 +20,7 @@ el razonamiento y las consecuencias de cada una.
 | D7 | Servicios de dominio y aplicación | `CriterionEvaluator`, `SchemaApplicability`, `CertificateIssuer`, `CertificateLifecycle`, `RectificationConsequences`, `CertificateFactory` | Separar reglas puras de coordinación con puertos externos | Poner la evaluación completa en `CriterionRecord`, `CloseInspection` o repositorios | Las reglas puras quedan en dominio; la coordinación con repositorios queda en aplicación |
 | D8 | Policy / Specification-like requirements | `CertificateIssuancePolicy`, `IssuanceRequirement`, `IssuanceBlocker`, `CertificationContext` | Calcular todos los bloqueos de emisión de forma extensible y explicable | `if` encadenados o cortar en el primer error | Se informa una decisión rica (`Issued`, `Blocked`, `AlreadyIssued`), pero hay más objetos para una decisión simple |
 | D9 | State explícito sin jerarquía State | Enums de `InspectionStatus`, `CorrectiveActionStatus`, `CertificateStatus` y métodos de transición | Proteger transiciones con invariantes sin sobrediseñar ciclos pequeños | Clase por estado o setters públicos | Menos clases, pero cada operación debe verificar su estado permitido |
-| D10 | Publish/Subscribe con eventos de dominio | `DomainEventPublisher`, eventos de `finding/event` e `Inspection.CriterionResultRevised`, `CertificationReactions` | Desacoplar acciones e inspecciones de suspensión/reactivación de certificados | Invocar `Certificate` directamente desde cada caso de uso o usar un broker | El despacho de esta entrega es síncrono y en memoria; no hay entrega durable ni atomicidad distribuida |
+| D10 | Publish/Subscribe con eventos de dominio | `DomainEventPublisher`, eventos de `finding/event` e `Inspection.CriterionResultRevised`, `CertificationReactions` | Desacoplar acciones e inspecciones de suspensión/reactivación de certificados | Invocar `Certificate` directamente desde cada caso de uso o usar un broker | En la Entrega 1 el despacho era síncrono y en memoria. Desde la Entrega 2 los eventos se escriben en un outbox dentro de la transacción del cambio y se entregan después con reintentos (D27, sección 15); sigue sin haber atomicidad distribuida |
 | D11 | Snapshot y versionado inmutable | `AssetSnapshot`, `SchemaVersion`, `Inspection.frozenSchemaVersion` | Reconstruir qué activo y reglas existían al iniciar una inspección | Leer siempre el activo y esquema actuales o copiar todo el esquema por inspección | Se conserva historia sin duplicar esquemas; las versiones referenciadas deben permanecer disponibles |
 | D12 | Historia explícita y rectificación | `Rectification`, `CriterionEvaluation`, `FindingRevision`, `VoidedObligation`, informes | Corregir hechos sin sobrescribir el original y sin confundir reparación con rectificación | Editar una inspección cerrada, borrar datos o aplicar Event Sourcing completo | Se mantienen estado actual e historial; aumenta el costo de conservar y proyectar cambios |
 | D13 | Agregado con colección histórica de acciones | `Finding.correctiveActions()` y `Finding.correctiveAction()` | Mantener una acción vigente sin borrar acciones concluidas cuando reaparece una no conformidad | Reabrir la acción vieja o crear otro hallazgo para el mismo criterio | Hay un hallazgo por criterio y varias acciones históricas; la acción vigente se distingue de sus antecedentes |
@@ -38,6 +38,10 @@ el razonamiento y las consecuencias de cada una.
 | D24 | El modo de certificación es un tipo sellado, no un booleano | `CertificationPlan`, `InspectionSummary.certificationPlan()` | Que el llamador no tenga que leer «sin subsistemas» como «certificalo entero» | Un `boolean certifiedAsAWhole()` con `if/else`, o exponer el conjunto crudo | La regla vive en una sola fábrica y el `switch` del llamador es exhaustivo; hay un tipo más |
 | D25 | Vigencia temporal diferida (`effectiveFrom`) | `SchemaVersion`, `InspectionSchema`, `PublishSchemaVersion` | Permitir preparar y publicar versiones normativas antes de su entrada en vigencia operativa | Activar la versión mediante un proceso batch/cron o cronograma externo | Las inspecciones iniciadas antes de la fecha futura siguen usando la versión anterior de forma automática |
 | D26 | Consulta temporal de esquemas (`effectiveVersionAt`) | `SchemaCatalog`, `PublishedSchemaCatalog`, `InspectionSchema` | Resolver cuál era/será la versión válida en cualquier punto de la línea de tiempo sin mutar el historial | Filtrar solo la última versión ordenada por número | Permite simular y auditar qué reglas aplicaban o aplicarán en una fecha pasada o futura determinada |
+| D27 | Outbox transaccional | `DomainEventPublisher` ← `OutboxEventPublisher`, `JdbcEventOutbox`, `OutboxDispatcher`, `MaintenanceJobs` | Que un cambio y su evento se confirmen juntos y que un manejador caído no deshaga la petición | Publicación síncrona dentro de la transacción (la primera versión), o un broker externo | Consistencia eventual y una tabla más; los eventos agotados quedan `DEAD` y se revisan a mano (sección 15) |
+| D28 | Puerto de transacciones y excepción de conflicto propia | `application.shared.port.Transactions` ← `JdbcTransactions`; `application.shared.ConflictException` | Que la API exija atomicidad por petición y traduzca conflictos a 409 sin conocer JDBC | Que los controladores dependan de `JdbcTransactions` y de las excepciones de infraestructura, o anotar el núcleo con `@Transactional` | La transacción sigue abriéndola el controlador (los casos de uso son clases concretas, no decorables), pero detrás de un puerto (sección 18) |
+| D29 | Casos de uso de consulta (lado de lectura) | `BrowseParties`, `BrowseSchemas`, `BrowseInspections`, `BrowseFindings`, `BrowseCertificates`, `BrowseAuditTrail` | Que los adaptadores de entrada lean solo a través de la capa de aplicación y que las consultas con regla (versión vigente en una fecha, filtros combinados) vivan fuera del controlador | Inyectar repositorios en los controladores | Seis clases pequeñas; una prueba de arquitectura impide que la web vuelva a importar repositorios (sección 18) |
+| D30 | Notificación como puerto de salida | `NotificationSender` ← `LogNotificationSender`, `WebhookNotificationSender`; `NotifyCorrectiveActionExpiry` | Integrar un canal externo sin que el núcleo conozca HTTP, y sin que su caída afecte a los certificados | Llamar al webhook desde el caso de uso, o hacer fallar el evento si el canal falla | Entrega «al mejor esfuerzo»: una notificación puede perderse si el canal está caído (sección 18) |
 
 ### Patrones deliberadamente no aplicados
 
@@ -58,8 +62,9 @@ porque no aportan valor en el alcance actual:
 - **CQRS completo**: se separan algunos puertos de comando y consulta, pero no se mantienen
 	dos modelos persistidos. Mantenerlos sincronizados sería complejidad sin beneficio para
 	un módulo sin persistencia real.
-- **Saga, Outbox o broker externo**: los eventos se despachan de forma síncrona en memoria.
-	La entrega no requiere procesos distribuidos ni reintentos durables.
+- **Saga o broker externo**: no hay procesos distribuidos que lo justifiquen. El *outbox*
+	transaccional, descartado en la Entrega 1 por falta de persistencia, sí se aplicó en la
+	Entrega 2 (D27, sección 15) porque la persistencia real lo hace necesario.
 - **Motor externo de reglas**: las tres familias de reglas actuales se pueden validar y
 	probar directamente en Java; incorporar un DSL dificultaría diagnóstico y trazabilidad.
 - **ORM o Active Record**: las entidades no contienen anotaciones ni operaciones de
@@ -301,7 +306,7 @@ y omite los faltantes de evidencia de los que no, por el mismo motivo.
 
 JUnit y AssertJ prueban reglas y ciclos de vida. Las pruebas de integración componen casos de uso con repositorios en memoria, reloj controlable y eventos síncronos. Esto permite comprobar vencimientos y efectos entre agregados sin esperas ni infraestructura externa.
 
-Se descartaron pruebas con base de datos o interfaz para esta entrega. Sustituir todas las colaboraciones por mocks tampoco demostraría que los casos de uso funcionan juntos. Los adaptadores en memoria permiten esa integración, aunque no prueban concurrencia ni persistencia y conservan referencias a objetos mutables.
+En la Entrega 1 se descartaron pruebas con base de datos o interfaz; la Entrega 2 las agrega (sección 18, «Pruebas»). Sustituir todas las colaboraciones por mocks tampoco demostraría que los casos de uso funcionan juntos. Los adaptadores en memoria permiten esa integración, aunque no prueban concurrencia ni persistencia y conservan referencias a objetos mutables.
 
 El proyecto compila para Java 25. `mvn test` ejecuta unitarios y `mvn verify` agrega integración y el reporte JaCoCo. Las rectificaciones sucesivas, la exactitud de la auditoría y la corrección de registros antes del cierre tienen escenarios propios.
 
@@ -425,14 +430,13 @@ mensajes de bloqueos que los tests comprueban por tipo/datos. No se impone cober
 100% global: se priorizan decisiones de negocio y efectos observables; las garantías
 de persistencia y concurrencia continúan requiriendo las pruebas reales pendientes.
 
-**Deuda de integración.** El núcleo F2/F3 no completa la aplicación de la Entrega 2:
-faltan adaptadores persistentes y migración explícita de datos anteriores, transacción
-certificado/auditoría y unicidad concurrente, REST con contratos de error, frontend,
-pruebas reales de repositorio/API y CI con protección de ramas. También quedan fuera
-administración dinámica o aprobación de políticas y cambio de
-jurisdicción de un activo. No se ofrece atomicidad durable entre guardados, auditoría
-y eventos con los adaptadores actuales. Estas dependencias corresponden a la sección 8
-del plan y no se ocultan mediante defaults de producción.
+**Estado de la integración.** Al cerrar la Entrega 1 el núcleo F2/F3 no estaba integrado a una
+aplicación. La Entrega 2 resolvió: adaptadores persistentes con transacción por petición (sección 13), REST con
+contrato de errores (14), outbox y tareas programadas (15), front end (16) y pruebas reales de repositorio y API
+(17 y 18). Siguen pendientes, y se declaran en lugar de ocultarse con defaults de producción: la migración de datos
+anteriores a un cambio de formato (`FORMAT_VERSION` existe, la migración no), la administración dinámica o la
+aprobación de políticas, el cambio de jurisdicción de un activo y la protección de ramas de GitHub, que se configura
+fuera del repositorio.
 
 
 ## 13. Entrega 2: persistencia JDBC (módulo `infrastructure`)
@@ -497,7 +501,7 @@ un certificado de forma atómica, operación rechazada sin rastro). `StateCodecT
   es agregar constructores o fábricas de reconstrucción al dominio.
 - *Consultas.* Los métodos que no tienen columna indexada (por ejemplo `PublishPendingDomainEvents`
   sobre `findAll()`) recorren la tabla completa. Aceptable para el volumen de la entrega.
-- *Eventos y transacciones.* Los casos de uso publican eventos de forma síncrona dentro de la misma
+- *Eventos y transacciones* (resuelto en la sección 15). Los casos de uso publicaban eventos de forma síncrona dentro de la misma
   transacción; si un manejador falla se deshace toda la operación, lo que contradice la semántica
   documentada de "publicación fallida deja el evento pendiente". Se resuelve con un *outbox*
   transaccional en el paso de procesos de infraestructura (encolar en la misma transacción,
@@ -530,9 +534,9 @@ todos los casos de uso), `PersistenceConfig`, `PolicyConfig` (perfiles de F3), `
   resultado. Toda validación de negocio sigue en el núcleo; el controlador sólo traduce.
 - *Una transacción por petición* (`JdbcTransactions.execute`): si algo falla se deshace todo,
   incluida la auditoría de esa operación.
-- *Errores en un solo lugar* (`ApiExceptionHandler`): 400/401/404/409/422/500 con un cuerpo estable.
+- *Errores en un solo lugar* (`ApiExceptionHandler`): 400/401/404/409/422/500 con un cuerpo estable; los errores 4xx del propio framework (ruta inexistente, método no permitido) conservan su estado (sección 18).
   Alternativa descartada: crear una jerarquía de excepciones HTTP en el dominio, que lo acoplaría a la web.
-- *404 antes de operar.* Los controladores comprueban la existencia con el repositorio; el núcleo
+- *404 antes de operar.* Los controladores comprueban la existencia con un caso de uso de consulta (`Browse*`, sección 18); el núcleo
   responde con `DomainException`, que se mapea a 422 y no distingue "no existe" de "regla violada".
 - *Una emisión bloqueada no es un error de formato:* se responde 422 con el análisis completo de
   bloqueos, que es lo que el front necesita mostrar.
@@ -661,3 +665,202 @@ flujo completo en un navegador real contra una imitación del contrato (esa imit
 - *Evidencia como texto,* igual que en la API; no hay subida de archivos.
 - *Sin paginación* en las tablas (igual que la API); diseño pensado para escritorio, utilizable en pantallas chicas.
 - *Descarga de Node en cada `mvn clean`:* se cachea en `~/.m2`, pero el primer build necesita red.
+
+## 17. Entrega 2: F1, F2 y F3 por funcionalidad
+
+La consigna pide documentar, por cada funcionalidad nueva, qué clases se agregaron o modificaron, qué se
+refactorizó y qué deuda se asumió a propósito. Esta sección lo reúne en un solo lugar; el razonamiento de cada
+decisión está en las secciones 12 a 16 y 18, y en la tabla de decisiones (D17 a D30).
+
+### 17.1. F1: certificaciones parciales por subsistema
+
+**Qué hace.** Un activo con subsistemas (fábrica: 2, instalación: 3) puede certificarse por partes. Cada parcial
+cubre un subsistema y tiene su propia vigencia; el certificado del activo completo no se persiste: se *deriva* de los
+parciales vigentes (D17 a D24).
+
+**Núcleo (Entrega 1).**
+- *Agregadas:* `CertificateScope` (`Global` o `Partial`), `catalogue.Subsystem`, `AssetType.subsystems()`,
+  `GlobalCertificatePolicy`, `AllSubsystemsMustBeInForce`, `GlobalCertificate`, `PartialProvenance`,
+  `DeriveGlobalCertificate`, `CertificationPlan`.
+- *Modificadas:* `Certificate` (alcance), `CertificationContext` (hechos filtrados por alcance: `inScope()`),
+  `Criterion` (subsistema opcional), `CriterionRecord` y `ActCriterionLine` (criterio no aplicable), `Asset` y
+  `AssetSnapshot` (subsistemas declarados), `Inspection` (`certifiableSubsystems()`), `CertificationReactions`
+  (una acción vencida suspende sólo el parcial afectado).
+
+**API y front (Entrega 2).**
+- *API:* `POST /inspections/{id}/certificates` con `{"subsystem": "..."}` emite un parcial y sin cuerpo uno global;
+  `GET /inspections/{id}/eligibility?subsystem=` y `GET /inspections/{id}/global-derivation`
+  (`CertificateController`, `docs/API.md`).
+- *Persistencia:* el alcance es parte del documento y de la columna indexada `scope_key`; el índice único
+  `certificate(backing_inspection_id, scope_key)` impide dos certificados vivos del mismo alcance aun con
+  peticiones simultáneas (sección 13).
+- *Front:* la pantalla de la inspección muestra elegibilidad y emisión por subsistema, y la derivación del global.
+- *Pruebas:* `PartialCertificationIT` (núcleo), `RepositoryParityIT` y `JdbcLifecycleIT` (persistencia),
+  `CertificationApiIT` (API: parcial, global derivado, bloqueo, repetición idempotente) y `ConcurrencyApiIT`
+  (varias emisiones simultáneas para la misma inspección: queda un solo certificado).
+
+**Refactorizaciones.** El alcance viaja en los hechos y no en la política: la política de emisión no se tocó (D19).
+Los criterios de un subsistema ausente se evalúan pero no generan hallazgos (D23).
+
+**Deuda deliberada.** El global no tiene identidad ni auditoría propias (D20); no se puede pedir "el certificado
+global" por id. Dos parciales pueden haberse emitido con revisiones de política distintas; el global lo informa
+(`PartialProvenance`) pero no lo unifica.
+
+### 17.2. F2: versiones de esquema con vigencia futura y consulta por fecha
+
+**Qué hace.** Una versión puede publicarse con una fecha de vigencia futura; hasta entonces sigue rigiendo la
+anterior. El sistema responde qué versión estaba (o estará) vigente en una fecha dada (D25 y D26).
+
+**Núcleo (Entrega 1).**
+- *Agregadas/modificadas:* `SchemaVersion.effectiveFrom`, `InspectionSchema.effectiveVersionAt`,
+  `PublishSchemaVersion` (acepta fecha futura y lee el reloj una sola vez), `SchemaCatalog` y
+  `PublishedSchemaCatalog` (consulta temporal).
+
+**Entrega 2.**
+- *Agregadas:* `application.schema.usecase.BrowseSchemas` (versión vigente en una instante dado; sección 18),
+  endpoint `GET /schemas/{id}/effective-version?at=<instante ISO-8601>` en `SchemaController`, tarjeta
+  «¿Qué versión regía en una fecha?» en `SchemaDetail.tsx`.
+- *Modificadas:* `POST /schemas/{id}/publish` acepta `effectiveFrom` (futuro, validado por el dominio), y el
+  formulario de publicación del front permite programarla.
+- *Comportamiento:* sin versión vigente en esa fecha → 404; instante mal formado → 400; la fecha exacta de
+  vigencia pertenece a la versión nueva (límite inclusivo).
+- *Pruebas:* `FutureEffectiveSchemaIT` (núcleo), `SchemaApiIT` (publicación programada) y `SchemaVersionAtDateApiIT`
+  (antes de la primera versión, justo en el límite, entre versiones, futuro, formato inválido, esquema inexistente),
+  más `BrowseUseCasesTest` en el núcleo.
+
+**Refactorizaciones.** Corregir `PublishSchemaVersion` para leer el reloj una vez (sección 14). La consulta por fecha
+se resolvió en un caso de uso de consulta y no en el controlador, para que la regla de borde viva en la aplicación.
+
+**Deuda deliberada.** Las inspecciones ya iniciadas siguen con la versión congelada (decisión de dominio, no deuda),
+pero no hay una vista que liste «qué inspecciones usaron la versión N». La consulta devuelve la versión completa y
+no un resumen.
+
+### 17.3. F3: políticas de certificación por jurisdicción
+
+**Qué hace.** Cada activo declara su jurisdicción y cada jurisdicción tiene una política (severidades que bloquean,
+si admite certificados condicionales, plazos). El mismo resultado de inspección puede emitirse en una jurisdicción y
+bloquearse en otra, y toda decisión identifica la política aplicada (sección 12).
+
+**Núcleo (Entrega 1).** Ver sección 12: `JurisdictionId`, `CertificationPolicyRef`, `CertificationPolicySnapshot`,
+`JurisdictionCertificationPolicy`, `ConfiguredJurisdictionCertificationPolicy`, `PolicyRestriction`,
+`CertificationPolicyRegistry` y `RegisteredCertificationPolicies`, `CertificationAssessment`, `CertificateMode`,
+`PolicyResolutionException`; modificadas `CertificateFactory`, `CertificationContext`, `Finding`, `Certificate`,
+`CertificateLifecycle`, `AuditDetail`, informes.
+
+**Entrega 2.**
+- *Agregadas:* `app.config.PolicyConfig` (los perfiles REFERENCE, AR-BA y AR-CBA, con la política de cada uno
+  como datos), `app.config.JurisdictionCatalog` y `GET /meta/jurisdictions`.
+- *Modificadas:* `AssetController` (la jurisdicción del alta se valida contra el catálogo: una desconocida es 400
+  en lugar de un 422 tardío al certificar), `SupportConfig`/`ApplicationConfig` (registro de políticas), el
+  formulario de activos del front (selector de jurisdicción) y las pantallas de certificación (política aplicada,
+  modalidad, bloqueos).
+- *Pruebas:* `JurisdictionCertificationIT` (núcleo) y `JurisdictionPolicyApiIT` (API): una misma inspección con la
+  misma observación se emite o se bloquea según la jurisdicción, con modalidad y vigencia esperadas por cada una
+  (parametrizado), y una jurisdicción desconocida se rechaza.
+
+**Refactorizaciones.** Separar las garantías universales de emisión de las reglas variables por jurisdicción
+(sección 12); en la Entrega 2, mover la validación de jurisdicción al borde de la API.
+
+**Deuda deliberada.** Las políticas son configuración en código (agregar una jurisdicción requiere recompilar); no
+hay administración dinámica, aprobación de cambios normativos, vigencia futura de políticas ni cambio de
+jurisdicción de un activo. Los perfiles son datos ficticios, **no normativa real**.
+
+### 17.4. Aspectos transversales de la Entrega 2
+
+| Requisito de la consigna | Dónde está |
+|---|---|
+| Persistencia | Sección 13 (`infrastructure`) |
+| Integraciones | Sección 18 (`NotificationSender`, webhook) |
+| Procesos | Sección 15 (outbox y tareas programadas) |
+| API REST y contrato de errores | Sección 14 y `docs/API.md` |
+| Front end mínimo | Sección 16 |
+| Pruebas (unitarias, parametrizadas, de repositorio, de API) | Secciones 13 a 16 y 18 |
+| Integración continua | `.github/workflows` (compila, testea con `mvn verify` y falla ante cualquier test roto); que bloquee la integración de PRs requiere protección de rama en GitHub (sección 18) |
+
+## 18. Entrega 2: ajustes hexagonales, notificaciones y pruebas
+
+Esta sección registra lo que se agregó al revisar la Entrega 2 contra la arquitectura hexagonal y los requisitos de
+prueba. Las correcciones están hechas; lo que no se corrigió figura como deuda.
+
+### 18.1. Qué se encontró y qué se hizo
+
+| Hallazgo | Corrección |
+|---|---|
+| Los controladores dependían de `JdbcTransactions` y de excepciones de `infrastructure` (la capa web conocía JDBC) | Puerto `application.shared.port.Transactions` (implementado por `JdbcTransactions`) y `application.shared.ConflictException`, de la que heredan `DuplicateKeyException` y `StaleAggregateException`. El manejador de errores traduce `ConflictException` a 409 (D28) |
+| Los controladores leían repositorios directamente | Casos de uso de consulta `BrowseParties`, `BrowseSchemas`, `BrowseInspections`, `BrowseFindings`, `BrowseCertificates` y `BrowseAuditTrail` (D29) |
+| Faltaba una integración externa (el enunciado pide «integraciones») | Puerto `NotificationSender` con dos adaptadores y el caso de uso `NotifyCorrectiveActionExpiry` (18.2, D30) |
+| Los procesos de fondo (vencimientos, outbox) sólo se probaban a mano o por separado | `ProcessesApiIT` los prueba por su efecto observable en la API, con un reloj controlable (`SteerableClock`) |
+| F2 y F3 sólo estaban probadas en el núcleo | `SchemaVersionAtDateApiIT` y `JurisdictionPolicyApiIT` (17.2 y 17.3) |
+| Una ruta inexistente o un método no permitido respondían 500 | `ApiExceptionHandler` conserva el estado 4xx del framework (404/405) con el cuerpo de error estándar (`ErrorContractApiIT`) |
+| El alta de activos aceptaba cualquier jurisdicción | Validación contra `JurisdictionCatalog` en `AssetController` |
+| No había cobertura medida fuera del núcleo | JaCoCo en `infrastructure` y `app` |
+| La arquitectura sólo se verificaba en el núcleo | Una prueba de fronteras por módulo (18.4) |
+
+### 18.2. Notificaciones (integración externa)
+
+**Qué hace.** Cuando una acción correctiva vence, además de suspender el certificado afectado, el sistema avisa al
+responsable. El aviso sale por un puerto, `NotificationSender`, y el núcleo no sabe cómo viaja.
+
+**Clases agregadas.** `core`: `Notification` (destinatario, asunto, mensaje, instante), `NotificationSender`
+(puerto), `NotificationFailedException`, `NotifyCorrectiveActionExpiry`. `infrastructure`: `LogNotificationSender`
+(escribe en el log; es el predeterminado) y `WebhookNotificationSender` (POST JSON con el cliente HTTP del JDK,
+con tiempo de espera). `app`: el bean `notificationSender` en `SupportConfig`, que elige el webhook sólo si
+`certiflow.notifications.webhook-url` tiene valor (`certiflow.notifications.timeout-seconds`, 3 por defecto).
+**Modificada:** `ApplicationConfig` (el manejador queda registrado junto a `CertificationReactions` como consumidor del evento de acción vencida).
+
+**Cómo se comporta.**
+- *Al mejor esfuerzo:* si el canal falla, el fallo se registra y **no** se propaga. La alternativa (hacer fallar el
+  evento) dejaría a un evento de suspensión de certificados en `DEAD` por una causa ajena al certificado.
+- *Una vez por vencimiento observado:* el aviso se emite al procesarse el evento; la repetición de un barrido no
+  vuelve a avisar de la misma acción porque el evento ya está `DONE` (probado en `ProcessesApiIT`).
+- *Sin dependencias nuevas:* el JSON se arma a mano y se escapa en un único método probado.
+
+**Pruebas.** `NotifyCorrectiveActionExpiryTest` (unitaria, con Mockito: destinatario, contenido, canal caído),
+`LogNotificationSenderTest` y `WebhookNotificationSenderIT` (servidor HTTP local real: cuerpo, tipo de contenido,
+respuesta 5xx, tiempo agotado, escape de caracteres), `NotificationWebhookApiIT` (aplicación completa contra un
+webhook real) y `ProcessesApiIT` (suspensión más aviso; canal caído no bloquea la suspensión).
+
+### 18.3. Decisiones
+
+- *La transacción sigue abriéndola el controlador.* Los casos de uso son clases concretas y no se pueden decorar sin
+  cambiar el núcleo; se dejó la apertura en el borde pero detrás de un puerto. Alternativa descartada: anotar el
+  núcleo con `@Transactional` (lo acoplaría a Spring).
+- *Los controladores sólo usan casos de uso.* Pueden importar `Transactions` y `Clock`, nada más del lado de los
+  puertos de salida; lo exige `AppBoundaryTest`.
+- *La notificación corre dentro de la transacción del manejador del outbox,* porque ahí se conoce el hecho. Es
+  simple pero implica la deuda descripta abajo.
+
+### 18.4. Pruebas
+
+| Tipo | Dónde | Qué cubre |
+|---|---|---|
+| Unitarias (sin mocks de lo que se prueba) | `core` | Dominio y casos de uso con adaptadores en memoria |
+| Unitarias con Mockito | `NotifyCorrectiveActionExpiryTest`, `MaintenanceJobsTest`, `CertificateFactoryTest`, `CertificationReactionsTest` | Interacciones con colaboradores |
+| Parametrizadas | `JurisdictionPolicyApiIT`, `JurisdictionCertificationIT` y la matriz de política en `core` | Misma entrada, distinta jurisdicción |
+| Repositorio (H2 real, sin mocks) | `RepositoryParityIT`, `JdbcTransactionsIT`, `DatabaseConstraintsIT`, `JdbcLifecycleIT`, `JdbcAuditTrailIT`, `OutboxIT` | Persistencia, transacciones, restricciones, outbox |
+| API (servidor real y H2, sin mocks) | `app/*ApiIT` | Contrato, errores, F1/F2/F3, procesos, concurrencia, notificaciones |
+| Arquitectura | `ArchitectureBoundaryTest` (núcleo), `InfrastructureBoundaryTest`, `AppBoundaryTest` | El núcleo no importa Spring, JDBC, Jackson ni otros módulos; sólo `config` conoce `infrastructure`; la web no importa repositorios |
+| Front end | Vitest (cliente HTTP, conversión de formularios, formatos) y `FrontendIT` | Ver sección 16 |
+
+No se incluye un conteo de pruebas en este documento porque se desactualiza con cada cambio; el informe de
+`mvn verify` (Surefire, Failsafe y JaCoCo) es la fuente.
+
+**Integración continua.** El flujo de GitHub Actions ejecuta `mvn verify` con JDK 25, que corre unitarias,
+integración y las pruebas del front. Para que un PR con tests rotos no pueda integrarse hay que activar en GitHub la
+protección de la rama principal exigiendo el chequeo «Build and test»; eso se configura fuera del repositorio y
+no pudo verificarse desde el código.
+
+### 18.5. Deuda técnica deliberada
+
+- *Transacción en el controlador* (18.3): un caso de uso no es atómico por sí mismo; si otro adaptador de entrada
+  (una cola, una consola) lo invocara, tendría que abrir la transacción.
+- *Notificaciones al mejor esfuerzo, sin garantía de entrega:* se puede perder un aviso si el canal está caído, y
+  duplicarse si el envío tuvo éxito pero la transacción posterior no se confirma. No hay reintento propio.
+- *HTTP dentro de una transacción de base:* mientras el webhook responde (hasta el tiempo de espera) la conexión
+  de base sigue ocupada. Aceptable con el volumen de la entrega; el cambio correcto es enviar después del commit.
+- *Un solo evento notifica* (acción correctiva vencida); otros, como un certificado por vencer, no.
+- *JaCoCo 0.8.13 con clases de Java 25:* se eligió la versión más nueva que pudimos usar sin red; si una versión
+  futura del JDK cambia el formato de clases habrá que actualizarlo. Mockito se carga con
+  `-XX:+EnableDynamicAgentLoading` en la ejecución de pruebas del módulo `app`.
+- *Endpoints `/api/admin/*` sin protección* (igual que la autenticación, sección 14).
+- *Protección de ramas de GitHub* sin verificar (18.4).

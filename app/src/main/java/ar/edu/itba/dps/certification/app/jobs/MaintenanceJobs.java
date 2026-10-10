@@ -1,10 +1,10 @@
 package ar.edu.itba.dps.certification.app.jobs;
 
+import ar.edu.itba.dps.certification.app.ops.OutboxOperations;
 import ar.edu.itba.dps.certification.application.certification.usecase.ExpireDueCertificates;
 import ar.edu.itba.dps.certification.application.finding.usecase.ExpireOverdueCorrectiveActions;
+import ar.edu.itba.dps.certification.application.shared.port.Transactions;
 import ar.edu.itba.dps.certification.application.shared.usecase.PublishPendingDomainEvents;
-import ar.edu.itba.dps.certification.infrastructure.events.OutboxDispatcher;
-import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -29,31 +29,31 @@ public class MaintenanceJobs {
 
     private static final System.Logger LOG = System.getLogger(MaintenanceJobs.class.getName());
 
-    private final JdbcTransactions transactions;
+    private final Transactions transactions;
     private final ExpireDueCertificates expireCertificates;
     private final ExpireOverdueCorrectiveActions expireActions;
     private final PublishPendingDomainEvents republish;
-    private final OutboxDispatcher dispatcher;
+    private final OutboxOperations outbox;
     private final boolean enabled;
 
-    public MaintenanceJobs(JdbcTransactions transactions, ExpireDueCertificates expireCertificates,
+    public MaintenanceJobs(Transactions transactions, ExpireDueCertificates expireCertificates,
             ExpireOverdueCorrectiveActions expireActions, PublishPendingDomainEvents republish,
-            OutboxDispatcher dispatcher, @Value("${certiflow.jobs.enabled:true}") boolean enabled) {
+            OutboxOperations outbox, @Value("${certiflow.jobs.enabled:true}") boolean enabled) {
         this.transactions = transactions;
         this.expireCertificates = expireCertificates;
         this.expireActions = expireActions;
         this.republish = republish;
-        this.dispatcher = dispatcher;
+        this.outbox = outbox;
         this.enabled = enabled;
     }
 
     /** Runs every sweep once, in an order where each one feeds the next. */
     public Result runAll() {
         int actions = transactions.execute(() -> expireActions.sweep().size());
-        int delivered = dispatcher.dispatchPending();
+        int delivered = outbox.dispatchPending();
         int certificates = transactions.execute(() -> expireCertificates.sweep().size());
         transactions.execute(republish::publish);
-        delivered += dispatcher.dispatchPending();
+        delivered += outbox.dispatchPending();
         return new Result(certificates, actions, delivered);
     }
 
@@ -78,6 +78,6 @@ public class MaintenanceJobs {
         if (!enabled) {
             return;
         }
-        dispatcher.dispatchPending();
+        outbox.dispatchPending();
     }
 }

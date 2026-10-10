@@ -34,6 +34,7 @@
     <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
     <maven.failsafe.plugin.version>3.5.2</maven.failsafe.plugin.version>
+    <jacoco.plugin.version>0.8.13</jacoco.plugin.version>
   </properties>
 
   <dependencies>
@@ -113,6 +114,31 @@
               <goal>integration-test</goal>
               <goal>verify</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Coverage report (target/site/jacoco), same setup as the core. -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.plugin.version}</version>
+        <configuration>
+          <includes>
+            <include>ar/edu/itba/dps/certification/**</include>
+          </includes>
+          <excludes>
+            <exclude>**/*MockitoMock*</exclude>
+          </excludes>
+        </configuration>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals><goal>prepare-agent</goal></goals>
+          </execution>
+          <execution>
+            <id>coverage-report</id>
+            <phase>verify</phase>
+            <goals><goal>report</goal></goals>
           </execution>
         </executions>
       </plugin>

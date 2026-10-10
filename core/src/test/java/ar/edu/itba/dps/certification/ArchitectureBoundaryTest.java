@@ -30,6 +30,19 @@ final class ArchitectureBoundaryTest {
     }
 
     @Test
+    void theCoreKnowsNeitherFrameworksNorDatabasesNorOtherModules() throws IOException {
+        assertNoSourceContains(MAIN_SOURCES, List.of(
+                "import org.springframework.",
+                "import jakarta.",
+                "import java.sql.",
+                "import javax.sql.",
+                "import tools.jackson.",
+                "import com.fasterxml.",
+                "import " + ROOT_PACKAGE + ".infrastructure.",
+                "import " + ROOT_PACKAGE + ".app."));
+    }
+
+    @Test
     void theCatalogueDoesNotDependOnTheSchema() throws IOException {
         assertNoSourceContains(
                 MAIN_SOURCES.resolve(Path.of("ar", "edu", "itba", "dps", "certification", "domain", "catalogue")),

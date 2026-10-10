@@ -65,6 +65,10 @@ final class Api {
                 .PUT(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body))), actor);
     }
 
+    Reply delete(String path) {
+        return send(HttpRequest.newBuilder(URI.create(base + path)).DELETE(), null);
+    }
+
     Reply getAs(String path, String actor) {
         return send(HttpRequest.newBuilder(URI.create(base + path)).GET(), actor);
     }
