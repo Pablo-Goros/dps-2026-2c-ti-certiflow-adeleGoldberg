@@ -52,14 +52,14 @@ public final class SchemaApplicability {
     }
 
     private void requireVersionEvaluatesEveryPartOf(InspectionSchema schema, AssetType type) {
-        schema.latestPublishedVersion().ifPresent(version -> {
+        for (var version : schema.publishedVersions()) {
             Set<Subsystem> unevaluated = type.subsystems().stream()
                     .filter(subsystem -> !version.declaredSubsystems().contains(subsystem))
                     .collect(Collectors.toCollection(LinkedHashSet::new));
-            Validate.ensure(unevaluated.isEmpty(), "version " + version.id() + " of schema "
-                    + schema.id() + " evaluates no criterion for " + unevaluated
+            Validate.ensure(unevaluated.isEmpty(), "version " + version.number() + " of schema "
+                    + schema.id() + " does not evaluate every part: " + unevaluated
                     + ", which assets of type " + type + " may have");
-        });
+        }
     }
 
     private void requireAvailable(AssetType type, Set<AssetType> alreadyCoveredAssetTypes) {

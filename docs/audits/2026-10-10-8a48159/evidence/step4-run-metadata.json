@@ -1,0 +1,274 @@
+{
+  "027-step4-packaged": {
+    "start": "2026-10-11T11:02:04.845983-03:00",
+    "mode": "packaged",
+    "head": "0b747c473f3ba6915ccaa3eb7754ec6e8693de43",
+    "jarSHA256": "91a192ed7dea02a09f3dca1a96ff4c8f73281a714ec132d535872dee11beb076",
+    "commands": [
+      [
+        "C:\\Program Files\\Java\\jdk-26.0.2\\bin\\javac.exe",
+        "-d",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\027-step4-packaged\\classes",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\docs\\audits\\2026-10-10-8a48159\\evidence\\AuditShutdownAgent.java"
+      ],
+      [
+        "C:\\Program Files\\Java\\jdk-26.0.2\\bin\\jar.exe",
+        "cfm",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\027-step4-packaged\\shutdown-agent.jar",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\027-step4-packaged\\manifest.txt",
+        "-C",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\027-step4-packaged\\classes",
+        "."
+      ],
+      [
+        "C:\\Program Files\\Java\\jdk-26.0.2\\bin\\java.exe",
+        "-javaagent:C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\027-step4-packaged\\shutdown-agent.jar",
+        "-jar",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\014-step3-tests\\baseline-exec.jar",
+        "--server.port=18084",
+        "--spring.datasource.url=jdbc:h2:file:./target/audit-evidence/2026-10-10-8a48159/027-step4-packaged/db/certiflow",
+        "--certiflow.jobs.enabled=false"
+      ],
+      [
+        "C:\\Program Files\\Java\\jdk-26.0.2\\bin\\java.exe",
+        "-javaagent:C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\027-step4-packaged\\shutdown-agent.jar",
+        "-jar",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\014-step3-tests\\baseline-exec.jar",
+        "--server.port=18084",
+        "--spring.datasource.url=jdbc:h2:file:./target/audit-evidence/2026-10-10-8a48159/027-step4-packaged/db/certiflow",
+        "--certiflow.jobs.enabled=false"
+      ]
+    ],
+    "processExits": [
+      0,
+      0
+    ],
+    "exit": 0,
+    "end": "2026-10-11T11:02:38.403315-03:00",
+    "results": {
+      "E-API-01": {
+        "reports": 3,
+        "rectificationRetained": true,
+        "labInspection": "/inspections/3f55fdd4-a1b8-4752-b74b-cca9ecaf620b"
+      },
+      "E-F3-01": {
+        "BA": "CONDITIONAL",
+        "CBA": "BLOCKED",
+        "verifiedConditionalStatus": "VALID"
+      },
+      "E-F1-01": {
+        "modes": [
+          "REGULAR",
+          "CONDITIONAL",
+          "REGULAR"
+        ],
+        "derivedAfterVerification": true,
+        "persistedOnlyPartials": true,
+        "inspection": "/inspections/8f87ff63-1e79-4d09-b6e8-44dd29c6cabd"
+      },
+      "E-F1-02": {
+        "sharedFailureBlocksAll": true
+      },
+      "E-ERROR-01": {
+        "actorHTTP": 401,
+        "missingHTTP": 404,
+        "invalidHTTP": 400,
+        "illegalHTTP": 422,
+        "zeroAnswerCloseHTTP": 200,
+        "repeatIssue": "ALREADY_ISSUED",
+        "refusedInputStoredUnchanged": true
+      },
+      "E-F2-01": {
+        "lookupMinusExactPlus": [
+          1,
+          2,
+          2
+        ],
+        "oldInspection": "/inspections/07b4a7b3-4bdb-481d-ac09-7ff612e7740d",
+        "v1": "2fd2dfbf-b768-49ba-a2e1-27494bc4cd29#v1",
+        "v2": "2fd2dfbf-b768-49ba-a2e1-27494bc4cd29#v2"
+      },
+      "E-PACKAGE-01": {
+        "rootHTTP": 200,
+        "scriptsHTTP": 200,
+        "scripts": [
+          "/assets/index-C25jdxkU.js"
+        ],
+        "browserExecuted": false
+      },
+      "E-RESTART-01": {
+        "equalSnapshots": {
+          "/inspections/3f55fdd4-a1b8-4752-b74b-cca9ecaf620b": true,
+          "/inspections/3f55fdd4-a1b8-4752-b74b-cca9ecaf620b/act": true,
+          "/inspections/3f55fdd4-a1b8-4752-b74b-cca9ecaf620b/findings-summary": true,
+          "/inspections/2747cff5-bb8a-4b3a-8d4c-a1efb3c28a7b": true,
+          "/inspections/8f87ff63-1e79-4d09-b6e8-44dd29c6cabd": true,
+          "/inspections/8f87ff63-1e79-4d09-b6e8-44dd29c6cabd/global-derivation": true,
+          "/inspections/07b4a7b3-4bdb-481d-ac09-7ff612e7740d": true,
+          "/certificates": true,
+          "/certificates/1977f24e-586a-4229-b846-3ebc28499c20/report": true,
+          "/findings": true,
+          "/audit": true,
+          "/schemas": true,
+          "/admin/outbox": true
+        },
+        "continuedOldVersion": true,
+        "shutdown": "JVM shutdown hooks / Spring context.close"
+      }
+    }
+  },
+  "030-step4-controlled": {
+    "start": "2026-10-11T11:04:01.350698-03:00",
+    "mode": "controlled",
+    "head": "0b747c473f3ba6915ccaa3eb7754ec6e8693de43",
+    "jarSHA256": "91a192ed7dea02a09f3dca1a96ff4c8f73281a714ec132d535872dee11beb076",
+    "commands": [
+      [
+        "C:\\Program Files\\Java\\jdk-26.0.2\\bin\\java.exe",
+        "-Daudit.clock=C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\030-step4-controlled\\clock.txt",
+        "-Daudit.ready=C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\030-step4-controlled\\ready-1.txt",
+        "-Daudit.policyRevision=1",
+        "-cp",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\030-step4-controlled\\baseline\\BOOT-INF\\classes;C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\030-step4-controlled\\baseline\\BOOT-INF\\lib\\*",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\docs\\audits\\2026-10-10-8a48159\\evidence\\AuditControlledApp.java",
+        "--server.port=18085",
+        "--spring.datasource.url=jdbc:h2:file:./target/audit-evidence/2026-10-10-8a48159/030-step4-controlled/db/certiflow",
+        "--certiflow.jobs.enabled=false"
+      ],
+      [
+        "C:\\Program Files\\Java\\jdk-26.0.2\\bin\\java.exe",
+        "-Daudit.clock=C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\030-step4-controlled\\clock.txt",
+        "-Daudit.ready=C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\030-step4-controlled\\ready-2.txt",
+        "-Daudit.policyRevision=2",
+        "-cp",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\030-step4-controlled\\baseline\\BOOT-INF\\classes;C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\target\\audit-evidence\\2026-10-10-8a48159\\030-step4-controlled\\baseline\\BOOT-INF\\lib\\*",
+        "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2\\docs\\audits\\2026-10-10-8a48159\\evidence\\AuditControlledApp.java",
+        "--server.port=18085",
+        "--spring.datasource.url=jdbc:h2:file:./target/audit-evidence/2026-10-10-8a48159/030-step4-controlled/db/certiflow",
+        "--certiflow.jobs.enabled=false"
+      ]
+    ],
+    "processExits": [
+      0,
+      0
+    ],
+    "exit": 0,
+    "end": "2026-10-11T11:04:29.968813-03:00",
+    "results": {
+      "E-API-01": {
+        "reports": 3,
+        "rectificationRetained": true,
+        "labInspection": "/inspections/10b4180f-caea-4c85-9ef3-32cd0a9cddf4"
+      },
+      "E-F3-01": {
+        "BA": "CONDITIONAL",
+        "CBA": "BLOCKED",
+        "verifiedConditionalStatus": "VALID"
+      },
+      "E-F1-01": {
+        "modes": [
+          "REGULAR",
+          "CONDITIONAL",
+          "REGULAR"
+        ],
+        "derivedAfterVerification": true,
+        "persistedOnlyPartials": true,
+        "inspection": "/inspections/a6d04a4a-6cd3-4d63-962c-6d700dc69d5a"
+      },
+      "E-F1-02": {
+        "sharedFailureBlocksAll": true
+      },
+      "E-ERROR-01": {
+        "actorHTTP": 401,
+        "missingHTTP": 404,
+        "invalidHTTP": 400,
+        "illegalHTTP": 422,
+        "zeroAnswerCloseHTTP": 200,
+        "repeatIssue": "ALREADY_ISSUED",
+        "refusedInputStoredUnchanged": true
+      },
+      "E-F2-01": {
+        "lookupMinusExactPlus": [
+          1,
+          2,
+          2
+        ],
+        "oldInspection": "/inspections/1724c4a9-9621-48b6-ad7a-30ab22ac4319",
+        "v1": "3c651a5d-02ab-4d85-9353-0f7fda4c67ff#v1",
+        "v2": "3c651a5d-02ab-4d85-9353-0f7fda4c67ff#v2"
+      },
+      "E-F2-02": {
+        "startupMinusExactPlus": [
+          1,
+          2,
+          2
+        ],
+        "frozenRetained": true
+      },
+      "E-ACTION-02": {
+        "sweep": {
+          "expiredCertificates": 0,
+          "expiredActions": 2,
+          "deliveredEvents": 0
+        },
+        "partStatusesAfterExpiry": [
+          "VALID",
+          "SUSPENDED",
+          "VALID"
+        ],
+        "reactivatedAfterVerification": true
+      },
+      "E-TIME-01": {
+        "instant": "2026-10-24T00:30:00Z",
+        "localDate": "2026-10-23",
+        "eligibilityOverdue": true,
+        "actionStatusAfterSweep": "PLANNED",
+        "deadlineBreached": false,
+        "finding": "AUD-009"
+      },
+      "E-PACKAGE-01": {
+        "rootHTTP": 200,
+        "scriptsHTTP": 200,
+        "scripts": [
+          "/assets/index-C25jdxkU.js"
+        ],
+        "browserExecuted": false
+      },
+      "E-RESTART-01": {
+        "equalSnapshots": {
+          "/inspections/10b4180f-caea-4c85-9ef3-32cd0a9cddf4": true,
+          "/inspections/10b4180f-caea-4c85-9ef3-32cd0a9cddf4/act": true,
+          "/inspections/10b4180f-caea-4c85-9ef3-32cd0a9cddf4/findings-summary": true,
+          "/inspections/f36663d2-b348-495a-a86e-0fc1c378691c": true,
+          "/inspections/a6d04a4a-6cd3-4d63-962c-6d700dc69d5a": true,
+          "/inspections/a6d04a4a-6cd3-4d63-962c-6d700dc69d5a/global-derivation": true,
+          "/inspections/1724c4a9-9621-48b6-ad7a-30ab22ac4319": true,
+          "/certificates": true,
+          "/certificates/66e13e4f-05c5-4465-a717-76f448e04c6a/report": true,
+          "/findings": true,
+          "/audit": true,
+          "/schemas": true,
+          "/admin/outbox": true
+        },
+        "continuedOldVersion": true,
+        "shutdown": "JVM shutdown hooks / Spring context.close"
+      },
+      "E-POLICY-01": {
+        "activeRevision": 2,
+        "historicalCertificateReportRetained": true
+      },
+      "E-RENEW-01": {
+        "expiredExactlyAtBoundary": true,
+        "sweep": {
+          "expiredCertificates": 6,
+          "expiredActions": 3,
+          "deliveredEvents": 0
+        },
+        "renewHTTP": 201,
+        "predecessorRetained": true,
+        "repeatHTTP": 200,
+        "repeatAuditCertificatesUnchanged": true
+      }
+    }
+  }
+}

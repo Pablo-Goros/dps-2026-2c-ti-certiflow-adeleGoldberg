@@ -1,28 +1,28 @@
 # Findings register
 
-Reviewed revision for all records: `8a4815960670ac1d467df4a8f0932c8932d2fab4`, with the pre-existing documentation changes recorded in [README](README.md). All records are **Open**. No repairs or accepted limitations were authorized. Step 2 added three executed defects (AUD-009–011); [correctness](correctness.md) and [Step 2 evidence](evidence/step2-results.md) distinguish core probes, focused tests and real HTTP/H2 evidence. No browser reproduction was performed. Step 3 added AUD-012–014 (three executed P2 defects) and AUD-015 (forced-stop durability question); see [failure/recovery](failure-scenarios.md) and [Step 3 evidence](evidence/step3-results.md).
+Initial reviewed revision for all records: `8a4815960670ac1d467df4a8f0932c8932d2fab4`, with the pre-existing documentation changes recorded in [README](README.md). Step 5 repaired all ten confirmed defects; the resolution evidence and final validation are recorded below and in [Step 5](step5-repairs.md). AUD-005 remains an open coverage gap and AUD-006–008/AUD-015 remain open questions. Step 2 and 3 reproductions are preserved in [correctness](correctness.md), [failure/recovery](failure-scenarios.md), and their linked evidence. No browser execution is claimed.
 
 | ID | Kind | Severity | Result | Requirements |
 |---|---|---|---|---|
-| AUD-001 | Defect | P1 | Required closed-inspection correction cannot be performed in the frontend | D1-CLOSED-02, D2-UI-01, D2-APP-02 |
-| AUD-002 | Defect | P2 | Inspection act is inaccessible from frontend | D1-REPORT-01, D2-UI-01, D2-APP-02 |
-| AUD-003 | Defect | P2 | By-parts inspection always renders an invalid direct global eligibility/issuance row | D2-F1-06, D2-UI-02, D2-APP-02 |
-| AUD-004 | Defect | P2 | UI prevents documented closure of an inspection with all answers missing | D2-UI-01, D2-APP-02 |
-| AUD-005 | Coverage gap | N/A | Browser, successful renewal HTTP, F2 boundaries and advanced recovery evidence remain incomplete | D1-CERT-03, D2-UI-01/02/03/04, D2-F2-02/03/04, D2-APP-01 |
+| AUD-001 | Defect | P1 | Resolved — closed-inspection rectification is available with a reason and preserves provenance | D1-CLOSED-02, D2-UI-01, D2-APP-02 |
+| AUD-002 | Defect | P2 | Resolved — closed inspections load and render the historical act | D1-REPORT-01, D2-UI-01, D2-APP-02 |
+| AUD-003 | Defect | P2 | Resolved — by-parts certification exposes only partial issuance and derived global status | D2-F1-06, D2-UI-02, D2-APP-02 |
+| AUD-004 | Defect | P2 | Resolved — UI permits closure when all answers are missing | D2-UI-01, D2-APP-02 |
+| AUD-005 | Coverage gap | N/A | Browser workflows and advanced recovery/interaction evidence remain incomplete | D1-CERT-03, D2-UI-01/02/03/04, D2-F2-02/03/04, D2-APP-01 |
 | AUD-006 | Question | N/A | Whether assignment scope may be implicit full-schema scope | D1-ASSIGN-03 |
 | AUD-007 | Question | N/A | Whether photo/document references satisfy the evidence obligation | D1-EXEC-03 |
 | AUD-008 | Question | N/A | Original formal repository/SHA submission and five-member roster unavailable | D1-REPO-01/02, D1-TEAM-01 |
-| AUD-009 | Defect | P2 | UTC planning/eligibility disagrees with local-date expiry and verification | D1-ACTION-01/02/04, D1-CERT-01 |
-| AUD-010 | Defect | P2 | Absent-part rectification mutates core state then crashes; HTTP returns 500 | D1-CLOSED-02, D2-F1-01, D2-APP-02 |
-| AUD-011 | Defect | P1 | Future-version applicability allows global certification of uninspected parts | D1-CERT-01, D2-F1-06, D2-APP-02 |
-| AUD-012 | Defect | P2 | Outbox batches retry failures within one pass and delay healthy later rows | D2-APP-02, failure/recovery contract DESIGN 15 |
-| AUD-013 | Defect | P2 | Delayed failure bookkeeping revives a competing dispatcher's DONE event | D1-AUDIT-03, D2-APP-02, failure/recovery contract DESIGN 15 |
-| AUD-014 | Defect | P2 | Concurrent assignment persists multiple open inspections for one asset | D1-ASSIGN-01, D2-APP-02 |
+| AUD-009 | Defect | P2 | Resolved — all corrective-action deadline decisions use the configured business date | D1-ACTION-01/02/04, D1-CERT-01 |
+| AUD-010 | Defect | P2 | Resolved — inapplicable rectification is rejected before in-memory mutation | D1-CLOSED-02, D2-F1-01, D2-APP-02 |
+| AUD-011 | Defect | P1 | Resolved — every published version and frozen inspection coverage are guarded | D1-CERT-01, D2-F1-06, D2-APP-02 |
+| AUD-012 | Defect | P2 | Resolved — a dispatch pass visits a stable sequence window and attempts each row once | D2-APP-02, failure/recovery contract DESIGN 15 |
+| AUD-013 | Defect | P2 | Resolved — stale failure bookkeeping cannot change a completed event | D1-AUDIT-03, D2-APP-02, failure/recovery contract DESIGN 15 |
+| AUD-014 | Defect | P2 | Resolved — per-asset row locking serializes concurrent assignments | D1-ASSIGN-01, D2-APP-02 |
 | AUD-015 | Question | N/A | Required crash durability and forced-stop recovery policy undefined; acknowledged recent state lost | D1-AUDIT-01/02/03, D2-APP-01/02 |
 
 ## AUD-001
 
-**Defect, P1 — expose the required auditable correction workflow in the frontend.** Status: Open.
+**Defect, P1 — expose the required auditable correction workflow in the frontend.** Status: Resolved.
 
 Location: [InspectionDetail.tsx:93](../../../app/frontend/src/pages/InspectionDetail.tsx#L93) and [InspectionDetail.tsx:114](../../../app/frontend/src/pages/InspectionDetail.tsx#L114); API exists at [InspectionController.java:196](../../../app/src/main/java/ar/edu/itba/dps/certification/app/web/InspectionController.java#L196). Affected requirements: D1-CLOSED-02, D2-UI-01, D2-APP-02.
 
@@ -32,7 +32,7 @@ Evidence: [static excerpts](evidence/static-findings.md), [E14](evidence/require
 
 ## AUD-002
 
-**Defect, P2 — expose the inspection act in the frontend.** Status: Open.
+**Defect, P2 — expose the inspection act in the frontend.** Status: Resolved.
 
 Location: [InspectionDetail.tsx:17](../../../app/frontend/src/pages/InspectionDetail.tsx#L17) (ordinary inspection reads) and [InspectionDetail.tsx:53](../../../app/frontend/src/pages/InspectionDetail.tsx#L53) (findings navigation). Backend act endpoint: [InspectionController.java:205](../../../app/src/main/java/ar/edu/itba/dps/certification/app/web/InspectionController.java#L205). Affected requirements: D1-REPORT-01, D2-UI-01, D2-APP-02.
 
@@ -42,7 +42,7 @@ Evidence: [E13](evidence/requirements-catalogue.md#e13-required-reports), [stati
 
 ## AUD-003
 
-**Defect, P2 — render a derived-global result for by-parts inspections without requesting whole-asset issuance eligibility.** Status: Open.
+**Defect, P2 — render a derived-global result for by-parts inspections without requesting whole-asset issuance eligibility.** Status: Resolved.
 
 Location: [CertificationPanel.tsx:27](../../../app/frontend/src/components/CertificationPanel.tsx#L27), [CertificationPanel.tsx:83](../../../app/frontend/src/components/CertificationPanel.tsx#L83), [CertificationPanel.tsx:108](../../../app/frontend/src/components/CertificationPanel.tsx#L108). Domain guard: [CertificateFactory.java:223](../../../core/src/main/java/ar/edu/itba/dps/certification/application/certification/CertificateFactory.java#L223). Affected requirements: D2-F1-06, D2-UI-02, D2-APP-02.
 
@@ -52,7 +52,7 @@ Evidence: static UI-to-controller-to-factory trace in [E15](evidence/requirement
 
 ## AUD-004
 
-**Defect, P2 — permit the documented missing-data closure case in the frontend.** Status: Open.
+**Defect, P2 — permit the documented missing-data closure case in the frontend.** Status: Resolved.
 
 Location: [InspectionDetail.tsx:110](../../../app/frontend/src/pages/InspectionDetail.tsx#L110). Underlying allowed behavior: [Inspection.java:217](../../../core/src/main/java/ar/edu/itba/dps/certification/domain/inspection/Inspection.java#L217) and [CriterionEvaluator.java:35](../../../core/src/main/java/ar/edu/itba/dps/certification/domain/evaluation/CriterionEvaluator.java#L35). Affected requirements: D2-UI-01, D2-APP-02; relates to D1-EVAL-03.
 
@@ -112,7 +112,7 @@ The checkout identifies a GitHub remote and HEAD; [live repository evidence](evi
 
 ## AUD-009
 
-**Defect, P2 — use one calendar basis for corrective-action deadlines.** Status: Open.
+**Defect, P2 — use one calendar basis for corrective-action deadlines.** Status: Resolved.
 Affected requirements: D1-ACTION-01/02/04, D1-CERT-01; scenarios C-TIME-01/02/03.
 
 Locations at reviewed HEAD: [PlanCorrectiveAction.java:39](../../../core/src/main/java/ar/edu/itba/dps/certification/application/finding/usecase/PlanCorrectiveAction.java#L39), [CertificateFactory.java:219](../../../core/src/main/java/ar/edu/itba/dps/certification/application/certification/CertificateFactory.java#L219), [CertificationReactions.java:70](../../../core/src/main/java/ar/edu/itba/dps/certification/application/certification/CertificationReactions.java#L70), versus [VerifyCorrectiveAction.java:41](../../../core/src/main/java/ar/edu/itba/dps/certification/application/finding/usecase/VerifyCorrectiveAction.java#L41), [ExpireOverdueCorrectiveActions.java:35](../../../core/src/main/java/ar/edu/itba/dps/certification/application/finding/usecase/ExpireOverdueCorrectiveActions.java#L35) and [SystemClock.java:24](../../../app/src/main/java/ar/edu/itba/dps/certification/app/config/SystemClock.java#L24).
@@ -147,7 +147,7 @@ No fix or calendar-policy change made.
 
 ## AUD-010
 
-**Defect, P2 — reject inapplicable rectification destinations before mutation.** Status: Open.
+**Defect, P2 — reject inapplicable rectification destinations before mutation.** Status: Resolved.
 Affected requirements: D1-CLOSED-02, D2-F1-01, D2-APP-02; scenario C-RECT-04.
 
 Locations at reviewed HEAD: [Inspection.java:281](../../../core/src/main/java/ar/edu/itba/dps/certification/domain/inspection/Inspection.java#L281) only checks record existence for AnswerCorrection; [Inspection.java:260](../../../core/src/main/java/ar/edu/itba/dps/certification/domain/inspection/Inspection.java#L260) appends the rectification before [Inspection.java:263](../../../core/src/main/java/ar/edu/itba/dps/certification/domain/inspection/Inspection.java#L263) requires a previous evaluation. HTTP entry point: [InspectionController.java:196](../../../app/src/main/java/ar/edu/itba/dps/certification/app/web/InspectionController.java#L196).
@@ -180,7 +180,7 @@ regression coverage. No fix performed.
 
 ## AUD-011
 
-**Defect, P1 — validate effective subsystem coverage when changing applicability and starting inspections.** Status: Open.
+**Defect, P1 — validate effective subsystem coverage when changing applicability and starting inspections.** Status: Resolved.
 Affected requirements: D1-CERT-01, D2-F1-06, D2-APP-02; scenario C-F1-F2-01.
 
 Locations at reviewed HEAD: [SchemaApplicability.java:55](../../../core/src/main/java/ar/edu/itba/dps/certification/domain/schema/SchemaApplicability.java#L55) validates only latestPublishedVersion; [StartInspection.java:46](../../../core/src/main/java/ar/edu/itba/dps/certification/application/inspection/usecase/StartInspection.java#L46) selects effectiveVersionFor; [Inspection.java:104](../../../core/src/main/java/ar/edu/itba/dps/certification/domain/inspection/Inspection.java#L104) intersects version-declared and asset-present parts; [CertificateFactory.java:223](../../../core/src/main/java/ar/edu/itba/dps/certification/application/certification/CertificateFactory.java#L223) treats an empty intersection as whole-asset certification.
@@ -217,7 +217,7 @@ combined F1/F2/applicability core and API/H2 regression cases. No fix performed.
 
 ## AUD-012
 
-**Defect, P2 — keep failed outbox rows out of subsequent batches in the same pass.** Status: Open.
+**Defect, P2 — keep failed outbox rows out of subsequent batches in the same pass.** Status: Resolved.
 Scenarios F-OUTBOX-06/07; requirement D2-APP-02 and DESIGN section 15 recovery contract.
 
 Locations: [OutboxDispatcher.java:51](../../../infrastructure/src/main/java/ar/edu/itba/dps/certification/infrastructure/events/OutboxDispatcher.java#L51), loop continuation at line 59 and [JdbcEventOutbox.java:51](../../../infrastructure/src/main/java/ar/edu/itba/dps/certification/infrastructure/persistence/jdbc/JdbcEventOutbox.java#L51), oldest pending batch selection. Reviewed baseline revision applies.
@@ -246,7 +246,7 @@ No application changes made.
 
 ## AUD-013
 
-**Defect, P2 — prevent failure bookkeeping from reviving an already completed event.** Status: Open.
+**Defect, P2 — prevent failure bookkeeping from reviving an already completed event.** Status: Resolved.
 Scenario F-OUTBOX-08; D1-AUDIT-03, D2-APP-02 and DESIGN section 15 competing-dispatcher guarantee.
 
 Locations: [JdbcEventOutbox.java:68](../../../infrastructure/src/main/java/ar/edu/itba/dps/certification/infrastructure/persistence/jdbc/JdbcEventOutbox.java#L68) updates by seq without a status/attempt condition; [OutboxDispatcher.java:89](../../../infrastructure/src/main/java/ar/edu/itba/dps/certification/infrastructure/events/OutboxDispatcher.java#L89) records failure in a separate transaction after releasing the original claim.
@@ -275,7 +275,7 @@ and add a coordinated real-H2 regression. No fix made.
 
 ## AUD-014
 
-**Defect, P2 — serialize assignment's open-inspection invariant per asset.** Status: Open.
+**Defect, P2 — serialize assignment's open-inspection invariant per asset.** Status: Resolved.
 Scenario F-CONCUR-03; D1-ASSIGN-01 and D2-APP-02.
 
 Locations: [AssignInspection.java:39](../../../core/src/main/java/ar/edu/itba/dps/certification/application/inspection/usecase/AssignInspection.java#L39), check before insertion at line 45; [V1__create_persistence_schema.sql:41](../../../infrastructure/src/main/resources/db/migration/V1__create_persistence_schema.sql#L41), inspection table has an asset/status index but no open-slot uniqueness; [JdbcInspectionRepository.java:54](../../../infrastructure/src/main/java/ar/edu/itba/dps/certification/infrastructure/persistence/jdbc/JdbcInspectionRepository.java#L54), unlocked nonclosed lookup.
@@ -329,3 +329,72 @@ classify a graceful-restart defect from this method. Separate ordinary two-JVM
 file-H2 seed/recovery run 017 passed with normal exits. Evidence: [durable
 results](evidence/step3-results.md) and [HTTP probe](evidence/step3_api_probe.py).
 No configuration change or limitation acceptance made.
+
+## Step 4 evidence refinement (all statuses remain Open)
+
+Reviewed continuation HEAD `0b747c473f3ba6915ccaa3eb7754ec6e8693de43` has the
+same application/test/build/contract/CI source as the original reviewed revision;
+the audit started clean. [Step 4](end-to-end.md) and
+[durable evidence](evidence/step4-results.md) provide final runs 027/030.
+No new defect record, repair, acceptance or closure.
+
+- **AUD-001/002:** HTTP correction and all three reports succeed, including
+  original hazardous/REJECTED versus corrected clean/APPROVED in the act. The
+  missing frontend correction/act consumers remain source-confirmed defects;
+  no browser reproduction occurred.
+- **AUD-003/004:** By-parts whole-asset eligibility returns 422 while explicit
+  derivation succeeds; zero-answer closure succeeds through HTTP and creates
+  a finding. Existing frontend paths still request the invalid global target
+  and disable zero-answer closure. No observed browser rendering is claimed.
+- **AUD-005:** Successful and repeated HTTP renewal, exact F2 HTTP startup at
+  minus 1ns/exact/plus 1ns, frozen retention, zone-aware HTTP deadline evidence,
+  ordinary complete-fixture packaged restart, and active-policy revision with
+  persisted historical reports/partials/audit now have executed evidence.
+  Remove those narrow scenarios from the remaining gap list. Still Open for
+  actual browser workflows/error feedback/actor restoration/timezone conversion,
+  nonempty DEAD retry UI, exhaustive mixed-policy action-resolution combinations,
+  distinct-inspection issuance races, all save-boundary injection, corrupt event
+  rows, external-send/commit failure and in-flight/hardware crash scenarios.
+  Browser setup failed before execution twice (`missing field sandboxPolicy`).
+  The controlled run uses real Spring HTTP/H2 and an audit Clock/configuration
+  override; it does not prove unmodified packaged time/policy administration.
+- **AUD-009:** Run 030 E-TIME-01 reproduces the deadline contradiction through
+  actual HTTP/file H2. Due Oct 23 at `2026-10-24T00:30:00Z` (Oct 23 21:30 local):
+  eligibility reports `OverdueOpenAction`; sweep retains action PLANNED and
+  deadlineBreached=false. Original locations/impact remain unchanged. See
+  [selected requests/replies](evidence/step4-http-excerpts.json).
+- **AUD-015:** Run 027 uses a stdin-only shutdown agent with no transformer,
+  allowing JVM hooks, graceful HTTP stop and Hikari close. Run 030 explicitly
+  closes Spring before ordinary exit. Both retain 13 semantic snapshots and
+  continue a frozen inspection. This closes the ordinary-workflow restart gap,
+  not the required crash-durability question or previous forced-stop loss.
+
+AUD-006–008 still need requirement-owner/submission evidence. AUD-010–014 are
+retained as confirmed defects in unchanged code; successful Step 4 paths do not
+resolve their failure scenarios. Register remains **10 Open defects, 1 Open
+coverage gap, 4 Open questions (15 records)**.
+
+## Step 5 resolution evidence
+
+The Step 4 continuation above is a point-in-time status. The following Step 5
+work supersedes its defect status; original triggering conditions and red
+evidence remain above. Detailed file, test and command mapping is in
+[Step 5 repairs](step5-repairs.md).
+
+| Finding | Status | Regression and repair evidence |
+|---|---|---|
+| AUD-001 | Resolved | `InspectionDetail.test.tsx` posts a reasoned correction; `RectificationForm.tsx` and `InspectionDetail.tsx` consume the existing REST API. Pre-fix 4/4 frontend run failed; targeted 4/4 passed. |
+| AUD-002 | Resolved | `InspectionDetail.test.tsx` checks act loading and historical/corrected values; `InspectionActView.tsx` renders the projection. Pre-fix UI test failed; targeted frontend suite passed. |
+| AUD-003 | Resolved | `CertificationPanel.test.tsx` confirms derived-global display and no direct whole-asset eligibility request; targeted frontend suite passed. |
+| AUD-004 | Resolved | `InspectionDetail.test.tsx` closes an all-missing inspection; the pre-fix test failed on the disabled button and now passes. |
+| AUD-009 | Resolved | `PartialCertificationIT.correctiveActionDeadlineUsesTheConfiguredCalendarDate` covers plan, eligibility, expiry and verification with a controlled Buenos Aires clock; `CorrectiveActionDeadlineApiIT` repeats planning, eligibility and expiry through real HTTP/H2; `T-CORE`/`T-APP` passed. |
+| AUD-010 | Resolved | `PartialCertificationIT.rectificationOfAnInapplicableCriterionDoesNotMutateTheInspection` plus `InspectionApiIT.aKnownButInapplicableCriterionCannotBeRectifiedAndLeavesInspectionAndAuditUntouched`; pre-fix was a core exception/HTTP 500; `T-CORE` and `T-APP` passed. |
+| AUD-011 | Resolved | `FutureEffectiveSchemaIT` covers add/transfer/start, and `SchemaApplicabilityApiIT` covers the real 422 response and unchanged applicability over H2; `T-CORE` and `T-APP` passed. |
+| AUD-012 | Resolved | `OutboxIT.aFailingRowWaitsForTheNextPassAndDoesNotHideLaterHealthyRows` covers one attempt per pass and a healthy row after 50 failures; pre-fix failed; `T-OUTBOX` passed all 8 tests. |
+| AUD-013 | Resolved | `OutboxIT.delayedFailureBookkeepingCannotReopenAnAlreadyDoneRow` verifies terminal `DONE`; pre-fix failed; `T-OUTBOX` passed all 8 tests. |
+| AUD-014 | Resolved | `ConcurrencyApiIT.ofSeveralSimultaneousAssignmentsForOneAssetOnlyOneOpenInspectionIsCommitted` uses real HTTP/H2; pre-fix returned two 201s; `T-APP` passed. |
+
+Current register: **10 Resolved defects, 1 Open coverage gap, 4 Open questions**.
+AUD-005 remains open for browser and advanced recovery/interleaving evidence;
+AUD-006–008 and AUD-015 retain the questions recorded above. Full final
+verification is tracked as `V-STEP5` in [validation](validation.md).

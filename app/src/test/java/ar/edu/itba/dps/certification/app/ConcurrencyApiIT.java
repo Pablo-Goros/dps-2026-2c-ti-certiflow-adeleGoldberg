@@ -70,6 +70,28 @@ class ConcurrencyApiIT extends ApiTest {
     }
 
     @Test
+    void ofSeveralSimultaneousAssignmentsForOneAssetOnlyOneOpenInspectionIsCommitted() throws Exception {
+        String owner = organization("Owner");
+        String inspector = person("Inspector");
+        var asset = new HashMap<String, Object>();
+        asset.put("name", "Facility " + System.nanoTime());
+        asset.put("assetType", "FACILITY");
+        asset.put("responsibleId", owner);
+        asset.put("location", "Building 1");
+        asset.put("characteristics", Map.of("room", "1"));
+        asset.put("jurisdiction", "REFERENCE");
+        String assetId = api.post("/api/assets", asset, null).text("id");
+
+        var replies = simultaneously(CALLERS, () -> api.post("/api/inspections", Map.of(
+                "assetId", assetId, "inspectorId", inspector, "expectedDate", "2027-01-15"), null));
+
+        assertThat(replies.stream().filter(reply -> reply.status() == 201).count()).isEqualTo(1);
+        assertThat(replies).extracting(Api.Reply::status)
+                .allMatch(status -> status == 201 || status == 409 || status == 422);
+        assertThat(api.get("/api/inspections?assetId=" + assetId).jsonList()).hasSize(1);
+    }
+
+    @Test
     void ofSeveralSimultaneousIssuancesForTheSameInspectionOnlyOneCertificateExists() throws Exception {
         String schemaId = api.post("/api/schemas", Map.of("name", "Equipment", "assetTypes", List.of("EQUIPMENT")),
                 null).text("id");

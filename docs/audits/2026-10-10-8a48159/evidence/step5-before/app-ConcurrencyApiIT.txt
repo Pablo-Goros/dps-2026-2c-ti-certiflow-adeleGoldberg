@@ -1,0 +1,11 @@
+-------------------------------------------------------------------------------
+Test set: ar.edu.itba.dps.certification.app.ConcurrencyApiIT
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 8.514 s <<< FAILURE! -- in ar.edu.itba.dps.certification.app.ConcurrencyApiIT
+ar.edu.itba.dps.certification.app.ConcurrencyApiIT.ofSeveralSimultaneousAssignmentsForOneAssetOnlyOneOpenInspectionIsCommitted -- Time elapsed: 0.060 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: 
+
+expected: 1L
+ but was: 2L
+	at ar.edu.itba.dps.certification.app.ConcurrencyApiIT.ofSeveralSimultaneousAssignmentsForOneAssetOnlyOneOpenInspectionIsCommitted(ConcurrencyApiIT.java:88)
+

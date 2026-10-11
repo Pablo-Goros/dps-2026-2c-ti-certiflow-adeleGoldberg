@@ -1,0 +1,22 @@
+-------------------------------------------------------------------------------
+Test set: ar.edu.itba.dps.certification.FutureEffectiveSchemaIT
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 2, Errors: 0, Skipped: 0, Time elapsed: 0.561 s <<< FAILURE! -- in ar.edu.itba.dps.certification.FutureEffectiveSchemaIT
+ar.edu.itba.dps.certification.FutureEffectiveSchemaIT.startingWithAnUndercoveredFrozenVersionIsRefusedBeforeMutation -- Time elapsed: 0.446 s <<< FAILURE!
+java.lang.AssertionError: 
+
+Expecting code to raise a throwable.
+	at ar.edu.itba.dps.certification.FutureEffectiveSchemaIT.startingWithAnUndercoveredFrozenVersionIsRefusedBeforeMutation(FutureEffectiveSchemaIT.java:134)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+
+ar.edu.itba.dps.certification.FutureEffectiveSchemaIT.addingApplicabilityDoesNotExposeAnUncoveredEarlierVersion -- Time elapsed: 0.025 s <<< FAILURE!
+java.lang.AssertionError: 
+
+Expecting code to raise a throwable.
+	at ar.edu.itba.dps.certification.FutureEffectiveSchemaIT.addingApplicabilityDoesNotExposeAnUncoveredEarlierVersion(FutureEffectiveSchemaIT.java:115)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+

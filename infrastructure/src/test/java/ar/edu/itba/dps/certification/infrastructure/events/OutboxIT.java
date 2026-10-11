@@ -177,4 +177,44 @@ class OutboxIT {
         assertThat(deliveries.get()).isEqualTo(20);
         assertThat(entries("DONE")).hasSize(20);
     }
+
+    @Test
+    void aFailingRowWaitsForTheNextPassAndDoesNotHideLaterHealthyRows() {
+        persistence.transactions().execute(() -> persistence.eventOutbox().enqueue(event("FAIL")));
+        for (int i = 0; i < 51; i++) {
+            int row = i;
+            persistence.transactions().execute(() -> persistence.eventOutbox().enqueue(event("GOOD-" + row)));
+        }
+        List<String> delivered = new CopyOnWriteArrayList<>();
+        OutboxDispatcher onePass = new OutboxDispatcher(persistence.transactions(), persistence.eventOutbox(),
+                List.of(domainEvent -> {
+                    String criterion = ((CorrectiveActionPlanned) domainEvent).criterionId().value();
+                    if (criterion.equals("FAIL")) throw new IllegalStateException("temporary failure");
+                    delivered.add(criterion);
+                }), 3);
+
+        assertThat(onePass.dispatchPending()).isEqualTo(51);
+
+        assertThat(delivered).hasSize(51);
+        assertThat(entries("PENDING")).singleElement().satisfies(row -> {
+            assertThat(row.attempts()).isEqualTo(1);
+            assertThat(row.eventType()).contains("CorrectiveActionPlanned");
+        });
+        assertThat(entries("DEAD")).isEmpty();
+        assertThat(entries("DONE")).hasSize(51);
+    }
+
+    @Test
+    void delayedFailureBookkeepingCannotReopenAnAlreadyDoneRow() {
+        persistence.transactions().execute(() -> persistence.eventOutbox().enqueue(event("RACE")));
+        long seq = persistence.eventOutbox().pending(1).getFirst().seq();
+        persistence.transactions().execute(() -> assertThat(persistence.eventOutbox().claim(seq)).isTrue());
+
+        persistence.transactions().execute(() -> persistence.eventOutbox()
+                .recordFailure(seq, "late failure from a competing dispatcher", 3));
+
+        assertThat(entries("DONE")).singleElement().satisfies(row -> assertThat(row.attempts()).isZero());
+        assertThat(entries("PENDING")).isEmpty();
+        assertThat(entries("DEAD")).isEmpty();
+    }
 }

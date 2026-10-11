@@ -11,6 +11,7 @@ import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.CertificationPlan;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.report.CertificateReport;
@@ -24,6 +25,7 @@ import ar.edu.itba.dps.certification.support.FullSystem;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -162,6 +164,58 @@ class PartialCertificationIT {
         var derivation = system.deriveGlobalCertificate.deriveFor(inspectionId);
         assertThat(derivation.derivedCertificate()).isEmpty();
         assertThat(derivation.describe()).contains("electrical installation is suspended");
+    }
+
+    @Test
+    @DisplayName("one configured calendar date governs planning, eligibility, expiry and verification")
+    void correctiveActionDeadlineUsesTheConfiguredCalendarDate() {
+        system.clock.useZone(ZoneId.of("America/Argentina/Buenos_Aires"));
+        InspectionId inspectionId = inspectAndClose("untidy", "clean", true);
+        Finding finding = system.findings.findByInspection(inspectionId).getFirst();
+        system.clock.setNow(Instant.parse("2026-03-03T00:30:00Z")); // March 2 in Buenos Aires.
+
+        system.planAsResponsible(finding.id(), "tidy the switchboard", PartyId.of("executor"),
+                LocalDate.parse("2026-03-02"));
+        Certificate certificate = issuedCertificate(system.issueCertificate.issuePartial(inspectionId, ELECTRICAL));
+
+        assertThat(system.evaluateEligibility.blockersFor(inspectionId, ELECTRICAL))
+                .noneMatch(IssuanceBlocker.OverdueOpenAction.class::isInstance);
+        assertThat(system.expireActions.sweep()).isEmpty();
+        assertThat(finding.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.PLANNED);
+        assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
+
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(
+                finding.id(), "switchboard tidied", List.of("file://photo.jpg")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(
+                finding.id(), true, "area is clean"));
+
+        assertThat(finding.correctiveAction().metItsDeadline()).isTrue();
+        assertThat(finding.correctiveAction().deadlineBreached()).isFalse();
+    }
+
+    @Test
+    @DisplayName("rectification refuses a known criterion that is not applicable to the asset")
+    void rectificationOfAnInapplicableCriterionDoesNotMutateTheInspection() {
+        InspectionId inspectionId = inspectAndClose("clean", "clean", true);
+        var before = system.generateInspectionAct.generate(inspectionId);
+        int auditEntries = system.auditTrail.all().size();
+
+        assertThatThrownBy(() -> system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(
+                inspectionId, "the asset does not have building safety", List.of(
+                        new ar.edu.itba.dps.certification.domain.inspection.rectification.Correction.AnswerCorrection(
+                                DomainWorld.BUILDING_EXITS, OptionAnswer.of("clean"))))))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("does not have");
+
+        var after = system.generateInspectionAct.generate(inspectionId);
+        assertThat(after.rectifications()).isEmpty();
+        assertThat(after.sections().stream().flatMap(section -> section.lines().stream())
+                .filter(line -> line.criterionId().equals(DomainWorld.BUILDING_EXITS))
+                .findFirst().orElseThrow().answer().current())
+                .isEqualTo(before.sections().stream().flatMap(section -> section.lines().stream())
+                        .filter(line -> line.criterionId().equals(DomainWorld.BUILDING_EXITS))
+                        .findFirst().orElseThrow().answer().current());
+        assertThat(system.auditTrail.all()).hasSize(auditEntries);
     }
 
     @Test
@@ -642,7 +696,7 @@ class PartialCertificationIT {
 
         assertThatThrownBy(() -> change.applyTo(generic.id(), AssetType.FACTORY))
                 .isInstanceOf(DomainException.class)
-                .hasMessageContaining("evaluates no criterion for")
+                .hasMessageContaining("does not evaluate every part")
                 .hasMessageContaining("assets of type FACTORY may have");
 
         assertThatThrownBy(() -> change.transferTo(generic.id(), generic.id(), AssetType.EQUIPMENT))

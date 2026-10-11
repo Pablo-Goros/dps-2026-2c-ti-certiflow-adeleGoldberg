@@ -29,6 +29,11 @@ public final class JdbcAssetRepository extends DocumentRepository<Asset> impleme
     }
 
     @Override
+    public void lockForInspectionAssignment(AssetId id) {
+        db().query("SELECT id FROM asset WHERE id = ? FOR UPDATE", row -> row.getString(1), id.value());
+    }
+
+    @Override
     public Optional<Asset> findById(AssetId id) {
         return findByKey(id.value());
     }

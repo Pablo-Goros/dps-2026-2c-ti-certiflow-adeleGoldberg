@@ -54,6 +54,21 @@ public final class JdbcEventOutbox {
                 row -> new Pending(row.getLong(1), row.getString(2), row.getInt(3), row.getString(4), codec));
     }
 
+    /** Stable upper bound for one dispatch pass; later enqueues are picked up by the next pass. */
+    public long highWatermark() {
+        return db.query("SELECT COALESCE(MAX(seq), 0) FROM domain_event_outbox",
+                row -> row.getLong(1)).getFirst();
+    }
+
+    /** Pending rows after a cursor and no later than the pass's captured upper bound. */
+    public List<Pending> pendingAfter(long afterSeq, long throughSeq, int limit) {
+        return db.query("SELECT seq, event_type, attempts, doc FROM domain_event_outbox "
+                        + "WHERE status = 'PENDING' AND seq > ? AND seq <= ? ORDER BY seq "
+                        + "FETCH FIRST " + Math.max(1, limit) + " ROWS ONLY",
+                row -> new Pending(row.getLong(1), row.getString(2), row.getInt(3), row.getString(4), codec),
+                afterSeq, throughSeq);
+    }
+
     /**
      * Takes the row for the running transaction: true for exactly one caller. Another transaction
      * trying the same row waits for this one to end and then finds it no longer pending.
@@ -66,7 +81,8 @@ public final class JdbcEventOutbox {
     public void recordFailure(long seq, String error, int maxAttempts) {
         String shortened = error == null ? "" : error.substring(0, Math.min(error.length(), 900));
         db.update("UPDATE domain_event_outbox SET attempts = attempts + 1, last_error = ?, "
-                        + "status = CASE WHEN attempts + 1 >= ? THEN 'DEAD' ELSE 'PENDING' END WHERE seq = ?",
+                        + "status = CASE WHEN attempts + 1 >= ? THEN 'DEAD' ELSE 'PENDING' END "
+                        + "WHERE seq = ? AND status = 'PENDING'",
                 shortened, maxAttempts, seq);
     }
 

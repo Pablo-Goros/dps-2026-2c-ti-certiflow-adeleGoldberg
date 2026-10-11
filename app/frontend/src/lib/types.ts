@@ -154,6 +154,36 @@ export interface Inspection extends InspectionRow {
   notes: Note[]
 }
 
+/** Values in an inspection act keep both the original record and any audited correction. */
+export type ReportedTextValue =
+  | { type: 'Original'; value: string | null }
+  | { type: 'Rectified'; originalValue: string | null; correctedValue: string | null; reason: string }
+
+export interface InspectionActLine {
+  criterionId: string
+  applicable: boolean
+  answer: ReportedTextValue
+  evidenceReferences: ReportedTextValue[]
+  missingEvidence: string[]
+  result: ReportedTextValue | null
+  severity: Severity | null
+  reasons: string[]
+}
+
+export interface InspectionAct {
+  inspectionId: string
+  status: InspectionStatus
+  asset: { name: string; location: string; assetType?: AssetType } | null
+  inspector: string
+  expectedDate: string
+  startedAt: string | null
+  closedAt: string | null
+  schemaVersionId: string | null
+  sections: { name: string; lines: InspectionActLine[] }[]
+  notes: { criterionId: string | null; text: ReportedTextValue; author: string; recordedAt: string }[]
+  rectifications: { id?: string; author: string; performedAt: string; reason: string; changes: string[] }[]
+}
+
 export interface Plan {
   work: string
   executor: string

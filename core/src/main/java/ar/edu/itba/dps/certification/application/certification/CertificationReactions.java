@@ -22,7 +22,6 @@ import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
 
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,7 +66,7 @@ public final class CertificationReactions implements DomainEventHandler {
                 continue;
             }
             var context = new CertificationContext(
-                    inspection, currentFindings, at.atZone(ZoneOffset.UTC).toLocalDate(),
+                    inspection, currentFindings, clock.today(at),
                     certificate.scope(), Optional.empty(), Optional.empty());
             lifecycle.reconcile(certificate, context, at).ifPresent(change -> {
                 certificates.save(change.certificate());
