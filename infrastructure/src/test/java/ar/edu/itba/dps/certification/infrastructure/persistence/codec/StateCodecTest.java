@@ -8,11 +8,19 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.Period;
+import java.time.YearMonth;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 
@@ -29,6 +37,14 @@ class StateCodecTest {
 
     record Scalars(String text, int small, long big, boolean flag, double ratio, BigDecimal exact,
             Instant at, LocalDate day, Duration span, UUID uuid, Level level) {
+    }
+
+    record ExtraScalars(char letter, byte tiny, short small, float ratio, Period period,
+            YearMonth month, LocalTime time, OffsetDateTime offset) {
+    }
+
+    record PrimitiveDefaults(boolean flag, char letter, int number, long big, double ratio,
+            float decimal, short small, byte tiny) {
     }
 
     sealed interface Shape permits Circle, Square {
@@ -91,6 +107,23 @@ class StateCodecTest {
     record Slot(Object content) {
     }
 
+    record TextSlot(String content) {
+    }
+
+    record QueueHolder(Queue<String> queue) {
+    }
+
+    record HashtableHolder(Hashtable<String, String> values) {
+    }
+
+    static class SameNameParent {
+        private final String value = "parent";
+    }
+
+    static class SameNameChild extends SameNameParent {
+        private final String value = "child";
+    }
+
     static class Loop {
         private Loop next;
     }
@@ -116,6 +149,18 @@ class StateCodecTest {
 
         assertThat(copy).isEqualTo(original);
         assertThat(copy.exact().scale()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("less common scalar types survive a round trip")
+    void extraScalarsRoundTrip() {
+        ExtraScalars original = new ExtraScalars('ñ', (byte) 3, (short) 7, 0.5f,
+                Period.of(1, 2, 3), YearMonth.parse("2026-10"), LocalTime.parse("12:34:56"),
+                OffsetDateTime.parse("2026-10-12T19:30:00-03:00"));
+
+        ExtraScalars copy = codec.read(codec.write(original), ExtraScalars.class);
+
+        assertThat(copy).isEqualTo(original);
     }
 
     @Test
@@ -187,6 +232,10 @@ class StateCodecTest {
         assertThat(codec.read(codec.write(new Slot(5L)), Slot.class).content()).isEqualTo(5L);
         assertThat(codec.read(codec.write(new Slot("text")), Slot.class).content()).isEqualTo("text");
         assertThat(codec.read(codec.write(new Slot(true)), Slot.class).content()).isEqualTo(true);
+        assertThat(codec.read(codec.write(new Slot('x')), Slot.class).content()).isEqualTo('x');
+        assertThat(codec.read(codec.write(new Slot((byte) 2)), Slot.class).content()).isEqualTo((byte) 2);
+        assertThat(codec.read(codec.write(new Slot((short) 4)), Slot.class).content()).isEqualTo((short) 4);
+        assertThat(codec.read(codec.write(new Slot(1.5f)), Slot.class).content()).isEqualTo(1.5f);
         assertThat(codec.read(codec.write(new Slot(Level.HIGH)), Slot.class).content()).isEqualTo(Level.HIGH);
     }
 
@@ -198,6 +247,21 @@ class StateCodecTest {
         assertThat(copy.items).isEmpty();
         assertThat(copy.taken).isEqualTo(2);
         assertThat(copy.level).isNull();
+    }
+
+    @Test
+    @DisplayName("missing primitive fields in an old record use their JVM defaults")
+    void missingPrimitiveFieldsUseDefaults() {
+        PrimitiveDefaults copy = codec.read("{}", PrimitiveDefaults.class);
+
+        assertThat(copy.flag()).isFalse();
+        assertThat(copy.letter()).isEqualTo('\0');
+        assertThat(copy.number()).isZero();
+        assertThat(copy.big()).isZero();
+        assertThat(copy.ratio()).isZero();
+        assertThat(copy.decimal()).isZero();
+        assertThat(copy.small()).isZero();
+        assertThat(copy.tiny()).isZero();
     }
 
     @Test
@@ -231,6 +295,12 @@ class StateCodecTest {
         assertThatThrownBy(() -> codec.write(new Slot(new Object())))
                 .isInstanceOf(PersistenceException.class)
                 .hasMessageContaining("$.content");
+        assertThatThrownBy(() -> codec.write(new Slot(new int[] {1, 2})))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("$.content");
+        assertThatThrownBy(() -> codec.write(new SameNameChild()))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("repeated in the hierarchy");
     }
 
     @Test
@@ -241,6 +311,10 @@ class StateCodecTest {
         assertThatThrownBy(() -> codec.read(hostile, Slot.class))
                 .isInstanceOf(PersistenceException.class)
                 .hasMessageContaining("not allowed");
+        assertThatThrownBy(() -> codec.read("{\"content\":{\"@type\":\"java.lang.Integer\",\"@value\":1}}",
+                TextSlot.class))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("is not a java.lang.String");
     }
 
     @Test
@@ -254,10 +328,79 @@ class StateCodecTest {
     }
 
     @Test
+    @DisplayName("documents with a wrong shape are rejected at the exact field path")
+    void wrongDocumentShapesAreReported() {
+        assertThatThrownBy(() -> codec.read("null", Basket.class))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("empty");
+        assertThatThrownBy(() -> codec.read("[]", Basket.class))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("expected an object");
+        assertThatThrownBy(() -> codec.read("{\"items\":\"not-an-array\"}", Basket.class))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("$.items");
+        assertThatThrownBy(() -> codec.read("{\"byKey\":{}}", Catalogue.class))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("$.byKey");
+        assertThatThrownBy(() -> codec.read("{\"byKey\":[1]}", Catalogue.class))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("$.");
+        assertThatThrownBy(() -> codec.read("{\"level\":7}", Catalogue.class))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("expected text");
+        assertThatThrownBy(() -> codec.read("{\"at\":\"not-an-instant\"}", Scalars.class))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("invalid Instant");
+    }
+
+    @Test
+    @DisplayName("unsupported declared collection and map types fail clearly while rebuilding")
+    void unsupportedDeclaredContainersAreRejected() {
+        assertThatThrownBy(() -> codec.read("{\"queue\":[]}", QueueHolder.class))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("unsupported collection type");
+        assertThatThrownBy(() -> codec.read("{\"values\":[]}", HashtableHolder.class))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("unsupported map type");
+    }
+
+    @Test
     @DisplayName("malformed text is a persistence error, not a parser exception")
     void malformedDocumentsAreReported() {
         assertThatThrownBy(() -> codec.read("{\"taken\":", Basket.class)).isInstanceOf(PersistenceException.class);
         assertThatThrownBy(() -> codec.read("[1,2", Basket.class)).isInstanceOf(PersistenceException.class);
         assertThatThrownBy(() -> codec.read("{} trailing", Basket.class)).isInstanceOf(PersistenceException.class);
+    }
+
+    @Test
+    @DisplayName("the owned JSON layer covers escaping, arrays, objects and malformed edge cases")
+    void jsonLayerHandlesEdgesExplicitly() {
+        Map<String, Object> tree = new LinkedHashMap<>();
+        tree.put("escaped", "\"\\\b\f\n\r\t\u0001");
+        List<Object> values = new ArrayList<>();
+        values.add(null);
+        values.add(true);
+        values.add(false);
+        values.add(1L);
+        values.add(2.5d);
+        values.add(new LinkedHashMap<>());
+        tree.put("values", values);
+
+        Object parsed = Json.parse(Json.write(tree));
+
+        assertThat(parsed).isEqualTo(tree);
+        assertThatThrownBy(() -> Json.write(Double.NaN))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("non finite");
+        assertThatThrownBy(() -> Json.write(new HashMap<>(Map.of("x", new Object()))))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("not a state tree node");
+        assertThatThrownBy(() -> Json.parse("{x:1}")).isInstanceOf(PersistenceException.class);
+        assertThatThrownBy(() -> Json.parse("{\"x\" 1}")).isInstanceOf(PersistenceException.class);
+        assertThatThrownBy(() -> Json.parse("[1;2]")).isInstanceOf(PersistenceException.class);
+        assertThatThrownBy(() -> Json.parse("\"\\q\"")).isInstanceOf(PersistenceException.class);
+        assertThatThrownBy(() -> Json.parse("\"\\u12\"")).isInstanceOf(PersistenceException.class);
+        assertThatThrownBy(() -> Json.parse("tru")).isInstanceOf(PersistenceException.class);
+        assertThatThrownBy(() -> Json.parse("@")).isInstanceOf(PersistenceException.class);
     }
 }
