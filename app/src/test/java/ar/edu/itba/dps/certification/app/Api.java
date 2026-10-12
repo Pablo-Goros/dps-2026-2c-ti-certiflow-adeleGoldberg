@@ -69,6 +69,10 @@ final class Api {
         return send(HttpRequest.newBuilder(URI.create(base + path)).DELETE(), null);
     }
 
+    Reply deleteAs(String path, String actor) {
+        return send(HttpRequest.newBuilder(URI.create(base + path)).DELETE(), actor);
+    }
+
     Reply getAs(String path, String actor) {
         return send(HttpRequest.newBuilder(URI.create(base + path)).GET(), actor);
     }
