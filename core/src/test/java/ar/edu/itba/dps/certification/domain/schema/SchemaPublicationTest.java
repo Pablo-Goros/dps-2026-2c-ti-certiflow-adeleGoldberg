@@ -23,7 +23,7 @@ class SchemaPublicationTest {
     private static final Instant PUBLISHED_AT = Instant.parse("2026-03-01T10:00:00Z");
 
     @Test
-    @DisplayName("bands that leave a gap in the admissible domain block publication")
+    @DisplayName("bands that leave a gap in the declared range block publication")
     void aGapBetweenBandsIsRejected() {
         List<String> violations = violationsOf(numericRule(
                 band("0", true, "5", true, "LOW_OK", CriterionResult.APPROVED),
@@ -64,13 +64,25 @@ class SchemaPublicationTest {
 
     @Test
     @DisplayName("bands that do not reach the declared bounds block publication")
-    void notCoveringTheDeclaredDomainIsRejected() {
+    void notCoveringTheDeclaredRangeIsRejected() {
         List<String> violations = violationsOf(numericRule(
                 band("1", true, "5", false, "LOW_OK", CriterionResult.APPROVED),
                 band("5", true, "9", true, "HIGH_BAD", CriterionResult.REJECTED)));
 
-        assertThat(violations).anyMatch(violation -> violation.contains("start at the admissible minimum"));
-        assertThat(violations).anyMatch(violation -> violation.contains("end at the admissible maximum"));
+        assertThat(violations).anyMatch(violation -> violation.contains("start at the declared minimum"));
+        assertThat(violations).anyMatch(violation -> violation.contains("end at the declared maximum"));
+    }
+
+    @Test
+    @DisplayName("a measurement outside the declared range cannot be declared as approved")
+    void anApprovingOutOfRangeOutcomeIsRejected() {
+        List<String> violations = violationsOf(numericRule(
+                RuleOutcome.approved("OFF_SCALE_OK", "off the gauge but fine"),
+                band("0", true, "5", false, "LOW_OK", CriterionResult.APPROVED),
+                band("5", true, "10", true, "HIGH_BAD", CriterionResult.REJECTED)));
+
+        assertThat(violations).anyMatch(violation ->
+                violation.contains("outside the declared range") && violation.contains("cannot be approved"));
     }
 
     @Test
@@ -243,7 +255,12 @@ class SchemaPublicationTest {
     }
 
     private NumericRangeRule numericRule(NumericBand... bands) {
-        return new NumericRangeRule("ph", new BigDecimal("0"), new BigDecimal("10"), List.of(bands));
+        return numericRule(RuleOutcome.rejected("OFF_SCALE", Severity.CRITICAL, "outside the gauge"), bands);
+    }
+
+    private NumericRangeRule numericRule(RuleOutcome outOfRange, NumericBand... bands) {
+        return new NumericRangeRule("ph", new BigDecimal("0"), new BigDecimal("10"), List.of(bands),
+                outOfRange);
     }
 
     private static NumericBand band(String lower, boolean lowerInclusive, String upper,

@@ -57,6 +57,41 @@ const dictionary: Record<string, string> = {
   criterionId: 'Criterio',
   laterInspectionId: 'Inspección posterior',
   certificateId: 'Certificado',
+  // audit actions
+  ASSET_REGISTERED: 'Activo registrado',
+  ASSET_RESPONSIBLE_CHANGED: 'Responsable cambiado',
+  ASSET_RELOCATED: 'Activo reubicado',
+  PARTY_REGISTERED: 'Persona u organización registrada',
+  SCHEMA_CREATED: 'Esquema creado',
+  SCHEMA_APPLICABILITY_CHANGED: 'Aplicabilidad cambiada',
+  SCHEMA_DRAFT_OPENED: 'Borrador abierto',
+  SCHEMA_DRAFT_EDITED: 'Borrador editado',
+  SCHEMA_DRAFT_DISCARDED: 'Borrador descartado',
+  SCHEMA_VERSION_PUBLISHED: 'Versión publicada',
+  SCHEMA_PUBLICATION_REFUSED: 'Publicación rechazada',
+  INSPECTION_ASSIGNED: 'Inspección asignada',
+  INSPECTION_REASSIGNED: 'Inspección reasignada',
+  INSPECTION_STARTED: 'Inspección iniciada',
+  INSPECTION_DATA_RECORDED: 'Datos registrados',
+  INSPECTION_DATA_CORRECTED: 'Datos corregidos',
+  INSPECTION_CLOSED: 'Inspección cerrada',
+  INSPECTION_RECTIFIED: 'Inspección rectificada',
+  FINDING_CREATED: 'Hallazgo creado',
+  FINDING_REVISED: 'Hallazgo revisado',
+  FINDING_EVIDENCE_CORRECTED: 'Evidencia del hallazgo corregida',
+  FINDING_OBLIGATION_VOIDED: 'Obligación anulada',
+  CORRECTIVE_ACTION_PLANNED: 'Acción correctiva planificada',
+  CORRECTIVE_ACTION_EXECUTION_REPORTED: 'Ejecución informada',
+  CORRECTIVE_ACTION_VERIFIED: 'Acción correctiva verificada',
+  CORRECTIVE_ACTION_CLOSED: 'Acción correctiva cerrada',
+  CORRECTIVE_ACTION_EXPIRED: 'Acción correctiva vencida',
+  CORRECTIVE_ACTION_VOIDED: 'Acción correctiva anulada',
+  CERTIFICATE_ISSUED: 'Certificado emitido',
+  CERTIFICATE_ISSUANCE_BLOCKED: 'Emisión bloqueada',
+  CERTIFICATE_SUSPENDED: 'Certificado suspendido',
+  CERTIFICATE_REACTIVATED: 'Certificado reactivado',
+  CERTIFICATE_RENEWED: 'Certificado renovado',
+  CERTIFICATE_EXPIRED: 'Certificado vencido',
   // audit element types
   ASSET: 'Activo',
   PARTY: 'Persona u organización',
@@ -95,4 +130,20 @@ const blockerText: Record<string, string> = {
 
 export function blockerLabel(type: string): string {
   return blockerText[type] ?? humanize(type)
+}
+
+
+/** Events of the outbox: the API sends the class name of the event, which means nothing to a reader. */
+const eventText: Record<string, string> = {
+  CorrectiveActionPlanned: 'Se planificó una acción correctiva',
+  CorrectiveActionExpired: 'Venció una acción correctiva',
+  CorrectiveActionClosed: 'Se cerró una acción correctiva',
+  CorrectiveActionVoided: 'Se anuló una acción correctiva',
+  CriterionResultRevised: 'Se rectificó el resultado de un criterio',
+}
+
+/** Takes either the full name (ar.edu...CorrectiveActionExpired) or just the last part. */
+export function eventLabel(eventType: string): string {
+  const name = eventType.split('.').at(-1) ?? eventType
+  return eventText[name] ?? humanize(name)
 }

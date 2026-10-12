@@ -1,6 +1,6 @@
 # Decisiones de diseño
 
-El proyecto abarca dos entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 18 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14).
+El proyecto abarca dos entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 19 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14).
 
 Además de las decisiones técnicas, se explicitan las interpretaciones adoptadas por el equipo para precisar comportamientos que el enunciado deja abiertos. Estas interpretaciones delimitan el alcance del modelo; no son requisitos adicionales impuestos por la consigna.
 
@@ -42,6 +42,7 @@ el razonamiento y las consecuencias de cada una.
 | D28 | Puerto de transacciones y excepción de conflicto propia | `application.shared.port.Transactions` ← `JdbcTransactions`; `application.shared.ConflictException` | Que la API exija atomicidad por petición y traduzca conflictos a 409 sin conocer JDBC | Que los controladores dependan de `JdbcTransactions` y de las excepciones de infraestructura, o anotar el núcleo con `@Transactional` | La transacción sigue abriéndola el controlador (los casos de uso son clases concretas, no decorables), pero detrás de un puerto (sección 18) |
 | D29 | Casos de uso de consulta (lado de lectura) | `BrowseParties`, `BrowseSchemas`, `BrowseInspections`, `BrowseFindings`, `BrowseCertificates`, `BrowseAuditTrail` | Que los adaptadores de entrada lean solo a través de la capa de aplicación y que las consultas con regla (versión vigente en una fecha, filtros combinados) vivan fuera del controlador | Inyectar repositorios en los controladores | Seis clases pequeñas; una prueba de arquitectura impide que la web vuelva a importar repositorios (sección 18) |
 | D30 | Notificación como puerto de salida | `NotificationSender` ← `LogNotificationSender`, `WebhookNotificationSender`; `NotifyCorrectiveActionExpiry` | Integrar un canal externo sin que el núcleo conozca HTTP, y sin que su caída afecte a los certificados | Llamar al webhook desde el caso de uso, o hacer fallar el evento si el canal falla | Entrega «al mejor esfuerzo»: una notificación puede perderse si el canal está caído (sección 18) |
+| D31 | El rango numérico clasifica, no filtra | `NumericRangeRule` (`rangeMinimum`, `rangeMaximum`, `bands`, `outOfRange`), `Inspection.recordAnswer` | Que el inspector pueda registrar lo que midió, incluso fuera de la escala, y que el sistema decida qué significa | Tratar la medición fuera del rango como respuesta inadmisible: en la primera versión 1200 se registraba y 1201 se rechazaba con un error | La regla declara un resultado más, que no puede ser aprobatorio, y el formato persistido cambió; a cambio una inspección nunca queda sin poder expresar lo que se midió (sección 19) |
 
 ### Patrones deliberadamente no aplicados
 
@@ -141,9 +142,9 @@ revisar.
 
 ## 4. Estrategias de evaluación y carga progresiva
 
-**Decisiones adoptadas.** Cada criterio pertenece a una sección y tiene una regla de rango numérico, sí/no u opciones con resultado asignado, además de requisitos de evidencia. La severidad depende del resultado concreto. Antes de publicar se exige un resultado único para toda respuesta admitida; las bandas numéricas declaran unidad y límites sin huecos ni superposiciones.
+**Decisiones adoptadas.** Cada criterio pertenece a una sección y tiene una regla de rango numérico, sí/no u opciones con resultado asignado, además de requisitos de evidencia. La severidad depende del resultado concreto. Antes de publicar se exige un resultado único para toda respuesta admitida; las bandas numéricas declaran unidad y límites sin huecos ni superposiciones, y además qué significa una medición que cae fuera del rango declarado (D31, sección 19).
 
-Interpretamos «registro progresivo» como permitir cargas incompletas que puedan continuarse, corregirse o eliminarse con auditoría. La carga valida formatos, tipos y opciones; una medición válida fuera del rango de aprobación se registra. La evaluación ordinaria ocurre al cerrar. Se permite cerrar con faltantes obligatorios, rechazando los criterios afectados con motivo explícito. Repetir el cierre no debe reevaluar ni duplicar hallazgos y acciones. Corregir y eliminar alcanza a los cuatro tipos de registro, incluidas las observaciones; corregir una observación conserva autor e instante, porque quién observó y cuándo son hechos y solo el texto se corrige. Después del cierre las cuatro operaciones se rechazan y exigen rectificación.
+Interpretamos «registro progresivo» como permitir cargas incompletas que puedan continuarse, corregirse o eliminarse con auditoría. La carga valida formatos, tipos y opciones, pero no el valor: toda medición expresada en la unidad del criterio se registra, también la que queda fuera del rango declarado, y es la evaluación la que decide qué significa (D31, sección 19). La evaluación ordinaria ocurre al cerrar. Se permite cerrar con faltantes obligatorios, rechazando los criterios afectados con motivo explícito. Repetir el cierre no debe reevaluar ni duplicar hallazgos y acciones. Corregir y eliminar alcanza a los cuatro tipos de registro, incluidas las observaciones; corregir una observación conserva autor e instante, porque quién observó y cuándo son hechos y solo el texto se corrige. Después del cierre las cuatro operaciones se rechazan y exigen rectificación.
 
 Las fotos y documentos se representan por referencias a archivos. El inspector determina su pertinencia y el sistema verifica la presencia exigida por tipo y cantidad. Si falta evidencia, se registra qué se exigía y qué no se presentó.
 
@@ -864,3 +865,79 @@ no pudo verificarse desde el código.
   `-XX:+EnableDynamicAgentLoading` en la ejecución de pruebas del módulo `app`.
 - *Endpoints `/api/admin/*` sin protección* (igual que la autenticación, sección 14).
 - *Protección de ramas de GitHub* sin verificar (18.4).
+
+## 19. Revisión del modelo: medición fuera del rango y textos de la interfaz
+
+Esta sección registra dos correcciones posteriores a la revisión de la sección 18, surgidas de probar
+la aplicación armada.
+
+### 19.1. Una medición fuera del rango se registra y se evalúa (D31)
+
+**Qué estaba mal.** Un criterio de medición declaraba un rango (por ejemplo una caldera de 0 a 1200 kPa)
+y bandas dentro de él. El rango se usaba como *admisibilidad*: `Inspection.recordAnswer` rechazaba con
+una excepción cualquier medición fuera de él. El resultado era incoherente: medir 1200 se registraba y
+quedaba rechazado por su banda, pero medir 1201 devolvía un error y no se podía registrar. Justo las
+mediciones peores eran las que el sistema no dejaba anotar, y sin la respuesta la inspección tampoco
+podía cerrarse.
+
+**Qué hace ahora.** El rango declara dónde viven las bandas, no qué se puede registrar. Toda medición
+expresada en la unidad del criterio se registra; si cae dentro del rango la clasifica su banda, y si cae
+fuera se evalúa con `outOfRange`, un resultado que el autor del esquema declara como cualquier otro
+(código, severidad y descripción). La admisibilidad conserva lo que sí es un error de forma: una
+respuesta de otro tipo (sí/no en un criterio de medición) o expresada en otra unidad.
+
+**Clases modificadas.** `core`: `NumericRangeRule` (campos `rangeMinimum` y `rangeMaximum` —antes
+`domainMinimum` y `domainMaximum`, cuyo nombre ya no describía lo que son—, nuevo `outOfRange`,
+`withinRange`; `admissibilityViolation` dejó de mirar el valor; `evaluate` cae en `outOfRange` cuando
+ninguna banda contiene la medición; `publicationViolations` agrega que una medición fuera del rango no
+puede declararse aprobada). `app`: `SchemaDtos.Rule` transporta `outOfRange` y lo exige al crear la
+regla. Front: `types.ts`, `ruleForm.ts` (lo precarga como rechazado con severidad crítica y no permite
+declararlo aprobado), `SectionEditor.tsx` (un bloque nuevo en el editor de criterios) y `rules.ts`
+(el texto que describe la regla). **Clases eliminadas:** ninguna.
+
+**Decisiones.**
+- *El resultado lo declara el autor del esquema,* no el sistema. Un valor fuera de la escala puede ser
+  crítico en una caldera y una observación en un laboratorio; fijarlo en el código habría impuesto una
+  severidad a todas las jurisdicciones, que son justamente las que deciden qué bloquea (sección 12).
+- *No puede ser aprobatorio,* y eso se verifica al publicar: que una medición fuera de la escala
+  declarada apruebe el criterio vuelve inútil declarar la escala.
+- *Las bandas siguen cubriendo el rango sin huecos ni superposiciones.* Un hueco dentro del rango
+  caería ahora en `outOfRange`, que es incorrecto, por eso la publicación lo sigue rechazando: ninguna
+  versión publicada puede tener uno.
+- *Se mantuvo el rango declarado* en lugar de pedir bandas abiertas de −∞ a ∞: el rango es el dato que
+  el inspector ve como referencia y el que hace que el autor piense los extremos una sola vez.
+
+**Pruebas.** `NumericAndYesNoRuleEdgeTest`: el rango y los resultados declarados, la admisibilidad que
+ya no mira el valor, la evaluación fuera de rango por arriba y por abajo, y el hueco que no sobrevive a
+la publicación. `SchemaPublicationTest`: una regla con fuera de rango aprobatorio no se publica.
+`SchemaDtosTest`: ida y vuelta del contrato y rechazo de una regla numérica sin ese resultado.
+`InspectionApiIT`: con la aplicación entera, una medición de 500 °C en un sensor de −50 a 150 se
+registra (200), y al cerrar el criterio queda rechazado con severidad crítica. Front: `ruleForm.test.ts`.
+
+**Deuda técnica deliberada.**
+- *El formato persistido cambió:* un esquema guardado por una versión anterior no tiene `outOfRange` y
+  no se puede reconstruir (es la deuda de formato de la sección 13, que ahora se materializó). Como la
+  base es de desarrollo, la salida es borrar `data/` y volver a cargar; una migración de documentos
+  sigue sin implementarse.
+- *El rango no se valida contra el instrumento:* nada impide declarar 0 a 1200 y medir un millón. Un
+  error de tipeo entra como rechazo crítico y se corrige por rectificación, que queda auditada.
+- *La API exige `outOfRange`* en lugar de asumir un valor por omisión, para no esconder con un default
+  un esquema mal declarado. El front lo precarga, así que el autor no tiene que inventarlo.
+
+### 19.2. La interfaz no muestra códigos internos
+
+**Qué estaba mal.** Dos pantallas mostraban identificadores del código fuente. En **Auditoría**, la
+columna de acción mostraba el nombre del enum apenas despeinado (`CERTIFICATE_ISSUED` aparecía como
+«Certificate issued», en inglés). En **Procesos**, la columna de evento mostraba el nombre de la clase
+Java del evento de dominio («CorrectiveActionExpired»).
+
+**Qué hace ahora.** `labels.ts` traduce las acciones de auditoría y los eventos de dominio;
+`eventLabel` acepta el nombre completo o la última parte. Un código que el diccionario no conozca
+sigue mostrándose legible (`humanize`) en lugar de romper la pantalla.
+
+**Decisión.** La traducción vive en el front, no en la API, por lo mismo que el resto de la sección 16:
+el contrato devuelve códigos estables y el front decide cómo se leen. Traducir en el servidor habría
+atado el contrato a un idioma.
+
+**Deuda técnica deliberada.** Sigue en pie la de la sección 16: los textos que arma el núcleo (motivos,
+descripciones de resultados) viajan en inglés y se muestran como llegan, porque son datos y no códigos.

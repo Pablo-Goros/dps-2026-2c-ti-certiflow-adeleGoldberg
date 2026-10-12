@@ -62,25 +62,29 @@ public final class SchemaDtos {
         }
     }
 
-    /** {@code type} is YES_NO (uses yes/no), OPTIONS (options) or NUMERIC_RANGE (unit, minimum, maximum, bands). */
+    /**
+     * {@code type} is YES_NO (uses yes/no), OPTIONS (options) or NUMERIC_RANGE (unit, minimum,
+     * maximum, bands and outOfRange: what a measurement outside [minimum, maximum] amounts to).
+     */
     public record Rule(String type, Outcome yes, Outcome no, Map<String, Outcome> options, String unit,
-            BigDecimal minimum, BigDecimal maximum, List<Band> bands) {
+            BigDecimal minimum, BigDecimal maximum, List<Band> bands, Outcome outOfRange) {
 
         static Rule of(EvaluationRule rule) {
             if (rule instanceof YesNoRule yesNo) {
                 return new Rule("YES_NO", Outcome.of(yesNo.whenAffirmative()), Outcome.of(yesNo.whenNegative()),
-                        null, null, null, null, null);
+                        null, null, null, null, null, null);
             }
             if (rule instanceof MappedOptionsRule mapped) {
                 Map<String, Outcome> options = new LinkedHashMap<>();
                 mapped.options().entrySet().stream()
                         .sorted(Map.Entry.comparingByKey())
                         .forEach(entry -> options.put(entry.getKey(), Outcome.of(entry.getValue())));
-                return new Rule("OPTIONS", null, null, options, null, null, null, null);
+                return new Rule("OPTIONS", null, null, options, null, null, null, null, null);
             }
             if (rule instanceof NumericRangeRule numeric) {
-                return new Rule("NUMERIC_RANGE", null, null, null, numeric.unit(), numeric.domainMinimum(),
-                        numeric.domainMaximum(), numeric.bands().stream().map(Band::of).toList());
+                return new Rule("NUMERIC_RANGE", null, null, null, numeric.unit(), numeric.rangeMinimum(),
+                        numeric.rangeMaximum(), numeric.bands().stream().map(Band::of).toList(),
+                        Outcome.of(numeric.outOfRange()));
             }
             throw new IllegalStateException("unsupported rule " + rule.getClass().getSimpleName());
         }
@@ -101,8 +105,9 @@ public final class SchemaDtos {
                 }
                 case "NUMERIC_RANGE" -> {
                     Validate.required(bands, "bands");
+                    Validate.required(outOfRange, "outcome for a measurement outside the range");
                     yield new NumericRangeRule(unit, minimum, maximum,
-                            bands.stream().map(Band::toDomain).toList());
+                            bands.stream().map(Band::toDomain).toList(), outOfRange.toDomain());
                 }
                 default -> throw new InvalidArgumentException(
                         "rule type must be YES_NO, OPTIONS or NUMERIC_RANGE, not " + type);

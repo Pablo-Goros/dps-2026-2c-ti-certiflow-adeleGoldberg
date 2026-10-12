@@ -20,6 +20,18 @@ Todos tienen la forma `{ "status", "code", "message", "details": [], "timestamp"
 | 422 | `SCHEMA_NOT_PUBLISHABLE` | borrador no publicable; `details` lista los motivos |
 | 500 | `INTERNAL_ERROR` | cualquier otra cosa |
 
+## Reglas de evaluación de un criterio
+
+Al crear una sección, cada criterio lleva una regla en `rule.type`:
+
+- `YES_NO`: `yes` y `no`, cada uno un resultado `{code, result, severity, description}`
+  (`result` es `APPROVED`, `OBSERVED` o `REJECTED`; `severity` va en `null` sólo si aprueba).
+- `OPTIONS`: `options`, un mapa de nombre de opción a resultado.
+- `NUMERIC_RANGE`: `unit`, `minimum`, `maximum`, `bands` (tramos contiguos que cubren el rango de
+  punta a punta, cada uno con su resultado) y **`outOfRange`**, obligatorio: el resultado de una
+  medición que cae fuera de `[minimum, maximum]`. El inspector puede registrar cualquier medición en
+  esa unidad —el rango clasifica, no filtra— y publicar falla si `outOfRange` aprueba el criterio.
+
 ## Endpoints
 
 | Método y ruta | Qué hace |

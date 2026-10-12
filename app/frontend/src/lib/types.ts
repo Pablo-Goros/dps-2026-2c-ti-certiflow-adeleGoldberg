@@ -57,6 +57,8 @@ export interface Rule {
   minimum?: number | null
   maximum?: number | null
   bands?: Band[] | null
+  /** What a measurement outside [minimum, maximum] amounts to (NUMERIC_RANGE only). */
+  outOfRange?: Outcome | null
 }
 
 export interface EvidenceRequirement {

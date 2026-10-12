@@ -111,6 +111,28 @@ class InspectionApiIT extends ApiTest {
     }
 
     @Test
+    void aMeasurementOffTheDeclaredRangeIsRecordedAndComesOutRejected() {
+        String inspector = person("Inspector");
+        String id = assigned(laboratory(organization("Owner")), inspector);
+        api.post("/api/inspections/" + id + "/start", Map.of(), inspector);
+
+        // The sensor range of the fixture is -50 to 150 c; 500 is off the scale.
+        var offScale = api.put("/api/inspections/" + id + "/answers/TEMP", Fixtures.measurement("500"), inspector);
+        api.put("/api/inspections/" + id + "/answers/DOC", Fixtures.yes(), inspector);
+        api.post("/api/inspections/" + id + "/evidence", Map.of("criterionId", "DOC",
+                "requirementLabel", "safety manual", "reference", "manual.pdf"), inspector);
+        var closed = api.post("/api/inspections/" + id + "/close", Map.of(), inspector);
+
+        assertThat(offScale.status()).as(offScale.body()).isEqualTo(200);
+        assertThat(closed.status()).as(closed.body()).isEqualTo(200);
+        @SuppressWarnings("unchecked")
+        var evaluation = (Map<String, Object>) criterion(closed, "TEMP").get("evaluation");
+        assertThat(evaluation.get("result")).isEqualTo("REJECTED");
+        assertThat(evaluation.get("severity")).isEqualTo("CRITICAL");
+        assertThat(evaluation.get("reasons").toString()).contains("off the sensor scale");
+    }
+
+    @Test
     void onlyTheAssignedInspectorCanStartIt() {
         String inspector = person("Inspector");
         String stranger = person("Stranger");

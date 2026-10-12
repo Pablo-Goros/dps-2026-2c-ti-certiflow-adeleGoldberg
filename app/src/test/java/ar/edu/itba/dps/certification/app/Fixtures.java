@@ -25,10 +25,12 @@ final class Fixtures {
     }
 
     static Map<String, Object> temperatureRule() {
-        return Map.of("type", "NUMERIC_RANGE", "unit", "c", "minimum", -50, "maximum", 150, "bands", List.of(
-                band(-50, true, 2, false, outcome("TEMP_LOW", "REJECTED", "HIGH", "too cold")),
-                band(2, true, 8, true, outcome("TEMP_OK", "APPROVED", null, "in range")),
-                band(8, false, 150, true, outcome("TEMP_HIGH", "REJECTED", "CRITICAL", "too hot"))));
+        return Map.of("type", "NUMERIC_RANGE", "unit", "c", "minimum", -50, "maximum", 150,
+                "outOfRange", outcome("TEMP_OFF_SCALE", "REJECTED", "CRITICAL", "off the sensor scale"),
+                "bands", List.of(
+                        band(-50, true, 2, false, outcome("TEMP_LOW", "REJECTED", "HIGH", "too cold")),
+                        band(2, true, 8, true, outcome("TEMP_OK", "APPROVED", null, "in range")),
+                        band(8, false, 150, true, outcome("TEMP_HIGH", "REJECTED", "CRITICAL", "too hot"))));
     }
 
     private static Map<String, Object> band(int lower, boolean lowerInclusive, int upper, boolean upperInclusive,

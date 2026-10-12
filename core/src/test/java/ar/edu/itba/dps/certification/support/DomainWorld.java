@@ -145,7 +145,9 @@ public final class DomainWorld {
                         band("8", false, "25", true, RuleOutcome.observed("TEMP_WARM",
                                 warmSeverity, "temperature slightly above the safe range")),
                         band("25", false, "150", true, RuleOutcome.rejected("TEMP_HIGH",
-                                Severity.CRITICAL, "temperature far above the safe range")))),
+                                Severity.CRITICAL, "temperature far above the safe range"))),
+                        RuleOutcome.rejected("TEMP_OFF_SCALE", Severity.CRITICAL,
+                                "temperature outside what the sensor can read")),
                 List.of());
     }
 

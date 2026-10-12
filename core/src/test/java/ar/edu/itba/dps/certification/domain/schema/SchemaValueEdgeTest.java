@@ -179,7 +179,8 @@ class SchemaValueEdgeTest {
     private NumericRangeRule validRule() {
         return new NumericRangeRule("ph", BigDecimal.ZERO, BigDecimal.TEN, List.of(
                 new NumericBand(BigDecimal.ZERO, true, BigDecimal.TEN, true,
-                        RuleOutcome.approved("OK", "ok"))));
+                        RuleOutcome.approved("OK", "ok"))),
+                RuleOutcome.rejected("OFF_SCALE", Severity.CRITICAL, "outside the gauge"));
     }
 
     @Test
