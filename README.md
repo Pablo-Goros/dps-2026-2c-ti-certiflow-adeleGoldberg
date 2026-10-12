@@ -69,6 +69,35 @@ Spring configuration supports overrides such as `SERVER_PORT` and
 Corrective-action expiration notifications use logging by default. The
 `certiflow.notifications.webhook-url` property configures a JSON POST webhook.
 
+## Demonstration data
+
+The `demo` profile seeds an empty database with the scenario of the second
+delivery: one schema published twice, the second version effective in the
+future; three facilities, one per jurisdiction, inspected against the version
+frozen at the time; findings of low, medium and high severity; and a certificate
+per subsystem with its derived global certificate. The seeder drives the
+application's own use cases, so every evaluation, finding and certificate is
+state the domain computed rather than inserted rows. It runs only on an empty
+database and leaves an existing one untouched.
+
+```sh
+java -jar app/target/certiflow-app-1.0.0-SNAPSHOT-exec.jar --spring.profiles.active=demo
+```
+
+## Containers
+
+Running the application in a container requires neither a JDK nor Node on the
+host. The image builds the backend and the frontend and runs the demo profile.
+
+```sh
+docker compose up
+```
+
+The interface is then available at <http://localhost:8080/>. The compose file
+declares no volume, so each run starts from an empty database and reseeds it,
+which keeps a demonstration reproducible; uncomment the volume in
+`compose.yaml` to keep the data between runs instead.
+
 ## Continuous integration
 
 The [CI workflow](.github/workflows/ci.yml) runs `mvn verify` with JDK 25 on pull

@@ -1,0 +1,21 @@
+services:
+  certiflow:
+    build: .
+    image: certiflow:demo
+    ports:
+      - "8080:8080"
+    environment:
+      # The seeder only runs under this profile, and only on an empty database.
+      SPRING_PROFILES_ACTIVE: demo
+      CERTIFLOW_ZONE: America/Argentina/Buenos_Aires
+    healthcheck:
+      test: ["CMD", "java", "-version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # No volume on purpose: every `docker compose up` starts from an empty database
+    # and the demo profile reseeds it, so the demonstration is always the same one.
+    # Uncomment to keep the data between runs instead.
+    # volumes:
+    #   - ./data:/opt/certiflow/data
