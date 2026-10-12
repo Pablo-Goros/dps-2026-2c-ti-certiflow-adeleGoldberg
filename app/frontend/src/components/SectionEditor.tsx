@@ -126,7 +126,7 @@ function CriterionEditor({ index, criterion, subsystems, onChange, onRemove }: {
   )
 }
 
-function OutcomeFields({ title, outcome, onChange }: { title: ReactNode; outcome: Outcome; onChange: (outcome: Outcome) => void }) {
+function OutcomeFields({ title, outcome, onChange, allowApproved = true }: { title: ReactNode; outcome: Outcome; onChange: (outcome: Outcome) => void; allowApproved?: boolean }) {
   const set = (patch: Partial<Outcome>) => onChange({ ...outcome, ...patch })
   return (
     <div>
@@ -138,7 +138,7 @@ function OutcomeFields({ title, outcome, onChange }: { title: ReactNode; outcome
             const result = e.target.value as Outcome['result']
             set({ result, severity: result === 'APPROVED' ? null : (outcome.severity ?? 'MEDIUM') })
           }}>
-            <option value="APPROVED">Aprobado</option>
+            {allowApproved && <option value="APPROVED">Aprobado</option>}
             <option value="OBSERVED">Observado</option>
             <option value="REJECTED">Rechazado</option>
           </select>
@@ -180,8 +180,8 @@ function NumericEditor({ rule, onChange }: { rule: RuleForm; onChange: (patch: P
     <div style={{ marginTop: 12 }}>
       <div className="form">
         <Field label="Unidad"><input value={rule.unit} onChange={(e) => onChange({ unit: e.target.value })} required /></Field>
-        <Field label="Mínimo posible"><input inputMode="decimal" value={rule.minimum} onChange={(e) => onChange({ minimum: e.target.value })} required /></Field>
-        <Field label="Máximo posible"><input inputMode="decimal" value={rule.maximum} onChange={(e) => onChange({ maximum: e.target.value })} required /></Field>
+        <Field label="Mínimo del rango"><input inputMode="decimal" value={rule.minimum} onChange={(e) => onChange({ minimum: e.target.value })} required /></Field>
+        <Field label="Máximo del rango"><input inputMode="decimal" value={rule.maximum} onChange={(e) => onChange({ maximum: e.target.value })} required /></Field>
       </div>
       <p className="muted small">Los tramos tienen que cubrir todo el rango, del mínimo al máximo, sin superponerse.</p>
       {rule.bands.map((band, i) => (
@@ -197,6 +197,18 @@ function NumericEditor({ rule, onChange }: { rule: RuleForm; onChange: (patch: P
         </div>
       ))}
       <button type="button" onClick={() => onChange({ bands: [...rule.bands, newBand()] })}>Agregar tramo</button>
+      <div style={{ marginTop: 14 }}>
+        <p className="muted small">
+          Una medición fuera del rango se registra igual (el inspector anota lo que midió) y se evalúa con esto.
+          No puede quedar aprobada.
+        </p>
+        <OutcomeFields
+          title="Si la medición cae fuera del rango"
+          outcome={rule.outOfRange}
+          onChange={(outOfRange) => onChange({ outOfRange })}
+          allowApproved={false}
+        />
+      </div>
     </div>
   )
 }

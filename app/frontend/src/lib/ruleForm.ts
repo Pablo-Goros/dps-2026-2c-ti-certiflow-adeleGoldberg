@@ -21,6 +21,7 @@ export interface RuleForm {
   minimum: string
   maximum: string
   bands: BandForm[]
+  outOfRange: Outcome
 }
 
 export interface EvidenceForm {
@@ -56,6 +57,7 @@ export function newRuleForm(type: Rule['type'] = 'YES_NO'): RuleForm {
     minimum: '',
     maximum: '',
     bands: [newBand()],
+    outOfRange: { code: 'OUT_OF_RANGE', result: 'REJECTED', severity: 'CRITICAL', description: 'Medición fuera del rango declarado' },
   }
 }
 
@@ -101,15 +103,23 @@ export function toRule(form: RuleForm): Rule {
       if (Object.keys(options).length < 2) throw new Error('Una regla de opciones necesita al menos dos opciones.')
       return { type: 'OPTIONS', options }
     }
-    case 'NUMERIC_RANGE':
+    case 'NUMERIC_RANGE': {
       if (form.bands.length === 0) throw new Error('Agregá al menos un tramo.')
+      if (form.outOfRange.result === 'APPROVED') {
+        throw new Error('Una medición fuera del rango no puede quedar aprobada.')
+      }
       return {
         type: 'NUMERIC_RANGE',
         unit: form.unit.trim(),
         minimum: required(parseNumber(form.minimum), 'el mínimo'),
         maximum: required(parseNumber(form.maximum), 'el máximo'),
         bands: form.bands.map(toBand),
+        outOfRange: cleanOutcome({
+          ...form.outOfRange,
+          description: form.outOfRange.description || 'Medición fuera del rango declarado',
+        }),
       }
+    }
   }
 }
 

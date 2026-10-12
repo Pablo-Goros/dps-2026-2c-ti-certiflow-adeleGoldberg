@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, query } from '../lib/api'
 import { formatInstant } from '../lib/format'
 import { useLoad } from '../lib/hooks'
-import { label } from '../lib/labels'
+import { eventLabel, label } from '../lib/labels'
 import type { JobsResult, OutboxEntry } from '../lib/types'
 import { Badge, Card, Empty, ErrorLine, Loading, LoadError, Notice, Page, useAction, type Tone } from '../components/ui'
 
@@ -97,7 +97,7 @@ export function Processes() {
                   {[...outbox.data].reverse().slice(0, 100).map((entry) => (
                     <tr key={entry.seq}>
                       <td className="num">{entry.seq}</td>
-                      <td>{entry.eventType.split('.').at(-1)}</td>
+                      <td>{eventLabel(entry.eventType)}</td>
                       <td><Badge tone={tone[entry.status]}>{label(entry.status)}</Badge></td>
                       <td className="num">{entry.attempts}</td>
                       <td className="nowrap">{formatInstant(entry.createdAtMillis)}</td>

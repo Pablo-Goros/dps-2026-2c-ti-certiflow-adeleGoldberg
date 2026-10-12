@@ -34,7 +34,7 @@ export function describeRule(rule: Rule): string {
     case 'OPTIONS':
       return 'Opciones: ' + Object.keys(rule.options ?? {}).join(', ')
     case 'NUMERIC_RANGE':
-      return `Medición en ${rule.unit ?? ''} (${rule.minimum} a ${rule.maximum})`
+      return `Medición en ${rule.unit ?? ''} (rango ${rule.minimum} a ${rule.maximum}; fuera de ahí, ${(rule.outOfRange?.result === 'OBSERVED' ? 'observado' : 'rechazado')})`
   }
 }
 

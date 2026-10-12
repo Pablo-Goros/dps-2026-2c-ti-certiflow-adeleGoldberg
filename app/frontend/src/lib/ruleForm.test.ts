@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { newCriterionForm, newRuleForm, toRule, toSection, type SectionForm } from './ruleForm'
 import { formatDate, localDateTimeToInstant } from './format'
-import { blockerLabel, humanize, label } from './labels'
+import { blockerLabel, eventLabel, humanize, label } from './labels'
 import { describeBand, parseNumber } from './rules'
 
 describe('rule forms', () => {
@@ -52,6 +52,20 @@ describe('rule forms', () => {
     expect(() => toRule(newRuleForm('NUMERIC_RANGE'))).toThrow(/mínimo/)
   })
 
+  it('carries what a measurement outside the range amounts to, and refuses approving it', () => {
+    const form = newRuleForm('NUMERIC_RANGE')
+    form.unit = 'kpa'
+    form.minimum = '0'
+    form.maximum = '1200'
+    form.bands[0].lower = '0'
+    form.bands[0].upper = '1200'
+
+    expect(toRule(form).outOfRange).toMatchObject({ result: 'REJECTED', severity: 'CRITICAL' })
+
+    form.outOfRange = { code: 'OFF', result: 'APPROVED', severity: null, description: 'fuera pero bien' }
+    expect(() => toRule(form)).toThrow(/no puede quedar aprobada/)
+  })
+
   it('builds a section and refuses repeated criterion ids', () => {
     const criterion = newCriterionForm()
     criterion.id = 'ELEC'
@@ -100,5 +114,12 @@ describe('formatting helpers', () => {
     expect(humanize('biosafetyLevel')).toBe('Biosafety level')
     expect(blockerLabel('InspectionNotClosed')).toMatch(/cerrada/)
     expect(blockerLabel('Brand_New')).toBe('Brand new')
+  })
+
+  it('reads audit actions and system events in Spanish instead of as codes', () => {
+    expect(label('CERTIFICATE_ISSUED')).toBe('Certificado emitido')
+    expect(eventLabel('ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired'))
+      .toBe('Venció una acción correctiva')
+    expect(eventLabel('SomethingNew')).toBe('Something new')
   })
 })
