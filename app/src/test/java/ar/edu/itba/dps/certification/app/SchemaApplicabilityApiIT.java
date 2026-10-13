@@ -3,8 +3,6 @@ package ar.edu.itba.dps.certification.app;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -12,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "spring.datasource.url=jdbc:h2:mem:certiflow-applicability-history-it;DB_CLOSE_DELAY=-1")
+        properties = "spring.datasource.url=jdbc:h2:mem:certiflow-schema-applicability-it;DB_CLOSE_DELAY=-1")
 class SchemaApplicabilityApiIT extends ApiTest {
 
     @Test

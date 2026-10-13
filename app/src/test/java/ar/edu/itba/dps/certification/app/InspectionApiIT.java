@@ -190,6 +190,9 @@ class InspectionApiIT extends ApiTest {
         assertThat(after.json().get("rectifications")).isEqualTo(before.json().get("rectifications"));
         assertThat(criterion(after, "SAFE").get("answer")).isNull();
         assertThat(api.get("/api/audit?type=INSPECTION&id=" + id).jsonList()).hasSize(auditCount);
+    }
+
+    @Test
     void aMeasurementOffTheDeclaredRangeIsRecordedAndComesOutRejected() {
         String inspector = person("Inspector");
         String id = assigned(laboratory(organization("Owner")), inspector);

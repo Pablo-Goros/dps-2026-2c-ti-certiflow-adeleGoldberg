@@ -128,7 +128,9 @@ final class DemoSchema {
                 band("1", true, "5", false, RuleOutcome.observed("INS_WEAK", Severity.HIGH,
                         "la resistencia de aislación está por debajo del valor recomendado")),
                 band("5", true, "1000", true, RuleOutcome.approved("INS_OK",
-                        "la resistencia de aislación está dentro del rango"))));
+                        "la resistencia de aislación está dentro del rango"))),
+                RuleOutcome.rejected("INS_OFF_SCALE", Severity.CRITICAL,
+                        "la resistencia de aislación quedó fuera de lo que mide el megóhmetro"));
     }
 
     private static EvaluationRule bar() {
@@ -138,7 +140,9 @@ final class DemoSchema {
                 band("6", true, "12", true, RuleOutcome.approved("PRES_OK",
                         "el recipiente sostiene su presión de prueba")),
                 band("12", false, "40", true, RuleOutcome.rejected("PRES_HIGH", Severity.CRITICAL,
-                        "el recipiente supera su presión máxima admisible"))));
+                        "el recipiente supera su presión máxima admisible"))),
+                RuleOutcome.rejected("PRES_OFF_SCALE", Severity.CRITICAL,
+                        "la presión quedó fuera de lo que mide el manómetro"));
     }
 
     private static EvaluationRule trainingHours() {
@@ -146,7 +150,9 @@ final class DemoSchema {
                 band("0", true, "4", false, RuleOutcome.observed("TRAIN_SHORT", Severity.MEDIUM,
                         "la capacitación del personal está por debajo de las horas requeridas")),
                 band("4", true, "200", true, RuleOutcome.approved("TRAIN_OK",
-                        "la capacitación del personal cumple las horas requeridas"))));
+                        "la capacitación del personal cumple las horas requeridas"))),
+                RuleOutcome.observed("TRAIN_OFF_SCALE", Severity.LOW,
+                        "las horas de capacitación informadas quedaron fuera del rango registrable"));
     }
 
     private static NumericBand band(String lower, boolean lowerInclusive, String upper,
