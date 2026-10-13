@@ -85,6 +85,53 @@ class InspectionApiIT extends ApiTest {
     }
 
     @Test
+    void assignmentAndDraftExecutionDataCanBeChangedBeforeClosure() {
+        String originalInspector = person("Inspector A");
+        String reassignedInspector = person("Inspector B");
+        String id = assigned(laboratory(organization("Owner")), originalInspector);
+
+        var reassigned = api.put("/api/inspections/" + id + "/assignment",
+                Map.of("inspectorId", reassignedInspector, "expectedDate", "2027-02-20"), null);
+        var started = api.post("/api/inspections/" + id + "/start", Map.of(), reassignedInspector);
+        var firstAnswer = api.put("/api/inspections/" + id + "/answers/TEMP",
+                Fixtures.measurement("30"), reassignedInspector);
+        var removedAnswer = api.deleteAs("/api/inspections/" + id + "/answers/TEMP", reassignedInspector);
+        var finalAnswer = api.put("/api/inspections/" + id + "/answers/TEMP",
+                Fixtures.measurement("5"), reassignedInspector);
+        api.put("/api/inspections/" + id + "/answers/DOC", Fixtures.yes(), reassignedInspector);
+        var firstEvidence = api.post("/api/inspections/" + id + "/evidence", Map.of("criterionId", "DOC",
+                "requirementLabel", "safety manual", "reference", "wrong-manual.pdf"), reassignedInspector);
+        var removedEvidence = api.deleteAs("/api/inspections/" + id + "/criteria/DOC/evidence/"
+                + firstEvidence.text("id"), reassignedInspector);
+        var finalEvidence = api.post("/api/inspections/" + id + "/evidence", Map.of("criterionId", "DOC",
+                "requirementLabel", "safety manual", "reference", "manual.pdf"), reassignedInspector);
+        var note = api.post("/api/inspections/" + id + "/notes",
+                Map.of("criterionId", "TEMP", "text", "check the sensor"), reassignedInspector);
+        var correctedNote = api.put("/api/inspections/" + id + "/notes/" + note.text("id"),
+                Map.of("text", "sensor checked"), reassignedInspector);
+        var removedNote = api.deleteAs("/api/inspections/" + id + "/notes/" + note.text("id"),
+                reassignedInspector);
+        var closed = api.post("/api/inspections/" + id + "/close", Map.of(), reassignedInspector);
+
+        assertThat(reassigned.status()).as(reassigned.body()).isEqualTo(200);
+        assertThat(started.status()).isEqualTo(200);
+        assertThat(firstAnswer.status()).isEqualTo(200);
+        assertThat(removedAnswer.status()).isEqualTo(200);
+        assertThat(finalAnswer.status()).isEqualTo(200);
+        assertThat(firstEvidence.status()).isEqualTo(201);
+        assertThat(removedEvidence.status()).isEqualTo(200);
+        assertThat(finalEvidence.status()).isEqualTo(201);
+        assertThat(note.status()).isEqualTo(201);
+        assertThat(correctedNote.text("text")).isEqualTo("sensor checked");
+        assertThat(removedNote.status()).isEqualTo(200);
+        assertThat(closed.status()).as(closed.body()).isEqualTo(200);
+        assertThat(closed.text("status")).isEqualTo("CLOSED");
+        @SuppressWarnings("unchecked")
+        var evaluation = (Map<String, Object>) criterion(closed, "TEMP").get("evaluation");
+        assertThat(evaluation.get("result")).isEqualTo("APPROVED");
+    }
+
+    @Test
     void aRejectedMeasurementIsRectifiedAndTheEvaluationChanges() {
         String inspector = person("Inspector");
         String id = assigned(laboratory(organization("Owner")), inspector);
@@ -143,6 +190,25 @@ class InspectionApiIT extends ApiTest {
         assertThat(after.json().get("rectifications")).isEqualTo(before.json().get("rectifications"));
         assertThat(criterion(after, "SAFE").get("answer")).isNull();
         assertThat(api.get("/api/audit?type=INSPECTION&id=" + id).jsonList()).hasSize(auditCount);
+    void aMeasurementOffTheDeclaredRangeIsRecordedAndComesOutRejected() {
+        String inspector = person("Inspector");
+        String id = assigned(laboratory(organization("Owner")), inspector);
+        api.post("/api/inspections/" + id + "/start", Map.of(), inspector);
+
+        // The sensor range of the fixture is -50 to 150 c; 500 is off the scale.
+        var offScale = api.put("/api/inspections/" + id + "/answers/TEMP", Fixtures.measurement("500"), inspector);
+        api.put("/api/inspections/" + id + "/answers/DOC", Fixtures.yes(), inspector);
+        api.post("/api/inspections/" + id + "/evidence", Map.of("criterionId", "DOC",
+                "requirementLabel", "safety manual", "reference", "manual.pdf"), inspector);
+        var closed = api.post("/api/inspections/" + id + "/close", Map.of(), inspector);
+
+        assertThat(offScale.status()).as(offScale.body()).isEqualTo(200);
+        assertThat(closed.status()).as(closed.body()).isEqualTo(200);
+        @SuppressWarnings("unchecked")
+        var evaluation = (Map<String, Object>) criterion(closed, "TEMP").get("evaluation");
+        assertThat(evaluation.get("result")).isEqualTo("REJECTED");
+        assertThat(evaluation.get("severity")).isEqualTo("CRITICAL");
+        assertThat(evaluation.get("reasons").toString()).contains("off the sensor scale");
     }
 
     @Test

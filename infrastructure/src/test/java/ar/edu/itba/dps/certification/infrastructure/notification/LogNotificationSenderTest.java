@@ -1,11 +1,11 @@
 package ar.edu.itba.dps.certification.infrastructure.notification;
 
-import ar.edu.itba.dps.certification.application.notification.Notification;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import org.junit.jupiter.api.Test;
+
+import ar.edu.itba.dps.certification.application.notification.Notification;
 
 class LogNotificationSenderTest {
 

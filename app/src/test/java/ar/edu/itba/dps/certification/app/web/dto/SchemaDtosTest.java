@@ -23,6 +23,8 @@ class SchemaDtosTest {
 
     private static final Outcome OK = new Outcome("OK", CriterionResult.APPROVED, null, "fine");
     private static final Outcome BAD = new Outcome("BAD", CriterionResult.REJECTED, Severity.HIGH, "broken");
+    private static final Outcome OFF_SCALE =
+            new Outcome("OFF_SCALE", CriterionResult.REJECTED, Severity.CRITICAL, "off the scale");
 
     private static SectionDto section(Rule rule) {
         return new SectionDto("Safety", 1, List.of(new CriterionDto("C1", rule, "pressure system",
@@ -31,7 +33,7 @@ class SchemaDtosTest {
 
     @Test
     void aYesNoRuleSurvivesTheRoundTrip() {
-        var rule = new Rule("YES_NO", OK, BAD, null, null, null, null, null);
+        var rule = new Rule("YES_NO", OK, BAD, null, null, null, null, null, null);
 
         var back = SectionDto.of(section(rule).toDomain());
 
@@ -42,7 +44,7 @@ class SchemaDtosTest {
 
     @Test
     void anOptionsRuleSurvivesTheRoundTrip() {
-        var rule = new Rule("OPTIONS", null, null, Map.of("clean", OK, "dirty", BAD), null, null, null, null);
+        var rule = new Rule("OPTIONS", null, null, Map.of("clean", OK, "dirty", BAD), null, null, null, null, null);
 
         var back = SectionDto.of(section(rule).toDomain());
 
@@ -53,7 +55,7 @@ class SchemaDtosTest {
     void aNumericRuleSurvivesTheRoundTrip() {
         var band = new Band(new BigDecimal("0"), true, new BigDecimal("10"), true, OK);
         var rule = new Rule("NUMERIC_RANGE", null, null, null, "c", new BigDecimal("-5"),
-                new BigDecimal("50"), List.of(band));
+                new BigDecimal("50"), List.of(band), OFF_SCALE);
 
         var back = SectionDto.of(section(rule).toDomain());
 
@@ -61,15 +63,24 @@ class SchemaDtosTest {
     }
 
     @Test
+    void aNumericRuleWithoutAnOutOfRangeOutcomeIsRejectedAsInvalidInput() {
+        var band = new Band(new BigDecimal("0"), true, new BigDecimal("10"), true, OK);
+        var rule = new Rule("NUMERIC_RANGE", null, null, null, "c", new BigDecimal("0"),
+                new BigDecimal("10"), List.of(band), null);
+
+        assertThatThrownBy(() -> section(rule).toDomain()).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
     void anUnknownRuleTypeIsRejectedAsInvalidInput() {
-        var rule = new Rule("MAGIC", null, null, null, null, null, null, null);
+        var rule = new Rule("MAGIC", null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> section(rule).toDomain()).isInstanceOf(InvalidArgumentException.class);
     }
 
     @Test
     void aRuleMissingItsPartsIsRejectedAsInvalidInput() {
-        var rule = new Rule("YES_NO", OK, null, null, null, null, null, null);
+        var rule = new Rule("YES_NO", OK, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> section(rule).toDomain()).isInstanceOf(InvalidArgumentException.class);
     }
@@ -77,7 +88,7 @@ class SchemaDtosTest {
     @Test
     void anApprovingOutcomeWithASeverityIsRefusedByTheCore() {
         var invalid = new Outcome("X", CriterionResult.APPROVED, Severity.LOW, "contradiction");
-        var rule = new Rule("YES_NO", invalid, BAD, null, null, null, null, null);
+        var rule = new Rule("YES_NO", invalid, BAD, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> section(rule).toDomain()).isInstanceOf(RuntimeException.class);
     }

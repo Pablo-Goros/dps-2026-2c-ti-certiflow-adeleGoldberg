@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api, query } from '../lib/api'
 import { formatInstant } from '../lib/format'
 import { useLoad } from '../lib/hooks'
-import { humanize, label } from '../lib/labels'
+import { label } from '../lib/labels'
 import type { AuditEntry } from '../lib/types'
 import { Tree } from '../components/Tree'
 import { Card, Empty, Field, Loading, LoadError, Page } from '../components/ui'
@@ -57,7 +57,7 @@ export function Audit() {
                     <tr key={index}>
                       <td className="nowrap">{formatInstant(entry.occurredAt)}</td>
                       <td>{label(entry.element.type)}<div className="mono muted">{entry.element.id}</div></td>
-                      <td>{humanize(entry.action)}{entry.reason && <div className="muted small">{entry.reason}</div>}</td>
+                      <td>{label(entry.action)}{entry.reason && <div className="muted small">{entry.reason}</div>}</td>
                       <td><Tree value={{ actor: entry.actor, detail: entry.detail }} /></td>
                     </tr>
                   ))}
