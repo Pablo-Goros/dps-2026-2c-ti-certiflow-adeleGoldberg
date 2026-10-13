@@ -4,9 +4,11 @@ import { api } from '../lib/api'
 import { formatDate, formatInstant } from '../lib/format'
 import { useLoad } from '../lib/hooks'
 import { criteriaById } from '../lib/rules'
-import type { Asset, Inspection, Schema } from '../lib/types'
+import type { Asset, Inspection, InspectionAct, Schema } from '../lib/types'
 import { CertificationPanel } from '../components/CertificationPanel'
 import { CriterionCard } from '../components/CriterionCard'
+import { InspectionActView } from '../components/InspectionActView'
+import { RectificationForm } from '../components/RectificationForm'
 import { useParties } from '../components/Party'
 import {
   Card, Empty, ErrorLine, Facts, Field, InspectionBadge, Loading, LoadError, Notice, Page, useAction,
@@ -23,6 +25,12 @@ export function InspectionDetail() {
   const schemas = useLoad(
     () => (inspection.data?.schemaVersion ? api.get<Schema[]>('/schemas') : Promise.resolve([] as Schema[])),
     [inspection.data?.schemaVersion],
+  )
+  const act = useLoad(
+    () => (inspection.data?.status === 'CLOSED'
+      ? api.get<InspectionAct>(`/inspections/${id}/act`)
+      : Promise.resolve(undefined)),
+    [id, inspection.data?.status],
   )
   const { run, busy, error } = useAction()
 
@@ -42,6 +50,7 @@ export function InspectionDetail() {
   const close = () => run(async () => { await api.post(`/inspections/${id}/close`); inspection.reload() }, 'Inspección cerrada')
   const answered = i.criteria.filter((line) => line.applicable && line.answer).length
   const applicable = i.criteria.filter((line) => line.applicable).length
+  const refreshClosedInspection = () => { inspection.reload(); act.reload() }
 
   return (
     <Page
@@ -107,12 +116,17 @@ export function InspectionDetail() {
             Respondiste {answered} de {applicable} criterios. Al cerrar se evalúan las respuestas, se generan los hallazgos y la
             inspección ya no se puede editar.
           </p>
-          <button className="primary" disabled={busy || answered === 0} onClick={close}>Cerrar inspección</button>
+          <p className="muted">Las respuestas obligatorias sin contestar se evaluan como rechazadas y generan un motivo.</p>
+          <button className="primary" disabled={busy} onClick={close}>Cerrar inspección</button>
         </Card>
       )}
 
       {i.status === 'CLOSED' && (
-        <CertificationPanel inspectionId={i.id} assetId={i.assetId} subsystems={i.subsystems} />
+        <>
+          <InspectionActView act={act.data} error={act.error} loading={act.loading} retry={act.reload} />
+          <RectificationForm inspection={i} version={version} onChange={refreshClosedInspection} />
+          <CertificationPanel inspectionId={i.id} assetId={i.assetId} subsystems={i.subsystems} />
+        </>
       )}
     </Page>
   )

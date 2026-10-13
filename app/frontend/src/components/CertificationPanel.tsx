@@ -24,7 +24,9 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
     () => (subsystems.length ? api.get<{ type: string; reasons?: string[] }>(`/inspections/${inspectionId}/global-derivation`) : Promise.resolve(null)),
     [inspectionId, subsystems.length],
   )
-  const targets: Target[] = [...subsystems.map((subsystem) => ({ subsystem })), { subsystem: null }]
+  const targets: Target[] = subsystems.length
+    ? subsystems.map((subsystem) => ({ subsystem }))
+    : [{ subsystem: null }]
   const reloadAll = () => {
     issued.reload()
     assetCertificates.reload()
@@ -35,7 +37,7 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
     <Card title="Certificación">
       {subsystems.length > 0 && (
         <p className="muted">
-          Cada subsistema se certifica por separado. El certificado global se puede emitir cuando todos los parciales están en regla.
+          Cada subsistema se certifica por separado. El certificado global se compone cuando todos los parciales est?n en regla.
         </p>
       )}
       {issued.loading && !issued.data ? <Loading /> : (

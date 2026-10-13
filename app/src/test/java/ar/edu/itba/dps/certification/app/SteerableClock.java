@@ -25,6 +25,7 @@ final class SteerableClock implements Clock {
 
     private final ZoneId zone = ZoneId.of("America/Argentina/Buenos_Aires");
     private volatile Duration offset = Duration.ZERO;
+    private volatile Instant fixedNow;
 
     void advanceDays(long days) {
         offset = offset.plusDays(days);
@@ -32,15 +33,27 @@ final class SteerableClock implements Clock {
 
     void reset() {
         offset = Duration.ZERO;
+        fixedNow = null;
+    }
+
+    void setNow(Instant instant) {
+        fixedNow = instant;
+        offset = Duration.ZERO;
     }
 
     @Override
     public Instant now() {
-        return Instant.now().plus(offset);
+        Instant fixed = fixedNow;
+        return (fixed == null ? Instant.now() : fixed).plus(offset);
     }
 
     @Override
     public LocalDate today() {
         return LocalDate.ofInstant(now(), zone);
+    }
+
+    @Override
+    public LocalDate today(Instant at) {
+        return LocalDate.ofInstant(at, zone);
     }
 }

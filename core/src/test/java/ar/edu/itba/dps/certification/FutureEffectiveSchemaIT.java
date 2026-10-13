@@ -1,10 +1,13 @@
 package ar.edu.itba.dps.certification;
 
+import ar.edu.itba.dps.certification.application.schema.usecase.ChangeSchemaApplicability;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
+import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.Section;
@@ -20,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FutureEffectiveSchemaIT {
 
@@ -88,5 +92,81 @@ class FutureEffectiveSchemaIT {
                 .map(SchemaVersion::number).contains(1);
         assertThat(system.schemaCatalog.effectiveVersionFor(AssetType.LABORATORY, t10DaysFuture))
                 .map(SchemaVersion::number).contains(2);
+    }
+
+    @Test
+    @DisplayName("new applicability requires every published version, including the currently effective one, to cover its parts")
+    void addingApplicabilityDoesNotExposeAnUncoveredEarlierVersion() {
+        InspectionSchema schema = system.createSchema.create("Generic schema", Set.of(AssetType.EQUIPMENT));
+        system.openDraft.open(schema.id());
+        system.editDraft.addSection(schema.id(), Section.of("Common", 1, DomainWorld.documentationCriterion()));
+        SchemaVersion v1 = system.publishSchemaVersion.publish(schema.id()).publishedVersion();
+
+        Instant future = system.clock.now().plus(Duration.ofDays(10));
+        system.openDraft.open(schema.id());
+        system.editDraft.addSection(schema.id(), Section.of("Electrical", 2, DomainWorld.electricalCriterion()));
+        system.editDraft.addSection(schema.id(), Section.of("Pressure", 3, DomainWorld.pressureCriterion()));
+        SchemaVersion v2 = system.publishSchemaVersion.publish(schema.id(), future).publishedVersion();
+
+        assertThat(v1.declaredSubsystems()).isEmpty();
+        assertThat(v2.declaredSubsystems()).containsExactlyInAnyOrderElementsOf(AssetType.FACTORY.subsystems());
+        var change = new ChangeSchemaApplicability(system.schemas, system.schemaApplicability, system.audit);
+
+        assertThatThrownBy(() -> change.applyTo(schema.id(), AssetType.FACTORY))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("version 1")
+                .hasMessageContaining("electrical installation")
+                .hasMessageContaining("pressure system");
+        assertThat(system.schemas.require(schema.id()).applicableAssetTypes()).containsExactly(AssetType.EQUIPMENT);
+    }
+
+    @Test
+    @DisplayName("starting an inspection refuses a frozen schema that does not evaluate every present subsystem")
+    void startingWithAnUndercoveredFrozenVersionIsRefusedBeforeMutation() {
+        InspectionSchema schema = system.createSchema.create("Generic schema", Set.of(AssetType.EQUIPMENT));
+        system.openDraft.open(schema.id());
+        system.editDraft.addSection(schema.id(), Section.of("Common", 1, DomainWorld.documentationCriterion()));
+        SchemaVersion undercovered = system.publishSchemaVersion.publish(schema.id()).publishedVersion();
+        Asset factory = system.asset("Factory", AssetType.FACTORY, owner);
+        Inspection inspection = new Inspection(InspectionId.of("undercovered-inspection"), factory.id(),
+                inspector.id(), system.clock.today());
+
+        assertThatThrownBy(() -> inspection.start(inspector.id(), undercovered,
+                factory.captureSnapshot(system.clock.now()), system.clock.now()))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("does not evaluate")
+                .hasMessageContaining("electrical installation");
+        assertThat(inspection.status().name()).isEqualTo("ASSIGNED");
+        assertThat(inspection.frozenSchemaVersionId()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("transferring applicability also protects earlier versions of the replacement schema")
+    void applicabilityTransferDoesNotExposeAnUncoveredEarlierVersion() {
+        InspectionSchema source = system.createSchema.create("Factory source",
+                Set.of(AssetType.FACTORY, AssetType.LABORATORY));
+        system.openDraft.open(source.id());
+        system.editDraft.addSection(source.id(), Section.of("Electrical", 1, DomainWorld.electricalCriterion()));
+        system.editDraft.addSection(source.id(), Section.of("Pressure", 2, DomainWorld.pressureCriterion()));
+        system.publishSchemaVersion.publish(source.id());
+
+        InspectionSchema target = system.createSchema.create("Equipment target", Set.of(AssetType.EQUIPMENT));
+        system.openDraft.open(target.id());
+        system.editDraft.addSection(target.id(), Section.of("Common", 1, DomainWorld.documentationCriterion()));
+        system.publishSchemaVersion.publish(target.id());
+        system.openDraft.open(target.id());
+        system.editDraft.addSection(target.id(), Section.of("Electrical", 2, DomainWorld.electricalCriterion()));
+        system.editDraft.addSection(target.id(), Section.of("Pressure", 3, DomainWorld.pressureCriterion()));
+        system.publishSchemaVersion.publish(target.id(), system.clock.now().plus(Duration.ofDays(10)));
+        var change = new ChangeSchemaApplicability(system.schemas, system.schemaApplicability, system.audit);
+
+        assertThatThrownBy(() -> change.transferTo(source.id(), target.id(), AssetType.FACTORY))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("version 1")
+                .hasMessageContaining("electrical installation")
+                .hasMessageContaining("pressure system");
+        assertThat(system.schemas.require(source.id()).applicableAssetTypes())
+                .containsExactlyInAnyOrder(AssetType.FACTORY, AssetType.LABORATORY);
+        assertThat(system.schemas.require(target.id()).applicableAssetTypes()).containsExactly(AssetType.EQUIPMENT);
     }
 }

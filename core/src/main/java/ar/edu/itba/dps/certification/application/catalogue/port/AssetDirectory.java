@@ -8,6 +8,9 @@ import ar.edu.itba.dps.certification.domain.shared.PartyId;
 
 public interface AssetDirectory {
 
+    /** Must be called inside the assignment transaction before checking for an open inspection. */
+    void lockForInspectionAssignment(AssetId assetId);
+
     JurisdictionId jurisdictionOf(AssetId assetId);
 
     AssetType assetTypeOf(AssetId assetId);

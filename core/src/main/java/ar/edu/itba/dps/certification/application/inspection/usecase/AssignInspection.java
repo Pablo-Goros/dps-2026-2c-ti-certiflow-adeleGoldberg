@@ -34,6 +34,7 @@ public final class AssignInspection {
     }
 
     public Inspection assign(AssetId assetId, PartyId inspector, LocalDate expectedDate) {
+        assets.lockForInspectionAssignment(assetId);
         assets.assetTypeOf(assetId);
         PartyId assignedInspector = parties.require(inspector).asInspector();
         inspections.findNonClosedByAsset(assetId).ifPresent(open -> {

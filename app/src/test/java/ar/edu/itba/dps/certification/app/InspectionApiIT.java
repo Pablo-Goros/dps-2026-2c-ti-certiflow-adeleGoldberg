@@ -158,6 +158,41 @@ class InspectionApiIT extends ApiTest {
     }
 
     @Test
+    void aKnownButInapplicableCriterionCannotBeRectifiedAndLeavesInspectionAndAuditUntouched() {
+        publishFacilitySchemaOnce();
+        String owner = organization("Owner");
+        String inspector = person("Inspector");
+        var assetBody = new HashMap<String, Object>();
+        assetBody.put("name", "Partial facility " + System.nanoTime());
+        assetBody.put("assetType", "FACILITY");
+        assetBody.put("responsibleId", owner);
+        assetBody.put("location", "Building 1");
+        assetBody.put("characteristics", Map.of("room", "3"));
+        assetBody.put("jurisdiction", "REFERENCE");
+        assetBody.put("subsystems", List.of("electrical installation", "pressure system"));
+        String assetId = api.post("/api/assets", assetBody, null).text("id");
+        String id = assigned(assetId, inspector);
+        api.post("/api/inspections/" + id + "/start", Map.of(), inspector);
+        api.put("/api/inspections/" + id + "/answers/ELEC", Fixtures.option("clean"), inspector);
+        api.put("/api/inspections/" + id + "/answers/PRES", Fixtures.option("clean"), inspector);
+        assertThat(api.post("/api/inspections/" + id + "/close", Map.of(), inspector).status()).isEqualTo(200);
+        var before = api.get("/api/inspections/" + id);
+        int auditCount = api.get("/api/audit?type=INSPECTION&id=" + id).jsonList().size();
+
+        var refused = api.post("/api/inspections/" + id + "/rectifications", Map.of(
+                "reason", "the asset has no building safety subsystem",
+                "corrections", List.of(Map.of("type", "ANSWER", "criterionId", "SAFE",
+                        "answer", Fixtures.option("clean")))), inspector);
+
+        assertThat(refused.status()).as(refused.body()).isEqualTo(422);
+        assertThat(refused.text("code")).isEqualTo("BUSINESS_RULE");
+        var after = api.get("/api/inspections/" + id);
+        assertThat(after.json().get("rectifications")).isEqualTo(before.json().get("rectifications"));
+        assertThat(criterion(after, "SAFE").get("answer")).isNull();
+        assertThat(api.get("/api/audit?type=INSPECTION&id=" + id).jsonList()).hasSize(auditCount);
+    }
+
+    @Test
     void aMeasurementOffTheDeclaredRangeIsRecordedAndComesOutRejected() {
         String inspector = person("Inspector");
         String id = assigned(laboratory(organization("Owner")), inspector);

@@ -1,0 +1,724 @@
+[
+  {
+    "method": "GET",
+    "path": "/inspections/10b4180f-caea-4c85-9ef3-32cd0a9cddf4/act",
+    "body": null,
+    "actor": null,
+    "status": 200,
+    "response": {
+      "inspectionId": "10b4180f-caea-4c85-9ef3-32cd0a9cddf4",
+      "status": "CLOSED",
+      "asset": {
+        "assetId": "ce6391ef-b655-40c2-bdf0-43fc47cfaf67",
+        "assetType": "LABORATORY",
+        "name": "Document-backed laboratory",
+        "characteristics": {},
+        "location": "Audit laboratory",
+        "responsible": {
+          "partyId": "a2a575b5-48a9-4a6f-97e0-160c4aeb1fa5",
+          "displayName": "Audit owner"
+        },
+        "subsystems": [],
+        "capturedAt": "2026-10-11T15:00:00Z",
+        "jurisdiction": "REFERENCE"
+      },
+      "inspector": "e274fb43-770d-49da-acc2-234cdba8ca84",
+      "expectedDate": "2026-10-11",
+      "startedAt": "2026-10-11T15:00:00Z",
+      "closedAt": "2026-10-11T15:00:00Z",
+      "schemaVersionId": {
+        "schemaId": "bfac6e68-7743-4ea6-87da-f01e11a7111a",
+        "number": 1
+      },
+      "sections": [
+        {
+          "name": "Audit checks",
+          "lines": [
+            {
+              "criterionId": "DOC",
+              "applicable": true,
+              "answer": {
+                "type": "Original",
+                "value": "hazardous"
+              },
+              "evidenceReferences": [
+                {
+                  "type": "Original",
+                  "value": "audit://manual"
+                }
+              ],
+              "missingEvidence": [],
+              "result": {
+                "type": "Original",
+                "value": "REJECTED"
+              },
+              "severity": "HIGH",
+              "reasons": [
+                "rejected"
+              ]
+            }
+          ]
+        }
+      ],
+      "notes": [
+        {
+          "criterionId": "DOC",
+          "text": {
+            "type": "Original",
+            "value": "Original observation"
+          },
+          "author": "e274fb43-770d-49da-acc2-234cdba8ca84",
+          "recordedAt": "2026-10-11T15:00:00Z"
+        }
+      ],
+      "rectifications": []
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/inspections/10b4180f-caea-4c85-9ef3-32cd0a9cddf4/act",
+    "body": null,
+    "actor": null,
+    "status": 200,
+    "response": {
+      "inspectionId": "10b4180f-caea-4c85-9ef3-32cd0a9cddf4",
+      "status": "CLOSED",
+      "asset": {
+        "assetId": "ce6391ef-b655-40c2-bdf0-43fc47cfaf67",
+        "assetType": "LABORATORY",
+        "name": "Document-backed laboratory",
+        "characteristics": {},
+        "location": "Audit laboratory",
+        "responsible": {
+          "partyId": "a2a575b5-48a9-4a6f-97e0-160c4aeb1fa5",
+          "displayName": "Audit owner"
+        },
+        "subsystems": [],
+        "capturedAt": "2026-10-11T15:00:00Z",
+        "jurisdiction": "REFERENCE"
+      },
+      "inspector": "e274fb43-770d-49da-acc2-234cdba8ca84",
+      "expectedDate": "2026-10-11",
+      "startedAt": "2026-10-11T15:00:00Z",
+      "closedAt": "2026-10-11T15:00:00Z",
+      "schemaVersionId": {
+        "schemaId": "bfac6e68-7743-4ea6-87da-f01e11a7111a",
+        "number": 1
+      },
+      "sections": [
+        {
+          "name": "Audit checks",
+          "lines": [
+            {
+              "criterionId": "DOC",
+              "applicable": true,
+              "answer": {
+                "type": "Rectified",
+                "originalValue": "hazardous",
+                "correctedValue": "clean",
+                "rectificationId": "c89786b2-4607-4585-bff1-e2943c333ce2",
+                "reason": "Correct mistaken option"
+              },
+              "evidenceReferences": [
+                {
+                  "type": "Original",
+                  "value": "audit://manual"
+                }
+              ],
+              "missingEvidence": [],
+              "result": {
+                "type": "Rectified",
+                "originalValue": "REJECTED",
+                "correctedValue": "APPROVED",
+                "rectificationId": "c89786b2-4607-4585-bff1-e2943c333ce2",
+                "reason": "re-evaluated after a rectification"
+              },
+              "severity": null,
+              "reasons": []
+            }
+          ]
+        }
+      ],
+      "notes": [
+        {
+          "criterionId": "DOC",
+          "text": {
+            "type": "Original",
+            "value": "Original observation"
+          },
+          "author": "e274fb43-770d-49da-acc2-234cdba8ca84",
+          "recordedAt": "2026-10-11T15:00:00Z"
+        }
+      ],
+      "rectifications": [
+        {
+          "id": "c89786b2-4607-4585-bff1-e2943c333ce2",
+          "author": "e274fb43-770d-49da-acc2-234cdba8ca84",
+          "performedAt": "2026-10-11T15:00:00Z",
+          "reason": "Correct mistaken option",
+          "changes": [
+            "answer of DOC: hazardous -> clean"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/inspections/10b4180f-caea-4c85-9ef3-32cd0a9cddf4/rectifications",
+    "body": {
+      "reason": "Correct mistaken option",
+      "corrections": [
+        {
+          "type": "ANSWER",
+          "criterionId": "DOC",
+          "answer": {
+            "type": "OPTION",
+            "option": "clean"
+          }
+        }
+      ]
+    },
+    "actor": "e274fb43-770d-49da-acc2-234cdba8ca84",
+    "status": 201,
+    "response": {
+      "id": "10b4180f-caea-4c85-9ef3-32cd0a9cddf4",
+      "assetId": "ce6391ef-b655-40c2-bdf0-43fc47cfaf67",
+      "inspectorId": "e274fb43-770d-49da-acc2-234cdba8ca84",
+      "expectedDate": "2026-10-11",
+      "status": "CLOSED",
+      "schemaVersion": "bfac6e68-7743-4ea6-87da-f01e11a7111a#v1",
+      "startedAt": "2026-10-11T15:00:00Z",
+      "closedAt": "2026-10-11T15:00:00Z",
+      "subsystems": [],
+      "criteria": [
+        {
+          "criterionId": "DOC",
+          "section": "Audit checks",
+          "subsystem": null,
+          "applicable": true,
+          "answer": {
+            "type": "OPTION",
+            "affirmative": null,
+            "option": "clean",
+            "value": null,
+            "unit": null
+          },
+          "evidence": [
+            {
+              "id": "51623331-a89c-4a9e-aa1b-06c8dd88f936",
+              "requirementLabel": "manual",
+              "type": "DOCUMENT",
+              "reference": "audit://manual",
+              "attachedAt": "2026-10-11T15:00:00Z"
+            }
+          ],
+          "evaluation": {
+            "result": "APPROVED",
+            "severity": null,
+            "reasons": [],
+            "fromRectification": true
+          }
+        }
+      ],
+      "notes": [
+        {
+          "id": "676fb5ec-595d-4ba3-9795-a3d5260c6837",
+          "criterionId": "DOC",
+          "text": "Original observation",
+          "authorId": "e274fb43-770d-49da-acc2-234cdba8ca84",
+          "recordedAt": "2026-10-11T15:00:00Z"
+        }
+      ],
+      "rectifications": [
+        {
+          "id": "c89786b2-4607-4585-bff1-e2943c333ce2",
+          "author": "e274fb43-770d-49da-acc2-234cdba8ca84",
+          "performedAt": "2026-10-11T15:00:00Z",
+          "reason": "Correct mistaken option",
+          "changes": [
+            {
+              "type": "AnswerCorrected",
+              "criterionId": "DOC",
+              "previousValue": "hazardous",
+              "currentValue": "clean"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/schemas/3c651a5d-02ab-4d85-9353-0f7fda4c67ff/effective-version?at=2026-10-12T14:59:59.999999999Z",
+    "body": null,
+    "actor": null,
+    "status": 200,
+    "response": {
+      "id": "3c651a5d-02ab-4d85-9353-0f7fda4c67ff#v1",
+      "number": 1,
+      "publishedAt": "2026-10-11T15:00:00Z",
+      "effectiveFrom": "2026-10-11T15:00:00Z",
+      "sections": [
+        {
+          "name": "Audit checks",
+          "order": 1,
+          "criteria": [
+            {
+              "id": "HK",
+              "rule": {
+                "type": "OPTIONS",
+                "yes": null,
+                "no": null,
+                "options": {
+                  "clean": {
+                    "code": "APPROVED",
+                    "result": "APPROVED",
+                    "severity": null,
+                    "description": "approved"
+                  },
+                  "hazardous": {
+                    "code": "REJECTED",
+                    "result": "REJECTED",
+                    "severity": "HIGH",
+                    "description": "rejected"
+                  },
+                  "untidy": {
+                    "code": "OBSERVED",
+                    "result": "OBSERVED",
+                    "severity": "MEDIUM",
+                    "description": "observed"
+                  }
+                },
+                "unit": null,
+                "minimum": null,
+                "maximum": null,
+                "bands": null
+              },
+              "subsystem": null,
+              "evidence": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/schemas/3c651a5d-02ab-4d85-9353-0f7fda4c67ff/effective-version?at=2026-10-12T15:00:00Z",
+    "body": null,
+    "actor": null,
+    "status": 200,
+    "response": {
+      "id": "3c651a5d-02ab-4d85-9353-0f7fda4c67ff#v2",
+      "number": 2,
+      "publishedAt": "2026-10-11T15:00:00Z",
+      "effectiveFrom": "2026-10-12T15:00:00Z",
+      "sections": [
+        {
+          "name": "Audit checks",
+          "order": 1,
+          "criteria": [
+            {
+              "id": "NEW",
+              "rule": {
+                "type": "OPTIONS",
+                "yes": null,
+                "no": null,
+                "options": {
+                  "clean": {
+                    "code": "APPROVED",
+                    "result": "APPROVED",
+                    "severity": null,
+                    "description": "approved"
+                  },
+                  "hazardous": {
+                    "code": "REJECTED",
+                    "result": "REJECTED",
+                    "severity": "HIGH",
+                    "description": "rejected"
+                  },
+                  "untidy": {
+                    "code": "OBSERVED",
+                    "result": "OBSERVED",
+                    "severity": "MEDIUM",
+                    "description": "observed"
+                  }
+                },
+                "unit": null,
+                "minimum": null,
+                "maximum": null,
+                "bands": null
+              },
+              "subsystem": null,
+              "evidence": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/schemas/3c651a5d-02ab-4d85-9353-0f7fda4c67ff/effective-version?at=2026-10-12T15:00:00.000000001Z",
+    "body": null,
+    "actor": null,
+    "status": 200,
+    "response": {
+      "id": "3c651a5d-02ab-4d85-9353-0f7fda4c67ff#v2",
+      "number": 2,
+      "publishedAt": "2026-10-11T15:00:00Z",
+      "effectiveFrom": "2026-10-12T15:00:00Z",
+      "sections": [
+        {
+          "name": "Audit checks",
+          "order": 1,
+          "criteria": [
+            {
+              "id": "NEW",
+              "rule": {
+                "type": "OPTIONS",
+                "yes": null,
+                "no": null,
+                "options": {
+                  "clean": {
+                    "code": "APPROVED",
+                    "result": "APPROVED",
+                    "severity": null,
+                    "description": "approved"
+                  },
+                  "hazardous": {
+                    "code": "REJECTED",
+                    "result": "REJECTED",
+                    "severity": "HIGH",
+                    "description": "rejected"
+                  },
+                  "untidy": {
+                    "code": "OBSERVED",
+                    "result": "OBSERVED",
+                    "severity": "MEDIUM",
+                    "description": "observed"
+                  }
+                },
+                "unit": null,
+                "minimum": null,
+                "maximum": null,
+                "bands": null
+              },
+              "subsystem": null,
+              "evidence": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/schemas/3c651a5d-02ab-4d85-9353-0f7fda4c67ff/effective-version?at=bad",
+    "body": null,
+    "actor": null,
+    "status": 400,
+    "response": {
+      "status": 400,
+      "code": "INVALID_INPUT",
+      "message": "'at' must be an ISO-8601 instant such as 2030-01-01T00:00:00Z",
+      "details": [],
+      "timestamp": "2026-10-11T14:04:16.518595700Z"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/schemas/3c651a5d-02ab-4d85-9353-0f7fda4c67ff/effective-version?at=2000-01-01T00:00:00Z",
+    "body": null,
+    "actor": null,
+    "status": 404,
+    "response": {
+      "status": 404,
+      "code": "NOT_FOUND",
+      "message": "schema 3c651a5d-02ab-4d85-9353-0f7fda4c67ff had no version in force at 2000-01-01T00:00:00Z",
+      "details": [],
+      "timestamp": "2026-10-11T14:04:16.538931600Z"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/inspections/0f3084c7-5ad5-485e-a73c-553e1b70e1be/start",
+    "body": {},
+    "actor": "e274fb43-770d-49da-acc2-234cdba8ca84",
+    "status": 200,
+    "response": {
+      "id": "0f3084c7-5ad5-485e-a73c-553e1b70e1be",
+      "assetId": "2afb80f7-61fb-4889-89e4-d924a7ed526c",
+      "inspectorId": "e274fb43-770d-49da-acc2-234cdba8ca84",
+      "expectedDate": "2026-10-11",
+      "status": "IN_PROGRESS",
+      "schemaVersion": "3c651a5d-02ab-4d85-9353-0f7fda4c67ff#v1",
+      "startedAt": "2026-10-12T14:59:59.999999999Z",
+      "closedAt": null,
+      "subsystems": [],
+      "criteria": [
+        {
+          "criterionId": "HK",
+          "section": "Audit checks",
+          "subsystem": null,
+          "applicable": true,
+          "answer": null,
+          "evidence": [],
+          "evaluation": null
+        }
+      ],
+      "notes": [],
+      "rectifications": []
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/inspections/0044cc4a-f124-4703-a3dc-7997a0638f5f/start",
+    "body": {},
+    "actor": "e274fb43-770d-49da-acc2-234cdba8ca84",
+    "status": 200,
+    "response": {
+      "id": "0044cc4a-f124-4703-a3dc-7997a0638f5f",
+      "assetId": "be735f9b-4b5d-4cfc-8af8-4d6a92121061",
+      "inspectorId": "e274fb43-770d-49da-acc2-234cdba8ca84",
+      "expectedDate": "2026-10-11",
+      "status": "IN_PROGRESS",
+      "schemaVersion": "3c651a5d-02ab-4d85-9353-0f7fda4c67ff#v2",
+      "startedAt": "2026-10-12T15:00:00Z",
+      "closedAt": null,
+      "subsystems": [],
+      "criteria": [
+        {
+          "criterionId": "NEW",
+          "section": "Audit checks",
+          "subsystem": null,
+          "applicable": true,
+          "answer": null,
+          "evidence": [],
+          "evaluation": null
+        }
+      ],
+      "notes": [],
+      "rectifications": []
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/inspections/c9d9a6b3-d18f-49a7-bb90-8c9cbad113cc/start",
+    "body": {},
+    "actor": "e274fb43-770d-49da-acc2-234cdba8ca84",
+    "status": 200,
+    "response": {
+      "id": "c9d9a6b3-d18f-49a7-bb90-8c9cbad113cc",
+      "assetId": "9028fd5e-620b-4d51-857e-b1ee5fb037d1",
+      "inspectorId": "e274fb43-770d-49da-acc2-234cdba8ca84",
+      "expectedDate": "2026-10-11",
+      "status": "IN_PROGRESS",
+      "schemaVersion": "3c651a5d-02ab-4d85-9353-0f7fda4c67ff#v2",
+      "startedAt": "2026-10-12T15:00:00.000000001Z",
+      "closedAt": null,
+      "subsystems": [],
+      "criteria": [
+        {
+          "criterionId": "NEW",
+          "section": "Audit checks",
+          "subsystem": null,
+          "applicable": true,
+          "answer": null,
+          "evidence": [],
+          "evaluation": null
+        }
+      ],
+      "notes": [],
+      "rectifications": []
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/inspections/d9d03099-99b0-472a-ba8d-9ad08e3acb45/eligibility?subsystem=pressure%20system",
+    "body": null,
+    "actor": null,
+    "status": 200,
+    "response": {
+      "inspectionId": "d9d03099-99b0-472a-ba8d-9ad08e3acb45",
+      "scope": {
+        "type": "Partial",
+        "subsystem": "pressure system"
+      },
+      "evaluatedAt": "2026-10-24T00:30:00Z",
+      "policy": {
+        "reference": {
+          "jurisdiction": "REFERENCE",
+          "policyId": "reference",
+          "revision": 1
+        },
+        "blockingSeverities": [],
+        "allowsConditional": true,
+        "regularDuration": "P12M",
+        "conditionalDuration": "P12M",
+        "restrictions": [
+          "REJECTIONS_MUST_BE_CORRECTED"
+        ]
+      },
+      "blockers": [
+        {
+          "type": "OverdueOpenAction",
+          "count": 1
+        }
+      ],
+      "mode": null
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/inspections/10b4180f-caea-4c85-9ef3-32cd0a9cddf4/certificates/renewal",
+    "body": {},
+    "actor": null,
+    "status": 422,
+    "response": {
+      "status": 422,
+      "code": "BUSINESS_RULE",
+      "message": "certificate 24e985a2-40f3-4341-a427-0d0aa0728440 has not expired yet, so it cannot be renewed",
+      "details": [],
+      "timestamp": "2026-10-11T14:04:16.194255300Z"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/inspections/0228fb25-3b99-4f9c-a4c4-58c2152a4ff3/certificates/renewal",
+    "body": {},
+    "actor": null,
+    "status": 201,
+    "response": {
+      "outcome": "ISSUED",
+      "certificate": {
+        "id": "e8ba80c3-f449-4d01-9c05-1cd6fdfe935c",
+        "assetId": "ce6391ef-b655-40c2-bdf0-43fc47cfaf67",
+        "backingInspectionId": "0228fb25-3b99-4f9c-a4c4-58c2152a4ff3",
+        "schemaVersion": "bfac6e68-7743-4ea6-87da-f01e11a7111a#v1",
+        "scope": "GLOBAL",
+        "subsystem": null,
+        "status": "VALID",
+        "mode": "REGULAR",
+        "issuedAt": "2027-10-11T15:00:00Z",
+        "expiresAt": "2028-10-11T15:00:00Z",
+        "previousCertificateId": "24e985a2-40f3-4341-a427-0d0aa0728440",
+        "policy": {
+          "reference": {
+            "jurisdiction": "REFERENCE",
+            "policyId": "reference",
+            "revision": 1
+          },
+          "blockingSeverities": [],
+          "allowsConditional": true,
+          "regularDuration": "P12M",
+          "conditionalDuration": "P12M",
+          "restrictions": [
+            "REJECTIONS_MUST_BE_CORRECTED"
+          ]
+        },
+        "suspensions": [],
+        "unresolvedCauses": []
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/inspections/0228fb25-3b99-4f9c-a4c4-58c2152a4ff3/certificates/renewal",
+    "body": {},
+    "actor": null,
+    "status": 200,
+    "response": {
+      "outcome": "ALREADY_ISSUED",
+      "detail": {
+        "type": "AlreadyIssued",
+        "certificateId": "e8ba80c3-f449-4d01-9c05-1cd6fdfe935c",
+        "status": "VALID",
+        "policy": {
+          "reference": {
+            "jurisdiction": "REFERENCE",
+            "policyId": "reference",
+            "revision": 1
+          },
+          "blockingSeverities": [],
+          "allowsConditional": true,
+          "regularDuration": "P12M",
+          "conditionalDuration": "P12M",
+          "restrictions": [
+            "REJECTIONS_MUST_BE_CORRECTED"
+          ]
+        },
+        "mode": "REGULAR"
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/outbox/retry-dead",
+    "body": {},
+    "actor": null,
+    "status": 200,
+    "response": {
+      "revived": 0,
+      "delivered": 0
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/jobs/run",
+    "body": {},
+    "actor": null,
+    "status": 200,
+    "response": {
+      "expiredCertificates": 0,
+      "expiredActions": 0,
+      "deliveredEvents": 0
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/findings/1dc32a17-7b0e-4b34-85a6-259423bc99ef",
+    "body": null,
+    "actor": null,
+    "status": 200,
+    "response": {
+      "id": "1dc32a17-7b0e-4b34-85a6-259423bc99ef",
+      "inspectionId": "d9d03099-99b0-472a-ba8d-9ad08e3acb45",
+      "criterionId": "P1",
+      "assetId": "a79017da-ea81-4477-811b-371faee776a0",
+      "inspectorId": "e274fb43-770d-49da-acc2-234cdba8ca84",
+      "responsibleId": "a2a575b5-48a9-4a6f-97e0-160c4aeb1fa5",
+      "result": "OBSERVED",
+      "severity": "MEDIUM",
+      "reasons": [
+        "observed"
+      ],
+      "presentedEvidence": [],
+      "missingEvidence": [],
+      "createdAt": "2026-10-23T15:00:00Z",
+      "obligationVoided": false,
+      "voided": null,
+      "pendingNonConformity": true,
+      "correctiveActions": [
+        {
+          "id": "e6b19ea1-cdd1-4796-90cb-30c80378634f",
+          "status": "PLANNED",
+          "planningDueDate": "2026-11-22",
+          "deadline": "2026-10-23",
+          "plan": {
+            "work": "Restore conformity",
+            "executor": "a8fb2799-5ce0-4896-9ba9-6a6e6a72133d",
+            "dueDate": "2026-10-23"
+          },
+          "executions": [],
+          "verifications": [],
+          "closedAt": null,
+          "deadlineBreached": false,
+          "blocksCertification": true,
+          "voided": null
+        }
+      ]
+    }
+  }
+]

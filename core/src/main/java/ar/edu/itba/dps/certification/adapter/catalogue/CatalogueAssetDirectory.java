@@ -21,6 +21,11 @@ public final class CatalogueAssetDirectory implements AssetDirectory {
     }
 
     @Override
+    public void lockForInspectionAssignment(AssetId assetId) {
+        assets.lockForInspectionAssignment(assetId);
+    }
+
+    @Override
     public JurisdictionId jurisdictionOf(AssetId assetId) {
         return assets.require(assetId).jurisdiction();
     }

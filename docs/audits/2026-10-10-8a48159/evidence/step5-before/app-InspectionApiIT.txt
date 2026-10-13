@@ -1,0 +1,11 @@
+-------------------------------------------------------------------------------
+Test set: ar.edu.itba.dps.certification.app.InspectionApiIT
+-------------------------------------------------------------------------------
+Tests run: 6, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 2.692 s <<< FAILURE! -- in ar.edu.itba.dps.certification.app.InspectionApiIT
+ar.edu.itba.dps.certification.app.InspectionApiIT.aKnownButInapplicableCriterionCannotBeRectifiedAndLeavesInspectionAndAuditUntouched -- Time elapsed: 0.161 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: 
+[{"status":500,"code":"INTERNAL_ERROR","message":"unexpected error","details":[],"timestamp":"2026-10-11T14:22:02.969892Z"}] 
+expected: 422
+ but was: 500
+	at ar.edu.itba.dps.certification.app.InspectionApiIT.aKnownButInapplicableCriterionCannotBeRectifiedAndLeavesInspectionAndAuditUntouched(InspectionApiIT.java:140)
+

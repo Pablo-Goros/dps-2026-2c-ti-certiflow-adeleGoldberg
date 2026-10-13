@@ -1,0 +1,13 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 333c8d2..303cb3f 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -39,6 +39,8 @@ proves correctness.
+ 
+ - Establish review scope: working changes, a commit range, or the complete system.
+   Review requests produce findings; modify code when fixes are requested.
++- For a complete system audit, follow `docs/system-audit-plan.md` for the pass
++  sequence, report locations, evidence formats, and session handoffs.
+ - For a system review, trace both deliveries' requirements through implementation,
+   tests, persistence, API, and frontend. A passing suite is evidence, not proof of
+   requirement completeness. Distinguish missing coverage from confirmed defects.

@@ -1,0 +1,19 @@
+Read-only unauthenticated GitHub API checks at 2026-10-10T19:09:12.6892247-03:00
+repos/Pablo-Goros/dps_tp2 HTTP 0
+
+repos/Pablo-Goros/dps_tp2/branches/main/protection HTTP 401
+{ "message": "Requires authentication", "documentation_url": "https://docs.github.com/rest", "status": "401" }
+repos/Pablo-Goros/dps_tp2/rulesets HTTP 0
+
+Retry with UseBasicParsing at 2026-10-10T19:09:32.4380647-03:00
+repos/Pablo-Goros/dps_tp2 HTTP 200 full_name=Pablo-Goros/dps-2026-2c-ti-certiflow-adeleGoldberg default_branch=main html_url=https://github.com/Pablo-Goros/dps-2026-2c-ti-certiflow-adeleGoldberg
+repos/Pablo-Goros/dps_tp2/branches/main HTTP 200
+{"name": "main", "commit_sha": "f85a3537335bc7fcdc1e1f9c4b40065c3035594f", "protected": true, "legacy_protection_summary": {"enabled": false, "required_status_checks": {"enforcement_level": "off", "contexts": [], "checks": []}}}
+repos/Pablo-Goros/dps_tp2/branches/main/protection HTTP 401
+{
+  "message": "Requires authentication",
+  "documentation_url": "https://docs.github.com/rest",
+  "status": "401"
+}
+repos/Pablo-Goros/dps_tp2/rulesets HTTP 200
+[{"id":24847806,"name":"Main Protection","target":"branch","source_type":"Repository","source":"Pablo-Goros/dps-2026-2c-ti-certiflow-adeleGoldberg","enforcement":"active","node_id":"RRS_lACqUmVwb3NpdG9yec5RPj7rzgF7Jb4","_links":{"self":{"href":"https://api.github.com/repos/Pablo-Goros/dps-2026-2c-ti-certiflow-adeleGoldberg/rulesets/24847806"},"html":{"href":"https://github.com/Pablo-Goros/dps-2026-2c-ti-certiflow-adeleGoldberg/rules/24847806"}},"created_at":"2026-10-10T17:44:48.004Z","updated_at":"2026-10-10T17:44:48.077Z"}]

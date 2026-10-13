@@ -140,6 +140,13 @@ hermana de que el esquema destino tenga una versión publicada. Validarla solo a
 abierta la vía de la aplicabilidad, porque la versión publicada es inmutable y nadie la vuelve a
 revisar.
 
+Al agregar o transferir aplicabilidad se comprueban **todas** las versiones publicadas, incluidas las
+programadas para una fecha futura: cada una podría ser seleccionada al iniciar una inspección.
+`StartInspection` vuelve a comprobar que la versión congelada cubra todas las partes presentes antes
+de cambiar el estado. La emisión también falla de forma cerrada si encuentra una inspección histórica
+cuya versión no cubre sus partes. Estas defensas no reescriben versiones, inspecciones ni certificados
+existentes; los certificados ya guardados conservan su snapshot.
+
 ## 4. Estrategias de evaluación y carga progresiva
 
 **Decisiones adoptadas.** Cada criterio pertenece a una sección y tiene una regla de rango numérico, sí/no u opciones con resultado asignado, además de requisitos de evidencia. La severidad depende del resultado concreto. Antes de publicar se exige un resultado único para toda respuesta admitida; las bandas numéricas declaran unidad y límites sin huecos ni superposiciones, y además qué significa una medición que cae fuera del rango declarado (D31, sección 19).
@@ -177,6 +184,11 @@ aplicabilidad es un dato del registro.
 Confirmar el plan corresponde al responsable del hallazgo, como establece RF8: `Finding.planCorrection` recibe a quien planifica y rechaza a cualquier otra parte. Del mismo modo, `Inspection` exige que inicio, carga, corrección previa al cierre, cierre y rectificación los realice el inspector asignado; la regla vive en la raíz y no en los casos de uso, por lo que una llamada directa al agregado tampoco la saltea. La asignación y la reasignación exigen que el inspector sea una persona registrada (`Party.asInspector`): una organización o un identificador inexistente dejaban una inspección que nadie podía ejecutar.
 
 Una acción dispone de 30 días corridos desde su creación para planificarse, usando la fecha UTC del hecho. Este valor es una decisión de implementación para cerrar el hueco identificado por el informe, no un plazo impuesto por la consigna. Antes de confirmar el plan se compara su fecha límite con `Clock.today()`: puede ser hoy, nunca anterior. La fecha límite es inclusiva. Una planificación tardía conserva el incumplimiento del plazo de planificación, incluso si todavía no se ejecutó el barrido, y este emite el evento de vencimiento una sola vez. Los informes incluyen tanto el plazo de planificación como el plazo de corrección confirmado.
+
+Las comparaciones operativas de la fecha límite usan la fecha de negocio de `Clock` en la zona
+configurada y derivada del mismo `Instant` capturado por la operación. Planificación, elegibilidad,
+reacciones a eventos, vencimiento y verificación comparten esa fecha; así el instante UTC y la fecha
+local no pueden discrepar durante el día local del vencimiento.
 
 Cumplir el plazo exige verificación satisfactoria y cierre antes del vencimiento. Una acción vencida admite ejecución y verificación tardías, pero conserva el incumplimiento del plazo incluso después de cerrarse. El plan se modela como datos de la acción, sin exigir un documento independiente.
 
@@ -483,6 +495,11 @@ primaria de `schema_applicability.asset_type`) y un certificado por inspección 
 se traduce a `DuplicateKeyException`. Esto cubre la "unicidad concurrente" que la sección 12
 dejaba pendiente.
 
+La asignación serializa la comprobación de inspección abierta mediante un bloqueo de la fila del
+activo (`SELECT ... FOR UPDATE`) dentro de la misma transacción. Cada instancia de la aplicación
+coordina así las asignaciones del mismo activo antes de consultar inspecciones abiertas y guardar la
+nueva. No requiere una migración ni altera las inspecciones históricas.
+
 **Cómo se prueba.** Las pruebas de repositorio usan H2 real, no mocks. `RepositoryParityIT` ejecuta
 el mismo escenario sobre los repositorios JDBC y sobre los en memoria (que actúan como oráculo) y
 compara resultados; `JdbcTransactionsIT` cubre commit, rollback, anidamiento, mapa de identidad y
@@ -592,6 +609,10 @@ certificados, vencimiento de acciones correctivas y publicación de eventos pend
 - Una pasada entrega cada evento a lo sumo una vez; el reintento lo hace la tarea programada
   (cada 5 s), no un bucle inmediato. Un `ReentrantLock` evita despachos simultáneos dentro de la JVM y el
   reclamo condicional protege aun si hubiera varios despachadores.
+- Cada pasada fija su secuencia máxima al comenzar y recorre las filas pendientes con un cursor
+  creciente. Una fila fallida no vuelve a entrar en el mismo lote y tampoco oculta eventos sanos que
+  estén después de las primeras 50 filas. El registro del fallo solo actualiza una fila que todavía
+  esté `PENDING`; si otro despachador ya la completó, `DONE` permanece terminal.
 - Un manejador que falla *no deshace la petición* que originó el evento (a diferencia del publicador
   síncrono anterior) y el evento no se pierde.
 - `MaintenanceJobs.runAll()` ejecuta en orden: acciones vencidas, despacho, certificados vencidos,
@@ -627,7 +648,8 @@ REST y que Spring Boot sirve en `/`. El build de Maven instala su propio Node (`
 tests del front, compila y deja el resultado en `target/classes/static`: una sola orden (`mvn verify`) y un solo
 jar ejecutable. Cubre el flujo completo: personas, activos, esquemas (con editor de secciones, criterios, reglas y
 evidencia, publicación inmediata o programada: F2), inspecciones (responder, adjuntar evidencia, notas, cerrar),
-hallazgos y acciones correctivas (planificar, ejecutar, verificar), certificación global y por subsistema (F1)
+rectificación auditable de inspecciones cerradas y consulta de su acta, hallazgos y acciones correctivas
+(planificar, ejecutar, verificar), certificación global y por subsistema (F1)
 con los bloqueos de la política jurisdiccional (F3), certificados con su informe, auditoría y procesos.
 
 **Archivos agregados.** `app/frontend/**` (`src/lib`: cliente HTTP, tipos del contrato, etiquetas, formatos, conversión
@@ -650,14 +672,13 @@ entrega la página y sus recursos). **Modificados:** `app/pom.xml` (plugin del f
 
 **Refactorizaciones.** Ninguna en el núcleo ni en la API.
 
-**Pruebas.** Vitest (20): cliente HTTP, conversión de formularios de reglas (regla de opciones, tramos numéricos,
-secciones), formatos y etiquetas. `FrontendIT` (3): la página, sus scripts y la API conviven. Además se recorrió el
-flujo completo en un navegador real contra una imitación del contrato (esa imitación no se incluye en el repositorio).
+**Pruebas.** Vitest cubre el cliente HTTP, conversión de formularios de reglas, formatos, etiquetas, rectificación y
+acta de inspección, cierre con datos faltantes y certificación por partes. `FrontendIT` verifica que la página, sus
+recursos y la API conviven. No hay una prueba automatizada del flujo completo en un navegador real.
 
 **Deuda técnica deliberada.**
-- *Sin pruebas de componentes ni de extremo a extremo versionadas;* la interfaz se probó a mano y con un recorrido
-  automatizado que no forma parte del repositorio.
-- *La interfaz no cubre* la rectificación de inspecciones, la reasignación de inspector, la transferencia de
+- *Sin prueba automatizada de extremo a extremo en navegador real.* Las pruebas de componentes usan Vitest y jsdom.
+- *La interfaz no cubre* la reasignación de inspector, la transferencia de
   aplicabilidad entre esquemas ni la consulta de versiones por número (están en la API).
 - *Textos de dominio en inglés:* los nombres de subsistemas y características, y los mensajes de error y de motivos
   que arma el núcleo, se muestran como llegan; un diccionario (`labels.ts`) traduce los conocidos y el resto se

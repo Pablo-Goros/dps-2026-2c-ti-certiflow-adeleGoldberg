@@ -1,0 +1,34 @@
+-------------------------------------------------------------------------------
+Test set: ar.edu.itba.dps.certification.PartialCertificationIT
+-------------------------------------------------------------------------------
+Tests run: 29, Failures: 1, Errors: 1, Skipped: 0, Time elapsed: 0.461 s <<< FAILURE! -- in ar.edu.itba.dps.certification.PartialCertificationIT
+ar.edu.itba.dps.certification.PartialCertificationIT.rectificationOfAnInapplicableCriterionDoesNotMutateTheInspection -- Time elapsed: 0.033 s <<< FAILURE!
+java.lang.AssertionError: 
+
+Expecting actual throwable to be an instance of:
+  ar.edu.itba.dps.certification.domain.shared.DomainException
+but was:
+  java.util.NoSuchElementException: No value present
+	at java.base/java.util.Optional.orElseThrow(Optional.java:381)
+	at ar.edu.itba.dps.certification.domain.inspection.Inspection.rectify(Inspection.java:263)
+	at ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection.rectify(RectifyClosedInspection.java:56)
+	...(77 remaining lines not displayed - this can be changed with Assertions.setMaxStackTraceElementsDisplayed)
+	at ar.edu.itba.dps.certification.PartialCertificationIT.rectificationOfAnInapplicableCriterionDoesNotMutateTheInspection(PartialCertificationIT.java:207)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+
+ar.edu.itba.dps.certification.PartialCertificationIT.correctiveActionDeadlineUsesTheConfiguredCalendarDate -- Time elapsed: 0.009 s <<< ERROR!
+ar.edu.itba.dps.certification.domain.shared.DomainException: correction deadline cannot precede planning date
+	at ar.edu.itba.dps.certification.domain.shared.Validate.ensure(Validate.java:57)
+	at ar.edu.itba.dps.certification.domain.finding.CorrectiveAction.confirmPlan(CorrectiveAction.java:92)
+	at ar.edu.itba.dps.certification.domain.finding.Finding.planCorrection(Finding.java:222)
+	at ar.edu.itba.dps.certification.application.finding.usecase.PlanCorrectiveAction.plan(PlanCorrectiveAction.java:39)
+	at ar.edu.itba.dps.certification.support.FullSystem.lambda$planAsResponsible$0(FullSystem.java:164)
+	at ar.edu.itba.dps.certification.support.FullSystem.actingAs(FullSystem.java:171)
+	at ar.edu.itba.dps.certification.support.FullSystem.planAsResponsible(FullSystem.java:164)
+	at ar.edu.itba.dps.certification.PartialCertificationIT.correctiveActionDeadlineUsesTheConfiguredCalendarDate(PartialCertificationIT.java:177)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+

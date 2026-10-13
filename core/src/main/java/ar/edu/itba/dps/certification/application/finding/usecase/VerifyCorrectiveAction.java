@@ -38,7 +38,7 @@ public final class VerifyCorrectiveAction {
         Finding finding = findings.require(findingId);
         Instant at = clock.now();
         boolean closed = finding.concludeCorrection(
-                new Verification(satisfactory, reason, actor, at), clock.today());
+                new Verification(satisfactory, reason, actor, at), clock.today(at));
         findings.save(finding);
         audit.recordAs(actingUser, AuditedElementRef.correctiveAction(finding.correctiveAction().id().value()),
                 AuditAction.CORRECTIVE_ACTION_VERIFIED,

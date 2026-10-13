@@ -1,0 +1,34 @@
+{
+  "start": "2026-10-11T11:08:37.865129-03:00",
+  "command": "python target/audit-evidence/2026-10-10-8a48159/step4_check.py",
+  "workingDirectory": "C:\\Users\\Mateo\\Documents\\Projects\\tps\\dps_tp2",
+  "HEAD": "0b747c473f3ba6915ccaa3eb7754ec6e8693de43",
+  "applicationBuildContractRequirementsCIDiff": "empty",
+  "jarSHA256": "91a192ed7dea02a09f3dca1a96ff4c8f73281a714ec132d535872dee11beb076",
+  "findings": 15,
+  "step4Scenarios": {
+    "Passed": 18,
+    "Failed": 7,
+    "Unverified": 6,
+    "total": 31
+  },
+  "requirements": {
+    "Satisfied": 97,
+    "Partial": 11,
+    "Ambiguous": 2,
+    "Unverified": 3,
+    "total": 113
+  },
+  "workingChanges": "audit documents and audit-only evidence",
+  "CI": "active main PR ruleset requires Build and test; public rule HTTP 200",
+  "finalRuns": [
+    "027-step4-packaged",
+    "030-step4-controlled"
+  ],
+  "browser": "bootstrap rejected twice before code execution; Unverified",
+  "suiteValidation": "full run 002 reused for unchanged sources/artifact; no current test count claimed",
+  "relativeFileLinksChecked": 736,
+  "probeProcesses": "none",
+  "end": "2026-10-11T11:08:39.119154-03:00",
+  "exit": 0
+}

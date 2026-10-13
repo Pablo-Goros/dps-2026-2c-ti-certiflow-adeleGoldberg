@@ -1,0 +1,24 @@
+-------------------------------------------------------------------------------
+Test set: ar.edu.itba.dps.certification.infrastructure.events.OutboxIT
+-------------------------------------------------------------------------------
+Tests run: 8, Failures: 2, Errors: 0, Skipped: 0, Time elapsed: 2.140 s <<< FAILURE! -- in ar.edu.itba.dps.certification.infrastructure.events.OutboxIT
+ar.edu.itba.dps.certification.infrastructure.events.OutboxIT.aFailingRowWaitsForTheNextPassAndDoesNotHideLaterHealthyRows -- Time elapsed: 1.500 s <<< FAILURE!
+java.lang.AssertionError: 
+
+Expected size: 1 but was: 0 in:
+[]
+	at ar.edu.itba.dps.certification.infrastructure.events.OutboxIT.aFailingRowWaitsForTheNextPassAndDoesNotHideLaterHealthyRows(OutboxIT.java:199)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+
+ar.edu.itba.dps.certification.infrastructure.events.OutboxIT.delayedFailureBookkeepingCannotReopenAnAlreadyDoneRow -- Time elapsed: 0.060 s <<< FAILURE!
+java.lang.AssertionError: 
+
+Expected size: 1 but was: 0 in:
+[]
+	at ar.edu.itba.dps.certification.infrastructure.events.OutboxIT.delayedFailureBookkeepingCannotReopenAnAlreadyDoneRow(OutboxIT.java:216)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+

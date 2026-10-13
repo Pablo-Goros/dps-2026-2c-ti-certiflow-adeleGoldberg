@@ -100,6 +100,16 @@ public final class Inspection {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
+    /** Parts present on the frozen asset snapshot that its frozen schema did not evaluate. */
+    public Set<Subsystem> unevaluatedPresentSubsystems() {
+        if (frozenSchemaVersion == null || assetSnapshot == null) {
+            return Set.of();
+        }
+        Set<Subsystem> unevaluated = new LinkedHashSet<>(assetSnapshot.subsystems());
+        unevaluated.removeAll(frozenSchemaVersion.declaredSubsystems());
+        return Set.copyOf(unevaluated);
+    }
+
     public boolean criterionWeighsOn(CriterionId criterionId, Subsystem subsystem) {
         Validate.required(subsystem, "subsystem");
         return frozenSchemaVersion == null
@@ -132,6 +142,10 @@ public final class Inspection {
         Validate.required(at, "start instant");
         Validate.ensure(snapshot.assetId().equals(assetId),
                 "the snapshot belongs to a different asset");
+        Set<Subsystem> uncovered = new LinkedHashSet<>(snapshot.subsystems());
+        uncovered.removeAll(version.declaredSubsystems());
+        Validate.ensure(uncovered.isEmpty(), "schema version " + version.number()
+                + " does not evaluate subsystems " + uncovered + " present on asset " + assetId);
         this.frozenSchemaVersion = version;
         this.frozenSchemaVersionId = version.id();
         this.assetSnapshot = snapshot;
@@ -278,7 +292,7 @@ public final class Inspection {
     private void rejectIfInapplicable(SchemaVersion version, Correction correction) {
         switch (correction) {
             case Correction.AnswerCorrection answerCorrection -> {
-                requireRecord(answerCorrection.criterionId());
+                requireApplicableRecord(answerCorrection.criterionId(), "rectified");
                 version.requireCriterion(answerCorrection.criterionId()).rule()
                         .admissibilityViolation(answerCorrection.answer())
                         .ifPresent(violation -> {
@@ -287,7 +301,7 @@ public final class Inspection {
                         });
             }
             case Correction.EvidenceReferenceCorrection evidenceCorrection ->
-                    requireRecord(evidenceCorrection.criterionId())
+                    requireApplicableRecord(evidenceCorrection.criterionId(), "rectified")
                             .requireEvidence(evidenceCorrection.evidenceId());
             case Correction.NoteCorrection noteCorrection -> requireNote(noteCorrection.noteId());
         }

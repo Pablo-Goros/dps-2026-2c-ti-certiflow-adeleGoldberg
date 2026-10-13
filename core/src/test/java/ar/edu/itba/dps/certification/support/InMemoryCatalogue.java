@@ -21,6 +21,11 @@ public final class InMemoryCatalogue {
         private final Map<AssetId, Asset> stored = new LinkedHashMap<>();
 
         @Override
+        public void lockForInspectionAssignment(AssetId id) {
+            // Single-threaded domain tests do not model database row locks.
+        }
+
+        @Override
         public void save(Asset asset) {
             stored.put(asset.id(), asset);
         }

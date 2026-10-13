@@ -14,7 +14,6 @@ import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 
 public final class PlanCorrectiveAction {
 
@@ -36,7 +35,7 @@ public final class PlanCorrectiveAction {
         Finding finding = findings.require(findingId);
         CorrectionPlan plan = new CorrectionPlan(work, executor, dueDate);
         var at = clock.now();
-        finding.planCorrection(actor.partyId(), plan, at.atZone(ZoneOffset.UTC).toLocalDate(), at);
+        finding.planCorrection(actor.partyId(), plan, clock.today(at), at);
         findings.save(finding);
         audit.recordAs(actor, AuditedElementRef.correctiveAction(finding.correctiveAction().id().value()),
                 AuditAction.CORRECTIVE_ACTION_PLANNED,

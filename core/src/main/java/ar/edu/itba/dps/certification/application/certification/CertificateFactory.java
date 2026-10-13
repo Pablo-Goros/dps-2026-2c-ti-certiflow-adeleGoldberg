@@ -28,7 +28,6 @@ import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -149,6 +148,7 @@ public final class CertificateFactory {
 
     public GlobalCertificateDerivation deriveGlobal(InspectionId inspectionId) {
         Inspection inspection = inspections.require(inspectionId);
+        requireCoveredInspection(inspection);
         List<Certificate> partials = certificates.findByBackingInspection(inspectionId).stream()
                 .filter(certificate -> certificate.scope().coveredSubsystem().isPresent())
                 .toList();
@@ -216,11 +216,12 @@ public final class CertificateFactory {
                 .filter(certificate -> !certificate.backingInspectionId().equals(inspection.id()))
                 .map(Certificate::id);
         return new CertificationContext(inspection, findings.findingsOf(inspection.id()),
-                at.atZone(ZoneOffset.UTC).toLocalDate(), scope,
+                clock.today(at), scope,
                 laterClosedInspectionOf(inspection), liveCertificate);
     }
 
     private void requireWholeAssetSchema(Inspection inspection) {
+        requireCoveredInspection(inspection);
         Validate.ensure(inspection.certifiableSubsystems().isEmpty(),
                 "inspection " + inspection.id() + " certifies the subsystems "
                         + inspection.certifiableSubsystems() + " separately, so derive the global "
@@ -228,10 +229,17 @@ public final class CertificateFactory {
     }
 
     private void requireDeclaredSubsystem(Inspection inspection, Subsystem subsystem) {
+        requireCoveredInspection(inspection);
         Validate.required(subsystem, "subsystem");
         Validate.ensure(inspection.certifiableSubsystems().contains(subsystem),
                 "inspection " + inspection.id() + " does not certify subsystem " + subsystem
                         + "; it certifies " + inspection.certifiableSubsystems());
+    }
+
+    private void requireCoveredInspection(Inspection inspection) {
+        Validate.ensure(inspection.unevaluatedPresentSubsystems().isEmpty(),
+                "inspection " + inspection.id() + " cannot be certified because its frozen schema did not evaluate "
+                        + inspection.unevaluatedPresentSubsystems());
     }
 
     /** A closed inspection of the same asset started after this one describes a newer state. */

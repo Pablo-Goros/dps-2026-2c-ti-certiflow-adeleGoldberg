@@ -88,4 +88,5 @@ class SchemaApiIT extends ApiTest {
 
         assertThat(second.status()).isBetween(409, 422);
     }
+
 }

@@ -48,6 +48,7 @@ class CertificateFactoryTest {
         when(assets.jurisdictionOf(facts.inspection.assetId())).thenReturn(TestPolicies.REFERENCE);
         when(policies.resolve(TestPolicies.REFERENCE)).thenReturn(policy);
         when(clock.now()).thenReturn(PolicyFacts.AT);
+        when(clock.today(PolicyFacts.AT)).thenReturn(PolicyFacts.today());
         when(ids.newIdentifier()).thenReturn("certificate");
     }
     @Test void eligibilityAndIssuanceSharePolicyTimeAndMode() {
@@ -58,7 +59,9 @@ class CertificateFactoryTest {
         assertThat(certificate.validity().issuedAt()).isEqualTo(assessment.evaluatedAt());
         verify(assets, times(2)).jurisdictionOf(facts.inspection.assetId());
         verify(policies, times(2)).resolve(TestPolicies.REFERENCE);
-        verify(clock, times(2)).now(); verify(clock, never()).today();
+        verify(clock, times(2)).now();
+        verify(clock, times(2)).today(PolicyFacts.AT);
+        verify(clock, never()).today();
     }
     @Test void resolutionFailuresNeverConsumeCertificateIdentifiers() {
         when(policies.resolve(TestPolicies.REFERENCE)).thenThrow(new PolicyResolutionException("missing"));

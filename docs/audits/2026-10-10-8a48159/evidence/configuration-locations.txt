@@ -1,0 +1,13 @@
+app/src/main\java\ar\edu\itba\dps\certification\app\jobs\MaintenanceJobs.java:41:            OutboxOperations outbox, @Value("${certiflow.jobs.enabled:true}") boolean enabled) {
+app/src/main\java\ar\edu\itba\dps\certification\app\jobs\MaintenanceJobs.java:60:    @Scheduled(fixedDelayString = "${certiflow.jobs.sweep-interval:PT1M}",
+app/src/main\java\ar\edu\itba\dps\certification\app\jobs\MaintenanceJobs.java:61:            initialDelayString = "${certiflow.jobs.initial-delay:PT30S}")
+app/src/main\java\ar\edu\itba\dps\certification\app\jobs\MaintenanceJobs.java:75:    @Scheduled(fixedDelayString = "${certiflow.jobs.dispatch-interval:PT5S}",
+app/src/main\java\ar\edu\itba\dps\certification\app\jobs\MaintenanceJobs.java:76:            initialDelayString = "${certiflow.jobs.initial-delay:PT30S}")
+app/src/main\resources\application.properties:13:certiflow.zone=America/Argentina/Buenos_Aires
+app/src/main\resources\application.properties:16:certiflow.notifications.webhook-url=
+app/src/main\resources\application.properties:17:certiflow.notifications.timeout-seconds=3
+app/src/main\java\ar\edu\itba\dps\certification\app\config\SupportConfig.java:29:    Clock clock(@Value("${certiflow.zone:America/Argentina/Buenos_Aires}") String zone) {
+app/src/main\java\ar\edu\itba\dps\certification\app\config\SupportConfig.java:46:            List<DomainEventHandler> handlers, @Value("${certiflow.outbox.max-attempts:10}") int maxAttempts) {
+app/src/main\java\ar\edu\itba\dps\certification\app\config\SupportConfig.java:63:     * The notification channel: a webhook when {@code certiflow.notifications.webhook-url} is set,
+app/src/main\java\ar\edu\itba\dps\certification\app\config\SupportConfig.java:68:            @Value("${certiflow.notifications.webhook-url:}") String webhookUrl,
+app/src/main\java\ar\edu\itba\dps\certification\app\config\SupportConfig.java:69:            @Value("${certiflow.notifications.timeout-seconds:3}") int timeoutSeconds) {
