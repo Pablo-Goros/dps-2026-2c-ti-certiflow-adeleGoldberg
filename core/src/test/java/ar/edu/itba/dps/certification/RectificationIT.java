@@ -7,8 +7,8 @@ import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionCause;
-import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
+import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
@@ -17,10 +17,11 @@ import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectificati
 import ar.edu.itba.dps.certification.domain.report.InspectionAct;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
 
@@ -145,7 +146,7 @@ class RectificationIT {
                 "the door was a different room", List.of(
                         new Correction.NoteCorrection(note.id(), "corridor door was blocked"))));
 
-        InspectionAct act = new GenerateInspectionAct(system.inspections, system.schemaCatalog)
+        InspectionAct act = new GenerateInspectionAct(system.inspections, system.schemaCatalog, DirectTransactions.INSTANCE)
                 .generate(inspectionId);
         assertThat(act.notes()).singleElement().satisfies(line -> {
             assertThat(line.text().rectified()).isTrue();

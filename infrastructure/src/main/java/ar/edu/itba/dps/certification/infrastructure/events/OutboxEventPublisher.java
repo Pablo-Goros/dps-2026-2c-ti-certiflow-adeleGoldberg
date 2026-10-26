@@ -1,7 +1,7 @@
 package ar.edu.itba.dps.certification.infrastructure.events;
 
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventPublisher;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
+import ar.edu.itba.dps.certification.domain.shared.port.DomainEventPublisher;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcEventOutbox;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
 

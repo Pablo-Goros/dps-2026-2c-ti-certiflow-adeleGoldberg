@@ -11,7 +11,7 @@ el razonamiento y las consecuencias de cada una.
 
 | ID | Patrón o principio aplicado | Dónde se aplica | Por qué se aplica | Alternativa descartada | Consecuencia |
 |---|---|---|---|---|---|
-| D1 | Arquitectura hexagonal / inversión de dependencias | Interfaces `application/**/port`, casos de uso y adaptadores de `adapter` y `src/test` | Aislar el negocio de persistencia, web, reloj e identidad | JPA, framework web o repositorios concretos dentro del dominio | Hay más interfaces y una composition root explícita; los adaptadores en memoria no dan durabilidad ni transacciones |
+| D1 | Arquitectura hexagonal según el esquema de la materia | Puertos de salida `domain/**/port`, entradas `domain/**/port/inbound`, implementaciones `application/**/usecase` y adaptadores externos | El dominio define todos los contratos; aplicación implementa los casos de uso sin depender de frameworks | Puertos definidos por aplicación y controllers acoplados a implementaciones concretas | Los controllers dependen de interfaces de dominio; configuración compone implementaciones y adaptadores |
 | D2 | Agregados y encapsulamiento de DDD | `Asset`, `InspectionSchema`, `Inspection`, `Finding`, `Certificate` | Concentrar invariantes y separar ciclos de vida | Modelo anémico con setters o un agregado único | Las operaciones pasan por métodos de negocio y la coordinación requiere casos de uso |
 | D3 | Value Object e identidad explícita | `AssetId`, `InspectionId`, `SchemaVersionId`, `CriterionId`, `ValidityPeriod`, `CorrectionPlan` | Evitar mezclar identificadores y validar conceptos del dominio | `String`, `Date` y `Map` sin semántica | Más tipos pequeños y conversiones explícitas, con errores inválidos detectados antes |
 | D4 | Repository y Query Port | `*Repository`, `*Query`, `AssetDirectory`, `SchemaCatalog` | Separar comandos, consultas y almacenamiento | Acceso directo a colecciones o dependencias de infraestructura | Se puede cambiar el adaptador; la consistencia transaccional queda fuera de esta entrega |
@@ -36,10 +36,10 @@ el razonamiento y las consecuencias de cada una.
 | D22 | El activo declara qué partes tiene | `Asset.subsystems`, `AssetSnapshot.subsystems`, `Inspection.certifiableSubsystems()` | No todo activo de un tipo tiene todas las partes del tipo | Asumir que todos los activos de un tipo son homogéneos | La derivación global exige solo los subsistemas del activo; los criterios de una parte ausente quedan evaluados pero no bloquean |
 | D23 | Criterio no aplicable, no un cuarto resultado | `Criterion.appliesToAssetHaving()`, `CriterionRecord.applicable`, `Inspection.start/close`, `ActCriterionLine.applicable` | Que los criterios de una parte ausente no generen hallazgos | Un cuarto `CriterionResult` NOT_APPLICABLE, o no crear el registro | RF5 conserva tres resultados; el registro se conserva y el acta declara que no aplicó, en lugar de dejar un hueco |
 | D24 | El modo de certificación es un tipo sellado, no un booleano | `CertificationPlan`, `InspectionSummary.certificationPlan()` | Que el llamador no tenga que leer «sin subsistemas» como «certificalo entero» | Un `boolean certifiedAsAWhole()` con `if/else`, o exponer el conjunto crudo | La regla vive en una sola fábrica y el `switch` del llamador es exhaustivo; hay un tipo más |
-| D25 | Vigencia temporal diferida (`effectiveFrom`) | `SchemaVersion`, `InspectionSchema`, `PublishSchemaVersion` | Permitir preparar y publicar versiones normativas antes de su entrada en vigencia operativa | Activar la versión mediante un proceso batch/cron o cronograma externo | Las inspecciones iniciadas antes de la fecha futura siguen usando la versión anterior de forma automática |
+| D25 | Vigencia temporal diferida y retiro explícito | `SchemaVersion`, `InspectionSchema`, `PublishSchemaVersion`, `WithdrawScheduledSchemaVersion` | Programar varias versiones con fechas estrictamente crecientes entre las no retiradas y permitir correcciones urgentes tras retirar las futuras que las bloquean | Reemplazar silenciosamente una versión con igual fecha, o impedir todo retiro | El retiro exige motivo, queda auditado y conserva la publicación; una versión vigente nunca se retira |
 | D26 | Consulta temporal de esquemas (`effectiveVersionAt`) | `SchemaCatalog`, `PublishedSchemaCatalog`, `InspectionSchema` | Resolver cuál era/será la versión válida en cualquier punto de la línea de tiempo sin mutar el historial | Filtrar solo la última versión ordenada por número | Permite simular y auditar qué reglas aplicaban o aplicarán en una fecha pasada o futura determinada |
 | D27 | Outbox transaccional | `DomainEventPublisher` ← `OutboxEventPublisher`, `JdbcEventOutbox`, `OutboxDispatcher`, `MaintenanceJobs` | Que un cambio y su evento se confirmen juntos y que un manejador caído no deshaga la petición | Publicación síncrona dentro de la transacción (la primera versión), o un broker externo | Consistencia eventual y una tabla más; los eventos agotados quedan `DEAD` y se revisan a mano (sección 15) |
-| D28 | Puerto de transacciones y excepción de conflicto propia | `application.shared.port.Transactions` ← `JdbcTransactions`; `application.shared.ConflictException` | Que la API exija atomicidad por petición y traduzca conflictos a 409 sin conocer JDBC | Que los controladores dependan de `JdbcTransactions` y de las excepciones de infraestructura, o anotar el núcleo con `@Transactional` | La transacción sigue abriéndola el controlador (los casos de uso son clases concretas, no decorables), pero detrás de un puerto (sección 18) |
+| D28 | Transacción propiedad del caso de uso | `domain.shared.port.Transactions` ← `JdbcTransactions`; `domain.shared.ConflictException` | Cada caso de uso es atómico al invocarlo desde cualquier adaptador y la API traduce conflictos a 409 sin conocer JDBC | Abrir la transacción desde controllers/jobs o anotar el núcleo con `@Transactional` | Las implementaciones reciben `Transactions` por constructor; sus operaciones públicas abren la unidad y las llamadas anidadas se unen a ella |
 | D29 | Casos de uso de consulta (lado de lectura) | `BrowseParties`, `BrowseSchemas`, `BrowseInspections`, `BrowseFindings`, `BrowseCertificates`, `BrowseAuditTrail` | Que los adaptadores de entrada lean solo a través de la capa de aplicación y que las consultas con regla (versión vigente en una fecha, filtros combinados) vivan fuera del controlador | Inyectar repositorios en los controladores | Seis clases pequeñas; una prueba de arquitectura impide que la web vuelva a importar repositorios (sección 18) |
 | D30 | Notificación como puerto de salida | `NotificationSender` ← `LogNotificationSender`, `WebhookNotificationSender`; `NotifyCorrectiveActionExpiry` | Integrar un canal externo sin que el núcleo conozca HTTP, y sin que su caída afecte a los certificados | Llamar al webhook desde el caso de uso, o hacer fallar el evento si el canal falla | Entrega «al mejor esfuerzo»: una notificación puede perderse si el canal está caído (sección 18) |
 | D31 | El rango numérico clasifica, no filtra | `NumericRangeRule` (`rangeMinimum`, `rangeMaximum`, `bands`, `outOfRange`), `Inspection.recordAnswer` | Que el inspector pueda registrar lo que midió, incluso fuera de la escala, y que el sistema decida qué significa | Tratar la medición fuera del rango como respuesta inadmisible: en la primera versión 1200 se registraba y 1201 se rechazaba con un error | La regla declara un resultado más, que no puede ser aprobatorio, y el formato persistido cambió; a cambio una inspección nunca queda sin poder expresar lo que se midió (sección 19) |
@@ -73,13 +73,13 @@ porque no aportan valor en el alcance actual:
 
 ## 1. Separación entre dominio y aplicación
 
-Se aplica **inversión de dependencias mediante puertos y adaptadores**. Las entidades, reglas y políticas de `domain` contienen el comportamiento del negocio. Los casos de uso de `application` coordinan repositorios, auditoría y eventos a través de interfaces recibidas por constructor. En las pruebas, `FullSystem` compone el sistema con adaptadores en memoria.
+Se aplica **inversión de dependencias mediante puertos y adaptadores**, con los puertos en el dominio según el esquema de la materia. Las entidades, reglas y políticas de `domain` contienen el comportamiento del negocio. `domain/**/port` define los puertos de salida y `domain/**/port/inbound` las interfaces de entrada. Los casos de uso de `application` implementan esas entradas, coordinan los puertos y abren su propia transacción con `Transactions`, recibido por constructor. Los controllers y jobs consumen las interfaces; solo la composición conoce sus implementaciones. En las pruebas, `FullSystem` usa adaptadores en memoria y `DirectTransactions`, explícitamente sin rollback de base.
 
 Esta separación permite demostrar el dominio sin elegir una base de datos o un framework de aplicación. Los contratos `Clock`, `IdGenerator` y `ActorProvider` permiten controlar tiempo, identificadores y autoría en los tests.
 
 Se descartó acoplar las entidades a JPA o a un framework web porque introduciría infraestructura ajena al objetivo de esta entrega. Tampoco se usan Singleton ni Service Locator para obtener servicios: ocultarían dependencias y dificultarían aislar escenarios.
 
-La consecuencia es una composición más explícita y un mayor número de interfaces. Los adaptadores en memoria no ofrecen durabilidad, aislamiento ni transacciones; esas garantías deberán definirse al incorporar persistencia.
+La consecuencia es una composición más explícita y un mayor número de interfaces. Los adaptadores en memoria de pruebas no ofrecen durabilidad ni rollback; en producción esas garantías las implementa JDBC mediante el puerto de transacciones, que recibe cada caso de uso.
 
 ## 2. Entidades, objetos de valor y responsabilidades
 
@@ -91,7 +91,7 @@ Se emplea un **modelo de dominio con operaciones de negocio** en `Asset`, `Inspe
 
 Esta organización concentra invariantes y diferencia el incumplimiento histórico de su reparación. Se descartaron tanto un modelo anémico con setters como un agregado único que contuviera todo el sistema: el primero dispersaría validaciones y el segundo mezclaría ciclos de vida independientes.
 
-Las decisiones que cruzan agregados quedan en servicios de dominio cuando no necesitan puertos, y en aplicación cuando deben consultar repositorios, queries, reloj, identidad o auditoría. Para que el encapsulamiento del agregado no dependa de la disciplina de quien escribe el próximo caso de uso, el **límite del paquete coincide con el límite del agregado**: `CriterionRecord` reside junto a `Inspection` y sus operaciones de escritura son de paquete, de modo que desde afuera solo es alcanzable su superficie de lectura. Antes eran públicas y una inspección cerrada podía modificarse sin rectificación; ningún caso de uso las necesitaba.
+Las reglas puras quedan en servicios de dominio; la coordinación de repositorios, queries, reloj, identidad y auditoría queda en aplicación. Esto distingue responsabilidades de implementación: las interfaces de todos esos puertos pertenecen al dominio. Para que el encapsulamiento del agregado no dependa de la disciplina de quien escribe el próximo caso de uso, el **límite del paquete coincide con el límite del agregado**: `CriterionRecord` reside junto a `Inspection` y sus operaciones de escritura son de paquete, de modo que desde afuera solo es alcanzable su superficie de lectura. Antes eran públicas y una inspección cerrada podía modificarse sin rectificación; ningún caso de uso las necesitaba.
 
 `CorrectiveAction` recibió el mismo tratamiento y reside junto a `Finding`, con sus cinco operaciones de escritura de paquete y las delegaciones que los casos de uso necesitan en el hallazgo; los objetos de valor siguen en `finding.action`, porque los construyen los llamadores. Ahí el motivo era más fuerte que el encapsulamiento: desde que el hallazgo registra contra qué resultado se verificó su corrección, verificar o anular directamente sobre la acción la cerraba sin actualizar ese registro, y el hallazgo quedaba bloqueando la certificación para siempre sin señal de error.
 
@@ -118,7 +118,7 @@ lo declara `AssetType`.
 
 **Decisiones adoptadas.** Cada tipo de activo tiene un único esquema aplicable; un esquema puede servir a varios tipos y activos. Cada inspección corresponde a un activo y un inspector, y comprende el esquema completo. Compartir esquema no comparte respuestas ni evidencias.
 
-Se distinguen asignación e inicio: la primera fija activo, inspector y fecha prevista; el segundo selecciona automáticamente la última versión publicada del esquema aplicable. Los borradores no participan y no se permite iniciar sin una versión publicada.
+Se distinguen asignación e inicio: la primera fija activo, inspector y fecha prevista; el segundo selecciona automáticamente la versión no retirada que está vigente en ese instante para el esquema aplicable. Los borradores y las versiones todavía futuras no participan; no se permite iniciar sin una versión vigente.
 
 `SchemaApplicability` concentra la exclusividad de un esquema por tipo al crear y ampliar esquemas. El servicio expone operaciones públicas de creación, alta, baja y transferencia; los mutadores reales de aplicabilidad quedan encapsulados en `InspectionSchema` con visibilidad de paquete. Quitar un tipo inexistente o repetir una incorporación se rechaza sin auditoría. Para retirar una cobertura se exige transferirla a otro esquema con versión publicada; `ChangeSchemaApplicability.transferTo` guarda y audita ambas raíces. La raíz de origen debe conservar al menos un tipo. La persistencia futura debe ejecutar la transferencia y la validación de exclusividad en una transacción.
 
@@ -139,13 +139,6 @@ exige también al agregar un tipo a un esquema ya publicado y al transferirlo, j
 hermana de que el esquema destino tenga una versión publicada. Validarla solo al publicar dejaba
 abierta la vía de la aplicabilidad, porque la versión publicada es inmutable y nadie la vuelve a
 revisar.
-
-Al agregar o transferir aplicabilidad se comprueban **todas** las versiones publicadas, incluidas las
-programadas para una fecha futura: cada una podría ser seleccionada al iniciar una inspección.
-`StartInspection` vuelve a comprobar que la versión congelada cubra todas las partes presentes antes
-de cambiar el estado. La emisión también falla de forma cerrada si encuentra una inspección histórica
-cuya versión no cubre sus partes. Estas defensas no reescriben versiones, inspecciones ni certificados
-existentes; los certificados ya guardados conservan su snapshot.
 
 ## 4. Estrategias de evaluación y carga progresiva
 
@@ -183,12 +176,7 @@ aplicabilidad es un dato del registro.
 
 Confirmar el plan corresponde al responsable del hallazgo, como establece RF8: `Finding.planCorrection` recibe a quien planifica y rechaza a cualquier otra parte. Del mismo modo, `Inspection` exige que inicio, carga, corrección previa al cierre, cierre y rectificación los realice el inspector asignado; la regla vive en la raíz y no en los casos de uso, por lo que una llamada directa al agregado tampoco la saltea. La asignación y la reasignación exigen que el inspector sea una persona registrada (`Party.asInspector`): una organización o un identificador inexistente dejaban una inspección que nadie podía ejecutar.
 
-Una acción dispone de 30 días corridos desde su creación para planificarse, usando la fecha UTC del hecho. Este valor es una decisión de implementación para cerrar el hueco identificado por el informe, no un plazo impuesto por la consigna. Antes de confirmar el plan se compara su fecha límite con `Clock.today()`: puede ser hoy, nunca anterior. La fecha límite es inclusiva. Una planificación tardía conserva el incumplimiento del plazo de planificación, incluso si todavía no se ejecutó el barrido, y este emite el evento de vencimiento una sola vez. Los informes incluyen tanto el plazo de planificación como el plazo de corrección confirmado.
-
-Las comparaciones operativas de la fecha límite usan la fecha de negocio de `Clock` en la zona
-configurada y derivada del mismo `Instant` capturado por la operación. Planificación, elegibilidad,
-reacciones a eventos, vencimiento y verificación comparten esa fecha; así el instante UTC y la fecha
-local no pueden discrepar durante el día local del vencimiento.
+Una acción dispone de 30 días corridos desde su creación para planificarse, usando la fecha de negocio `Clock.today(at)` en la zona configurada (Buenos Aires por defecto). Aplicación captura el instante `at` y entrega esa fecha explícita a `Finding`, también al crear acciones de reemplazo por una rectificación. El dominio no convierte fechas a UTC. Este plazo es una decisión de implementación, no una exigencia de la consigna. Planificación, verificación, evaluación y barrido calculan la fecha de negocio con el mismo contrato y el instante capturado para la operación. La fecha límite es inclusiva: puede ser hoy, nunca anterior; vence al día siguiente en el calendario de negocio. Una planificación tardía conserva el incumplimiento, y el barrido emite el vencimiento una sola vez.
 
 Cumplir el plazo exige verificación satisfactoria y cierre antes del vencimiento. Una acción vencida admite ejecución y verificación tardías, pero conserva el incumplimiento del plazo incluso después de cerrarse. El plan se modela como datos de la acción, sin exigir un documento independiente.
 
@@ -210,7 +198,11 @@ Esta **composición de políticas** mantiene las decisiones fuera de los reposit
 
 Los resultados son variantes explícitas: emitido, bloqueado o ya emitido, sin crear un certificado rechazado. La implementación también limita a uno los certificados no vencidos por activo; esa restricción adicional requiere revisar su alcance. Los doce meses elegidos en los tests no establecen una duración universal.
 
-`Certificate` conserva constructor de paquete y la creación material queda encapsulada en `CertificateIssuer`, un servicio puro del dominio. `CertificateFactory` vive en aplicación y es la ruta de producción para emitir o renovar: carga los hechos mediante puertos de aplicación, delega la construcción al issuer y aplica la política del dominio. `CertificationContext` contiene inspección, hallazgos y fecha; calcula los bloqueos en el dominio e incluye incumplimientos cuyas acciones aún no fueron registradas. Las restricciones identificadas en el snapshot suman reglas del perfil; ninguna estrategia puede quitar las garantías comunes que también comprueba la fábrica. Renovar exige otra inspección iniciada estrictamente después de emitir el certificado anterior, que debe estar vencido. Repetir una renovación devuelve el certificado ya emitido.
+`Certificate` conserva constructor de paquete, pero también ese constructor exige una `CertificationAssessment` sin bloqueos y la inspección correspondiente, cerrada y con alcance compatible. La evaluación tiene constructor privado: solo `CertificationAssessment.evaluate` produce decisiones, calculando requisitos comunes, cumplimiento del snapshot y modalidad desde los hechos. `withAdditionalBlockers` permite agregar restricciones, nunca quitarlas ni elegir otra modalidad. Antes de construir se comprueba que la inspección conserve su estado evaluado y se reevalúan los hallazgos para rechazar decisiones obsoletas. La política debe pertenecer a la jurisdicción congelada del activo. La vigencia se calcula con el instante de evaluación y las duraciones del snapshot; ningún constructor de certificado acepta vigencia, modalidad ni política por separado.
+
+`CertificateIssuer` ofrece la entrada pública al dominio. `CertificateFactory` coordina los puertos, resuelve la política activa y entrega los hechos a la evaluación; vuelve a aplicar las garantías del snapshot sobre los hechos obtenidos de los puertos incluso ante una estrategia personalizada. El dominio recibe el certificado anterior completo al renovar: valida su vencimiento, el mismo activo y alcance, otra inspección iniciada estrictamente después de emitir el anterior y que el certificado no se suceda a sí mismo. La aplicación busca al predecesor y resuelve los reintentos sin emitir nuevamente.
+
+Los tests de emisión, suspensión y derivación construyen certificados mediante decisiones reales. `CertificationScenarios` es un fixture de test que responde y cierra inspecciones antes de evaluar y emitir; no accede a constructores internos ni reconstruye certificados inválidos. Las pruebas negativas también invocan el constructor de paquete para comprobar que rechace una evaluación bloqueada. El DTO `AssessmentResponse` conserva el contrato HTTP sin exponer los hechos internos de la prueba de evaluación.
 
 La misma razón que impide renovar con una inspección antigua impide emitir con una inspección superada: el requisito estándar `InspectionMustBeTheLatestOfTheAsset` bloquea la emisión cuando el activo tiene otra inspección cerrada iniciada después (`IssuanceBlocker.SupersededInspection`), porque certificaría un estado del activo que ya fue reemplazado por uno más reciente. Además, una vez vencido el certificado de un activo, `issue` se rechaza: el siguiente certificado se obtiene renovando, y así conserva el vínculo con el anterior que exige RF9.
 
@@ -232,6 +224,13 @@ más débil. Se recalcula en cada consulta, por lo que no puede contradecir a su
 reconciliar nada cuando uno se suspende, se reactiva o vence. Se descartó persistirlo como un
 `Certificate` de alcance `Global`: quedaba uniforme con el resto, pero obligaba a sincronizarlo y un
 global desincronizado afirma algo que sus parciales contradicen.
+
+La consulta es **por activo**: `DeriveGlobalCertificate` obtiene el snapshot actual y el último
+certificado de cada subsistema mediante `findLatestForAsset`. No exige que esos parciales
+procedan de una misma inspección o versión de esquema. Si el último está suspendido, vencido
+o fuera de su ventana, no se busca un anterior como reemplazo. El global conserva la procedencia
+individual de certificado, inspección, versión de esquema, política y modalidad. La derivación
+ya no pertenece a `CertificateFactory`, que se ocupa exclusivamente de emisión y renovación.
 
 La derivación exige las partes **del activo**, no las que la versión evalúa. Son dos preguntas
 distintas: qué parciales se pueden emitir es la intersección de ambas, pero si el activo está entero
@@ -381,7 +380,7 @@ bloqueos y modalidad posible. `EvaluateIssuanceEligibility.assess` evalúa siemp
 **solicitud nueva**, con la política activa; la procedencia de un certificado existente
 se consulta en el certificado o en su informe. Los métodos `blockersFor` delegan a esa
 evaluación. Emisión y renovación usan los mismos hechos y reglas, un único instante y
-su fecha UTC. La emisión vuelve a evaluar; una consulta previa no reserva el resultado.
+su fecha de negocio obtenida con `Clock.today(at)`. La emisión vuelve a evaluar; una consulta previa no reserva el resultado.
 Una severidad bloqueante impide certificar tanto `OBSERVED` como `REJECTED`; un pendiente
 permitido y planificado puede producir un condicional únicamente si el perfil lo permite.
 Sin pendientes se emite regular. `BlockingSeverity` y `ConditionalNotAllowed` son motivos
@@ -394,7 +393,8 @@ perfil y modalidad, y conserva el vínculo al predecesor. Repetir emisión o ren
 resuelve primero el certificado existente, conserva su metadata original y no consulta
 el registro activo ni duplica una emisión auditada. `PolicyResolutionException` expresa
 falta o incoherencia de configuración, distinta de una decisión `Blocked`; la fábrica
-valida cierre, fecha de emisión y vigencia antes de consumir un ID.
+valida cierre y fecha antes de consumir un ID. El constructor del certificado calcula la
+vigencia desde el snapshot evaluado, que ya exige duraciones positivas.
 
 **Auditoría, informes y parciales.** `AuditDetail.CertificationDecision` registra operación,
 inspección, alcance, snapshot, modalidad/resultado, certificado, instante y vigencia, o
@@ -409,7 +409,9 @@ del registro. Los compromisos del informe usan la resolución de la revisión ac
 un parcial lo es. `PartialProvenance` expone certificado, subsistema, snapshot y modalidad
 por parcial: dos parciales pueden tener revisiones diferentes. `AllSubsystemsMustBeInForce`
 mantiene la intersección de vigencias y rechaza derivar cuando falta un parcial vigente.
-`GlobalDerivationContext` valida procedencia de activo, inspección, esquema y jurisdicción.
+`GlobalDerivationContext` valida activo y jurisdicción comunes, subsistemas presentes y un
+único parcial por subsistema. Permite inspecciones y versiones de esquema diferentes: ambas
+se informan en cada `PartialProvenance`, sin atribuir una inspección o esquema únicos al global.
 
 **Reconciliación histórica.** `CertificationReactions` reúne inspección, hallazgos y
 un instante actual y delega en `CertificateLifecycle.reconcile`. El servicio puro usa
@@ -441,10 +443,10 @@ principalmente son defensas ante referencias/snapshots nulos o incoherentes devu
 por estrategias personalizadas, combinaciones inválidas de valores de salida y algunos
 mensajes de bloqueos que los tests comprueban por tipo/datos. No se impone cobertura
 100% global: se priorizan decisiones de negocio y efectos observables; las garantías
-de persistencia y concurrencia continúan requiriendo las pruebas reales pendientes.
+de persistencia y concurrencia se verifican con los escenarios de integración descritos en las secciones 13, 15 y 18.
 
 **Estado de la integración.** Al cerrar la Entrega 1 el núcleo F2/F3 no estaba integrado a una
-aplicación. La Entrega 2 resolvió: adaptadores persistentes con transacción por petición (sección 13), REST con
+aplicación. La Entrega 2 resolvió: adaptadores persistentes con transacción por caso de uso (sección 13), REST con
 contrato de errores (14), outbox y tareas programadas (15), front end (16) y pruebas reales de repositorio y API
 (17 y 18). Siguen pendientes, y se declaran en lugar de ocultarse con defaults de producción: la migración de datos
 anteriores a un cambio de formato (`FORMAT_VERSION` existe, la migración no), la administración dinámica o la
@@ -456,9 +458,10 @@ fuera del repositorio.
 
 **Qué se agregó.** Un módulo Maven nuevo, `certification-infrastructure`, que depende del núcleo
 y nunca al revés. Implementa los siete puertos de repositorio y la auditoría sobre H2 con JDBC
-plano y migraciones Flyway (`V1__create_persistence_schema.sql`). El núcleo no se modificó; sólo
-publica su carpeta de pruebas `support` como `test-jar` para reutilizar `FullSystem` y los
-adaptadores en memoria.
+plano y migraciones Flyway (`V1__create_persistence_schema.sql`). La persistencia permanece fuera
+del núcleo de producción. `core/pom.xml` publica su carpeta de pruebas `support` como `test-jar`
+para reutilizar `FullSystem` y los adaptadores en memoria. Las correcciones posteriores de puertos,
+transacciones y calendario de negocio se describen en la sección 18.4.
 
 **Clases agregadas** (paquete `infrastructure.persistence`):
 `JdbcPersistence` (fábrica y migración), `codec.StateCodec` y `codec.Json` (serialización),
@@ -494,11 +497,6 @@ primaria de `schema_applicability.asset_type`) y un certificado por inspección 
 único `certificate(backing_inspection_id, scope_key)`). Una violación de unicidad (SQLState 23505)
 se traduce a `DuplicateKeyException`. Esto cubre la "unicidad concurrente" que la sección 12
 dejaba pendiente.
-
-La asignación serializa la comprobación de inspección abierta mediante un bloqueo de la fila del
-activo (`SELECT ... FOR UPDATE`) dentro de la misma transacción. Cada instancia de la aplicación
-coordina así las asignaciones del mismo activo antes de consultar inspecciones abiertas y guardar la
-nueva. No requiere una migración ni altera las inspecciones históricas.
 
 **Cómo se prueba.** Las pruebas de repositorio usan H2 real, no mocks. `RepositoryParityIT` ejecuta
 el mismo escenario sobre los repositorios JDBC y sobre los en memoria (que actúan como oráculo) y
@@ -548,14 +546,14 @@ todos los casos de uso), `PersistenceConfig`, `PolicyConfig` (perfiles de F3), `
 `NotFoundException`, `PublicationRefusedException`; DTOs en `web.dto`.
 
 **Decisiones.**
-- *El controlador no tiene reglas.* Abre una transacción, llama a un caso de uso y convierte el
+- *El controlador no tiene reglas.* Invoca un puerto de entrada y convierte el
   resultado. Toda validación de negocio sigue en el núcleo; el controlador sólo traduce.
-- *Una transacción por petición* (`JdbcTransactions.execute`): si algo falla se deshace todo,
+- *Una transacción por caso de uso* (`Transactions.execute`, implementado por JDBC): si algo falla se deshace todo,
   incluida la auditoría de esa operación.
 - *Errores en un solo lugar* (`ApiExceptionHandler`): 400/401/404/409/422/500 con un cuerpo estable; los errores 4xx del propio framework (ruta inexistente, método no permitido) conservan su estado (sección 18).
   Alternativa descartada: crear una jerarquía de excepciones HTTP en el dominio, que lo acoplaría a la web.
-- *404 antes de operar.* Los controladores comprueban la existencia con un caso de uso de consulta (`Browse*`, sección 18); el núcleo
-  responde con `DomainException`, que se mapea a 422 y no distingue "no existe" de "regla violada".
+- *404 antes de operar.* Los controladores comprueban la existencia con un caso de uso de consulta (`Browse*`, sección 18) y traducen
+  la ausencia a `NotFoundException`/404. Las violaciones de reglas de negocio se mapean a 422.
 - *Una emisión bloqueada no es un error de formato:* se responde 422 con el análisis completo de
   bloqueos, que es lo que el front necesita mostrar.
 - *Los reportes del núcleo son registros inmutables;* `Plain` los convierte en JSON legible (los
@@ -609,10 +607,6 @@ certificados, vencimiento de acciones correctivas y publicación de eventos pend
 - Una pasada entrega cada evento a lo sumo una vez; el reintento lo hace la tarea programada
   (cada 5 s), no un bucle inmediato. Un `ReentrantLock` evita despachos simultáneos dentro de la JVM y el
   reclamo condicional protege aun si hubiera varios despachadores.
-- Cada pasada fija su secuencia máxima al comenzar y recorre las filas pendientes con un cursor
-  creciente. Una fila fallida no vuelve a entrar en el mismo lote y tampoco oculta eventos sanos que
-  estén después de las primeras 50 filas. El registro del fallo solo actualiza una fila que todavía
-  esté `PENDING`; si otro despachador ya la completó, `DONE` permanece terminal.
 - Un manejador que falla *no deshace la petición* que originó el evento (a diferencia del publicador
   síncrono anterior) y el evento no se pierde.
 - `MaintenanceJobs.runAll()` ejecuta en orden: acciones vencidas, despacho, certificados vencidos,
@@ -648,8 +642,7 @@ REST y que Spring Boot sirve en `/`. El build de Maven instala su propio Node (`
 tests del front, compila y deja el resultado en `target/classes/static`: una sola orden (`mvn verify`) y un solo
 jar ejecutable. Cubre el flujo completo: personas, activos, esquemas (con editor de secciones, criterios, reglas y
 evidencia, publicación inmediata o programada: F2), inspecciones (responder, adjuntar evidencia, notas, cerrar),
-rectificación auditable de inspecciones cerradas y consulta de su acta, hallazgos y acciones correctivas
-(planificar, ejecutar, verificar), certificación global y por subsistema (F1)
+hallazgos y acciones correctivas (planificar, ejecutar, verificar), certificación global y por subsistema (F1)
 con los bloqueos de la política jurisdiccional (F3), certificados con su informe, auditoría y procesos.
 
 **Archivos agregados.** `app/frontend/**` (`src/lib`: cliente HTTP, tipos del contrato, etiquetas, formatos, conversión
@@ -672,14 +665,15 @@ entrega la página y sus recursos). **Modificados:** `app/pom.xml` (plugin del f
 
 **Refactorizaciones.** Ninguna en el núcleo ni en la API.
 
-**Pruebas.** Vitest cubre el cliente HTTP, conversión de formularios de reglas, formatos, etiquetas, rectificación y
-acta de inspección, cierre con datos faltantes y certificación por partes. `FrontendIT` verifica que la página, sus
-recursos y la API conviven. No hay una prueba automatizada del flujo completo en un navegador real.
+**Pruebas.** Vitest cubre el cliente HTTP, conversiones de formularios, formatos, etiquetas, panel de certificación,
+rectificación y acta de inspección. `FrontendIT` verifica que la página, sus recursos y la API conviven. No hay
+una prueba automatizada versionada de extremo a extremo en navegador real.
 
 **Deuda técnica deliberada.**
-- *Sin prueba automatizada de extremo a extremo en navegador real.* Las pruebas de componentes usan Vitest y jsdom.
-- *La interfaz no cubre* la reasignación de inspector, la transferencia de
-  aplicabilidad entre esquemas ni la consulta de versiones por número (están en la API).
+- *Sin prueba automatizada versionada de extremo a extremo en navegador real.* Las pruebas de componentes usan Vitest
+  y jsdom.
+- *La interfaz no cubre* la reasignación de inspector, la transferencia de aplicabilidad entre esquemas ni la consulta
+  de versiones por número (están en la API).
 - *Textos de dominio en inglés:* los nombres de subsistemas y características, y los mensajes de error y de motivos
   que arma el núcleo, se muestran como llegan; un diccionario (`labels.ts`) traduce los conocidos y el resto se
   muestra legible pero sin traducir. Internacionalizar bien exige que la API devuelva códigos en lugar de frases.
@@ -711,18 +705,31 @@ parciales vigentes (D17 a D24).
 
 **API y front (Entrega 2).**
 - *API:* `POST /inspections/{id}/certificates` con `{"subsystem": "..."}` emite un parcial y sin cuerpo uno global;
-  `GET /inspections/{id}/eligibility?subsystem=` y `GET /inspections/{id}/global-derivation`
+  `GET /inspections/{id}/eligibility?subsystem=` y `GET /assets/{id}/global-derivation`.
+  `GET /inspections/{id}/global-derivation` se conserva como acceso al estado actual de su activo
   (`CertificateController`, `docs/API.md`).
 - *Persistencia:* el alcance es parte del documento y de la columna indexada `scope_key`; el índice único
   `certificate(backing_inspection_id, scope_key)` impide dos certificados vivos del mismo alcance aun con
   peticiones simultáneas (sección 13).
-- *Front:* la pantalla de la inspección muestra elegibilidad y emisión por subsistema, y la derivación del global.
+- *Front:* la inspección muestra elegibilidad y emisión por subsistema. Tanto la inspección como el activo
+  muestran la derivación actual y los enlaces a los certificados e inspecciones que la respaldan.
 - *Pruebas:* `PartialCertificationIT` (núcleo), `RepositoryParityIT` y `JdbcLifecycleIT` (persistencia),
   `CertificationApiIT` (API: parcial, global derivado, bloqueo, repetición idempotente) y `ConcurrencyApiIT`
   (varias emisiones simultáneas para la misma inspección: queda un solo certificado).
 
 **Refactorizaciones.** El alcance viaja en los hechos y no en la política: la política de emisión no se tocó (D19).
 Los criterios de un subsistema ausente se evalúan pero no generan hallazgos (D23).
+
+**Corrección de la devolución F1.** `DeriveGlobalCertificate` coordina directamente `AssetDirectory`,
+`CertificateRepository`, reloj y política de derivación; solo usa `InspectionQuery` para los accesos
+compatibles por inspección. `CertificateFactory` perdió esa responsabilidad y su dependencia de
+`GlobalCertificatePolicy`. Se modificaron `GlobalDerivationContext`, `AllSubsystemsMustBeInForce`,
+`GlobalCertificate` y su `PartialProvenance`, además de los puntos de composición y el controlador.
+Se agregó el componente `GlobalCertification.tsx`, compartido por activo e inspección. No se
+agregaron reglas de emisión. `PartialCertificationIT` verifica renovaciones escalonadas entre
+inspecciones y esquemas diferentes, tanto con plazos de 12 meses como con un condicional de 6
+meses y un regular de 12. `StaggeredGlobalCertificationIT` verifica la selección tras recargar
+desde H2; `CertificationApiIT` comprueba la consulta por activo y la procedencia HTTP.
 
 **Deuda deliberada.** El global no tiene identidad ni auditoría propias (D20); no se puede pedir "el certificado
 global" por id. Dos parciales pueden haberse emitido con revisiones de política distintas; el global lo informa
@@ -732,6 +739,20 @@ global" por id. Dos parciales pueden haberse emitido con revisiones de política
 
 **Qué hace.** Una versión puede publicarse con una fecha de vigencia futura; hasta entonces sigue rigiendo la
 anterior. El sistema responde qué versión estaba (o estará) vigente en una fecha dada (D25 y D26).
+
+**Publicar cuando hay versiones programadas.** Puede haber varias versiones futuras, con fechas
+estrictamente crecientes entre las publicaciones no retiradas. Dos versiones no retiradas no
+pueden compartir fecha; publicar con la misma fecha rechaza la operación y conserva el borrador.
+Una corrección urgente requiere retirar explícitamente todas las versiones futuras que bloqueen
+la fecha elegida. El retiro exige un motivo, conserva contenido, número y publicación originales
+y agrega un `VersionWithdrawal` a la raíz. No se permite retirar versiones que ya entraron en
+vigencia, ni siquiera en su instante exacto de activación. No hay activación por cron.
+
+Una versión retirada nunca entra en vigencia; la consulta temporal la omite y sigue respondiendo
+la versión que realmente rigió. Las inspecciones iniciadas conservan su versión congelada.
+Los números no se reutilizan. Un borrador nuevo copia la última versión no retirada; un borrador
+ya abierto no se modifica al retirar. Tras el retiro puede publicarse la corrección desde ahora y
+volver a programar el contenido revisado en una publicación nueva, incluso para la fecha liberada.
 
 **Núcleo (Entrega 1).**
 - *Agregadas/modificadas:* `SchemaVersion.effectiveFrom`, `InspectionSchema.effectiveVersionAt`,
@@ -749,6 +770,25 @@ anterior. El sistema responde qué versión estaba (o estará) vigente en una fe
 - *Pruebas:* `FutureEffectiveSchemaIT` (núcleo), `SchemaApiIT` (publicación programada) y `SchemaVersionAtDateApiIT`
   (antes de la primera versión, justo en el límite, entre versiones, futuro, formato inválido, esquema inexistente),
   más `BrowseUseCasesTest` en el núcleo.
+
+**Corrección de la devolución F2.** Se agregó `WithdrawScheduledSchemaVersion` como caso de uso,
+el registro anidado `InspectionSchema.VersionWithdrawal` y `SCHEMA_VERSION_WITHDRAWN` con motivo
+obligatorio. Se modificaron `InspectionSchema` (calendario y retiro), `SchemaApplicability`
+(ignora publicaciones retiradas al comprobar cobertura), la composición, `SchemaController`,
+`SchemaDtos` y `SchemaDetail.tsx`. La API expone `POST /schemas/{id}/versions/{number}/withdraw`
+con `reason`, y el front muestra las versiones retiradas, su motivo y el formulario de retiro.
+La operación usa `ActorProvider` y guarda retiro y auditoría en la misma transacción. Los documentos
+anteriores siguen siendo legibles: `StateCodec` inicializa colecciones ausentes como vacías.
+No cambia el contenido inmutable de `SchemaVersion` ni requiere modificar el esquema SQL.
+`ScheduledVersionWithdrawalTest`, `ScheduledVersionPersistenceIT` y `ScheduledVersionWithdrawalApiIT`
+verifican fechas iguales, corrección urgente, historial, persistencia y auditoría.
+
+**Verificación de las correcciones F1/F2 (26/10/2026).** `mvn --batch-mode --no-transfer-progress verify`
+completó los tres módulos con `BUILD SUCCESS`: 399 pruebas del núcleo, 63 de infraestructura y
+121 de aplicación/API, sin fallos, errores ni omitidas. También pasaron las 24 pruebas de Vitest,
+la comprobación de TypeScript, el build de Vite y el empaquetado. El registro de ejecución está
+en `target/entrega-2-build.log`; los reportes individuales están en `*/target/surefire-reports`
+y `*/target/failsafe-reports`.
 
 **Refactorizaciones.** Corregir `PublishSchemaVersion` para leer el reloj una vez (sección 14). La consulta por fecha
 se resolvió en un caso de uso de consulta y no en el controlador, para que la regla de borde viva en la aplicación.
@@ -808,7 +848,7 @@ prueba. Las correcciones están hechas; lo que no se corrigió figura como deuda
 
 | Hallazgo | Corrección |
 |---|---|
-| Los controladores dependían de `JdbcTransactions` y de excepciones de `infrastructure` (la capa web conocía JDBC) | Puerto `application.shared.port.Transactions` (implementado por `JdbcTransactions`) y `application.shared.ConflictException`, de la que heredan `DuplicateKeyException` y `StaleAggregateException`. El manejador de errores traduce `ConflictException` a 409 (D28) |
+| Los controladores dependían de `JdbcTransactions` y de excepciones de `infrastructure` (la capa web conocía JDBC) | Puerto `domain.shared.port.Transactions` (implementado por `JdbcTransactions`) y `domain.shared.ConflictException`, de la que heredan `DuplicateKeyException` y `StaleAggregateException`. El manejador de errores traduce `ConflictException` a 409 (D28) |
 | Los controladores leían repositorios directamente | Casos de uso de consulta `BrowseParties`, `BrowseSchemas`, `BrowseInspections`, `BrowseFindings`, `BrowseCertificates` y `BrowseAuditTrail` (D29) |
 | Faltaba una integración externa (el enunciado pide «integraciones») | Puerto `NotificationSender` con dos adaptadores y el caso de uso `NotifyCorrectiveActionExpiry` (18.2, D30) |
 | Los procesos de fondo (vencimientos, outbox) sólo se probaban a mano o por separado | `ProcessesApiIT` los prueba por su efecto observable en la API, con un reloj controlable (`SteerableClock`) |
@@ -844,15 +884,48 @@ webhook real) y `ProcessesApiIT` (suspensión más aviso; canal caído no bloque
 
 ### 18.3. Decisiones
 
-- *La transacción sigue abriéndola el controlador.* Los casos de uso son clases concretas y no se pueden decorar sin
-  cambiar el núcleo; se dejó la apertura en el borde pero detrás de un puerto. Alternativa descartada: anotar el
-  núcleo con `@Transactional` (lo acoplaría a Spring).
-- *Los controladores sólo usan casos de uso.* Pueden importar `Transactions` y `Clock`, nada más del lado de los
-  puertos de salida; lo exige `AppBoundaryTest`.
+- *La transacción la abre cada caso de uso.* Las operaciones públicas de las implementaciones reciben `Transactions`
+  y ejecutan dentro de la unidad sus lecturas, cambios, auditoría y encolado de eventos. Una llamada directa al
+  puerto de entrada tiene las mismas garantías que una petición HTTP. Las llamadas anidadas se unen a la unidad.
+  No se usan anotaciones de Spring en el núcleo ni una transacción externa obligatoria.
+- *Los controllers y jobs dependen de contratos de dominio.* Los controllers consumen interfaces de entrada,
+  reloj y contratos de consulta de referencia/operación; no importan implementaciones de aplicación ni repositorios
+  y no abren transacciones. Las pruebas de arquitectura lo comprueban. `MaintenanceService` coordina barridos
+  independientes y entregas del outbox; cada barrido es atómico, el lote administrativo completo no lo es.
 - *La notificación corre dentro de la transacción del manejador del outbox,* porque ahí se conoce el hecho. Es
   simple pero implica la deuda descripta abajo.
 
 ### 18.4. Pruebas
+
+**Corrección de arquitectura y calendario (26/10/2026).** Se movieron los contratos de salida
+y sus valores a `domain`; también `Notification`, su excepción y `ConflictException`, para que
+ningún contrato ni adaptador JDBC dependa de aplicación. Se agregaron 43 interfaces de entrada
+en `domain/**/port/inbound`; las implementaciones existentes las implementan y requieren
+`Transactions` por constructor, sin constructores productivos que omitan esa dependencia.
+Todos sus métodos públicos abren la unidad de trabajo, incluidas consultas y sobrecargas.
+
+Los controllers consumen únicamente interfaces de dominio. `MaintenanceService` implementa
+`RunMaintenance` y coordina los casos de barrido; `MaintenanceJobs` quedó como adaptador de
+planificación. Cada barrido confirma su propia unidad antes de despachar eventos: el lote
+administrativo no se presenta como una operación atómica que pudiera revertir avisos ya enviados.
+La transacción de entrega/reclamo de un evento sigue siendo responsabilidad del outbox.
+
+`Clock.today(at)` reemplaza la mezcla entre inicio del plazo en UTC y comparación local. El
+instante capturado y su fecha de negocio se usan juntos al crear hallazgos, reemplazar acciones,
+planificar, verificar, evaluar y barrer vencimientos. `Finding` recibe `createdOn`/`revisedOn`
+explícitos. La aritmética UTC de vigencias de certificados continúa como regla independiente.
+
+`UseCaseTransactionTest` comprueba entrada directa por interfaz; `UseCaseAtomicityIT` usa H2
+real y provoca una falla de auditoría para verificar rollback sin un controller ni una
+transacción externa. `ScheduledVersionPersistenceIT` también invoca el retiro directamente.
+`BusinessCalendarIT` reproduce cierres a las 10:00 y 22:30 de un mismo día de Buenos Aires,
+con igual plazo y vencimiento conjunto; `SystemClockTest` verifica el adaptador real.
+Las pruebas de arquitectura ahora exigen puertos en dominio e interfaces en los controllers.
+
+La verificación completa `mvn --batch-mode --no-transfer-progress verify` terminó con
+`BUILD SUCCESS`: 399 pruebas del núcleo, 63 de infraestructura y 121 de aplicación/API,
+sin fallos, errores ni omitidas; también pasaron las 24 pruebas del frontend, TypeScript,
+Vite y el empaquetado. Registro: `target/architecture-build.log`.
 
 | Tipo | Dónde | Qué cubre |
 |---|---|---|
@@ -864,8 +937,8 @@ webhook real) y `ProcessesApiIT` (suspensión más aviso; canal caído no bloque
 | Arquitectura | `ArchitectureBoundaryTest` (núcleo), `InfrastructureBoundaryTest`, `AppBoundaryTest` | El núcleo no importa Spring, JDBC, Jackson ni otros módulos; sólo `config` conoce `infrastructure`; la web no importa repositorios |
 | Front end | Vitest (cliente HTTP, conversión de formularios, formatos) y `FrontendIT` | Ver sección 16 |
 
-No se incluye un conteo de pruebas en este documento porque se desactualiza con cada cambio; el informe de
-`mvn verify` (Surefire, Failsafe y JaCoCo) es la fuente.
+Los conteos incluidos en las verificaciones fechadas describen esa ejecución; el informe de
+`mvn verify` (Surefire, Failsafe y JaCoCo) es la fuente del estado actual.
 
 **Integración continua.** El flujo de GitHub Actions ejecuta `mvn verify` con JDK 25, que corre unitarias,
 integración y las pruebas del front. Para que un PR con tests rotos no pueda integrarse hay que activar en GitHub la
@@ -874,8 +947,6 @@ no pudo verificarse desde el código.
 
 ### 18.5. Deuda técnica deliberada
 
-- *Transacción en el controlador* (18.3): un caso de uso no es atómico por sí mismo; si otro adaptador de entrada
-  (una cola, una consola) lo invocara, tendría que abrir la transacción.
 - *Notificaciones al mejor esfuerzo, sin garantía de entrega:* se puede perder un aviso si el canal está caído, y
   duplicarse si el envío tuvo éxito pero la transacción posterior no se confirma. No hay reintento propio.
 - *HTTP dentro de una transacción de base:* mientras el webhook responde (hasta el tiempo de espera) la conexión
@@ -937,9 +1008,9 @@ registra (200), y al cerrar el criterio queda rechazado con severidad crítica. 
 
 **Deuda técnica deliberada.**
 - *El formato persistido cambió:* un esquema guardado por una versión anterior no tiene `outOfRange` y
-  no se puede reconstruir (es la deuda de formato de la sección 13, que ahora se materializó). Como la
-  base es de desarrollo, la salida es borrar `data/` y volver a cargar; una migración de documentos
-  sigue sin implementarse.
+  no se puede reconstruir (es la deuda de formato de la sección 13, que ahora se materializó). No hay
+  migración automática: los datos que deban conservarse necesitan una migración explícita de documentos
+  y una decisión sobre la regla faltante. Recrear una base descartable de desarrollo no migra los datos.
 - *El rango no se valida contra el instrumento:* nada impide declarar 0 a 1200 y medir un millón. Un
   error de tipeo entra como rechazo crítico y se corrige por rectificación, que queda auditada.
 - *La API exige `outOfRange`* en lugar de asumir un valor por omisión, para no esconder con un default

@@ -6,26 +6,26 @@ import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.ResponsiblePartyRef;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationContext;
-import ar.edu.itba.dps.certification.domain.finding.Finding;
-import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
 import ar.edu.itba.dps.certification.domain.finding.action.Verification;
+import ar.edu.itba.dps.certification.domain.finding.Finding;
+import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
+import ar.edu.itba.dps.certification.domain.schema.rule.MappedOptionsRule;
+import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
-import ar.edu.itba.dps.certification.domain.schema.rule.MappedOptionsRule;
-import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
-import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.OptionAnswer;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
 
 import java.time.*;
 import java.util.*;
@@ -52,7 +52,7 @@ public final class PolicyFacts {
         var evaluation = inspection.currentEvaluations().get(CRITERION);
         finding = result.approved() ? null : new Finding(FindingId.of("finding"), inspection.id(), CRITERION,
                 inspection.assetId(), OWNER, INSPECTOR, result, evaluation.reasons(), severity, List.of(),
-                CorrectiveActionId.of("action"), AT);
+                CorrectiveActionId.of("action"), AT, (AT).atZone(java.time.ZoneOffset.UTC).toLocalDate());
     }
     public static LocalDate today() { return AT.atZone(ZoneOffset.UTC).toLocalDate(); }
     public void plan() { finding.planCorrection(OWNER, new CorrectionPlan("repair", OWNER, today()), today(), AT); }

@@ -1,19 +1,21 @@
 package ar.edu.itba.dps.certification.application.notification;
 
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
-import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
-import ar.edu.itba.dps.certification.application.notification.port.NotificationSender;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.PartyKind;
+import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionPlanned;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
+import ar.edu.itba.dps.certification.domain.notification.Notification;
+import ar.edu.itba.dps.certification.domain.notification.NotificationFailedException;
+import ar.edu.itba.dps.certification.domain.notification.port.NotificationSender;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.support.PolicyFacts;
 
-import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,12 +23,12 @@ import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.doThrow;
 
 class NotifyCorrectiveActionExpiryTest {
 

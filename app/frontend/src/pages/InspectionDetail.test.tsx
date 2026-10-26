@@ -17,12 +17,13 @@ const line = {
 
 const schema: Schema = {
   id: 'schema', name: 'Laboratorio', assetTypes: ['LABORATORY'], draft: null, effectiveVersion: 1,
+  withdrawals: [], // <-- Propiedad agregada para satisfacer la interfaz Schema
   versions: [{
     id: 'schema-v1', number: 1, publishedAt: '2026-01-01T00:00:00Z', effectiveFrom: '2026-01-01T00:00:00Z',
     sections: [{ name: 'Mediciones', order: 1, criteria: [{
-      id: 'TEMP', subsystem: null, evidence: [],
-      rule: { type: 'NUMERIC_RANGE', unit: '°C', minimum: 2, maximum: 8, bands: [] },
-    }] }],
+        id: 'TEMP', subsystem: null, evidence: [],
+        rule: { type: 'NUMERIC_RANGE', unit: '°C', minimum: 2, maximum: 8, bands: [] },
+      }] }],
   }],
 }
 

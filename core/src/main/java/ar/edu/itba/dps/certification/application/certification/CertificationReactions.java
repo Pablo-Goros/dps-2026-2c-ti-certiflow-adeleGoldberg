@@ -1,26 +1,26 @@
 package ar.edu.itba.dps.certification.application.certification;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
-import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventHandler;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
 import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationContext;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificateRepository;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionClosed;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionPlanned;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionVoided;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingQuery;
 import ar.edu.itba.dps.certification.domain.inspection.CriterionResultRevised;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.DomainEventHandler;
 
 import java.util.List;
 import java.util.Optional;

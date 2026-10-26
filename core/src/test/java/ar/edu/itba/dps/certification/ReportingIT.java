@@ -19,10 +19,11 @@ import ar.edu.itba.dps.certification.domain.report.IssuanceAttemptReport;
 import ar.edu.itba.dps.certification.domain.report.ReportedValue;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
 import ar.edu.itba.dps.certification.support.TestPolicies;
@@ -59,10 +60,10 @@ class ReportingIT {
         system.actAs(inspector);
         responsible = system.organization("Favaloro Foundation");
         asset = system.asset("Laboratory A", laboratory, responsible);
-        generateAct = new GenerateInspectionAct(system.inspections, system.schemaCatalog);
-        generateSummary = new GenerateFindingsSummary(system.findingQuery);
+        generateAct = new GenerateInspectionAct(system.inspections, system.schemaCatalog, DirectTransactions.INSTANCE);
+        generateSummary = new GenerateFindingsSummary(system.findingQuery, DirectTransactions.INSTANCE);
         generateCertificateReport = new GenerateCertificateReport(system.certificates,
-                system.inspections, system.findingQuery);
+                system.inspections, system.findingQuery, DirectTransactions.INSTANCE);
     }
 
     @Test

@@ -1,25 +1,26 @@
 package ar.edu.itba.dps.certification.app.config;
 
-import ar.edu.itba.dps.certification.app.ops.OutboxOperations;
-import ar.edu.itba.dps.certification.application.notification.port.NotificationSender;
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventHandler;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.notification.port.NotificationSender;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.DomainEventHandler;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.shared.port.OutboxOperations;
 import ar.edu.itba.dps.certification.infrastructure.events.OutboxDispatcher;
 import ar.edu.itba.dps.certification.infrastructure.events.OutboxEventPublisher;
 import ar.edu.itba.dps.certification.infrastructure.notification.LogNotificationSender;
 import ar.edu.itba.dps.certification.infrastructure.notification.WebhookNotificationSender;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcEventOutbox;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 import java.net.URI;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 /** Technical ports of the core: time, identifiers, current actor and event delivery. */
 @Configuration(proxyBeanMethods = false)

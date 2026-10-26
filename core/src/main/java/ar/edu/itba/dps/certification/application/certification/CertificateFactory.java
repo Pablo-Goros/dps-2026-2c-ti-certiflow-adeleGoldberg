@@ -1,34 +1,29 @@
 package ar.edu.itba.dps.certification.application.certification;
 
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
-import ar.edu.itba.dps.certification.application.certification.port.CertificationPolicyRegistry;
-import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
-import ar.edu.itba.dps.certification.domain.certification.derivation.GlobalCertificateDerivation;
-import ar.edu.itba.dps.certification.domain.certification.derivation.GlobalCertificatePolicy;
-import ar.edu.itba.dps.certification.domain.certification.derivation.GlobalDerivationContext;
 import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationAssessment;
 import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationContext;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
-import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceRequirements;
 import ar.edu.itba.dps.certification.domain.certification.policy.JurisdictionCertificationPolicy;
 import ar.edu.itba.dps.certification.domain.certification.policy.PolicyResolutionException;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificateRepository;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificationPolicyRegistry;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingQuery;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -44,21 +39,19 @@ public final class CertificateFactory {
     private final CertificateRepository certificates;
     private final AssetDirectory assets;
     private final CertificationPolicyRegistry policies;
-    private final GlobalCertificatePolicy globalPolicy;
     private final CertificateIssuer issuer;
     private final IdGenerator ids;
     private final Clock clock;
 
     public CertificateFactory(InspectionQuery inspections, FindingQuery findings,
             CertificateRepository certificates, AssetDirectory assets,
-            CertificationPolicyRegistry policies, GlobalCertificatePolicy globalPolicy,
+            CertificationPolicyRegistry policies,
             IdGenerator ids, Clock clock) {
         this.inspections = inspections;
         this.findings = findings;
         this.certificates = certificates;
         this.assets = assets;
         this.policies = policies;
-        this.globalPolicy = globalPolicy;
         this.issuer = new CertificateIssuer();
         this.ids = ids;
         this.clock = clock;
@@ -108,13 +101,9 @@ public final class CertificateFactory {
         Validate.ensure(assessment.inspectionId().equals(inspection.id()) && assessment.scope().equals(scope)
                 && assessment.evaluatedAt().equals(at) && assessment.policy().equals(policy.snapshot()),
                 "policy returned an inconsistent assessment");
-        // Strategies cannot remove structural or compliance guarantees.
-        var blockers = new ArrayList<>(assessment.blockers());
-        for (var requirement : IssuanceRequirements.common()) {
-            requirement.unmetBy(context).filter(blocker -> !blockers.contains(blocker)).ifPresent(blockers::add);
-        }
-        return new CertificationAssessment(inspection.id(), scope, at, policy.snapshot(), blockers,
-                blockers.isEmpty() ? assessment.mode() : Optional.empty());
+        // Rebind strategies to the actual port facts; they can add restrictions, never remove them.
+        return CertificationAssessment.evaluate(context, at, policy.snapshot())
+                .withAdditionalBlockers(assessment.blockers());
     }
 
     /**
@@ -144,16 +133,6 @@ public final class CertificateFactory {
         Inspection inspection = inspections.require(inspectionId);
         requireDeclaredSubsystem(inspection, subsystem);
         return renewWithin(inspection, CertificateScope.of(subsystem));
-    }
-
-    public GlobalCertificateDerivation deriveGlobal(InspectionId inspectionId) {
-        Inspection inspection = inspections.require(inspectionId);
-        requireCoveredInspection(inspection);
-        List<Certificate> partials = certificates.findByBackingInspection(inspectionId).stream()
-                .filter(certificate -> certificate.scope().coveredSubsystem().isPresent())
-                .toList();
-        return globalPolicy.deriveFrom(
-                new GlobalDerivationContext(inspection, partials, clock.now()));
     }
 
     private IssuanceDecision issueWithin(Inspection inspection, CertificateScope scope) {
@@ -201,13 +180,8 @@ public final class CertificateFactory {
         if (!assessment.blockers().isEmpty()) return new IssuanceDecision.Blocked(assessment);
         Validate.ensure(inspection.status().closed(), "the backing inspection must be closed");
         Validate.ensure(!inspection.closedAt().orElseThrow().isAfter(at), "issuance cannot precede closure");
-        var mode = assessment.mode().orElseThrow();
-        var validity = Validate.required(policy.validityFrom(at, mode), "validity");
-        Validate.ensure(validity.issuedAt().equals(at), "validity must begin at issuance");
-        Validate.ensure(validity.expiresAt().isAfter(at), "validity must end after issuance");
         return new IssuanceDecision.Issued(issuer.issue(new CertificateId(ids.newIdentifier()),
-                inspection.assetId(), inspection.id(), inspection.requireFrozenSchemaVersionId(),
-                scope, validity, previous == null ? null : previous.id(), assessment.policy(), mode));
+                inspection, assessment, previous));
     }
 
     private CertificationContext contextFor(Inspection inspection, CertificateScope scope, Instant at) {
@@ -221,7 +195,6 @@ public final class CertificateFactory {
     }
 
     private void requireWholeAssetSchema(Inspection inspection) {
-        requireCoveredInspection(inspection);
         Validate.ensure(inspection.certifiableSubsystems().isEmpty(),
                 "inspection " + inspection.id() + " certifies the subsystems "
                         + inspection.certifiableSubsystems() + " separately, so derive the global "
@@ -229,17 +202,10 @@ public final class CertificateFactory {
     }
 
     private void requireDeclaredSubsystem(Inspection inspection, Subsystem subsystem) {
-        requireCoveredInspection(inspection);
         Validate.required(subsystem, "subsystem");
         Validate.ensure(inspection.certifiableSubsystems().contains(subsystem),
                 "inspection " + inspection.id() + " does not certify subsystem " + subsystem
                         + "; it certifies " + inspection.certifiableSubsystems());
-    }
-
-    private void requireCoveredInspection(Inspection inspection) {
-        Validate.ensure(inspection.unevaluatedPresentSubsystems().isEmpty(),
-                "inspection " + inspection.id() + " cannot be certified because its frozen schema did not evaluate "
-                        + inspection.unevaluatedPresentSubsystems());
     }
 
     /** A closed inspection of the same asset started after this one describes a newer state. */

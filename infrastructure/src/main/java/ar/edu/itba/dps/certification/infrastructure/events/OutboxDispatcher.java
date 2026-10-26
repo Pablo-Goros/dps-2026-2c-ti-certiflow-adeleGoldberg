@@ -1,12 +1,12 @@
 package ar.edu.itba.dps.certification.infrastructure.events;
 
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventHandler;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
+import ar.edu.itba.dps.certification.domain.shared.port.DomainEventHandler;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcEventOutbox;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
 
-import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.List;
 
 /**
  * Delivers pending outbox events to the handlers.
@@ -53,11 +53,11 @@ public final class OutboxDispatcher {
                 List<JdbcEventOutbox.Pending> rows = pendingSafely(afterSeq, throughSeq);
                 if (rows.isEmpty()) break;
                 for (JdbcEventOutbox.Pending row : rows) {
+                    afterSeq = row.seq();
                     if (deliver(row)) {
                         delivered++;
                     }
                 }
-                afterSeq = rows.getLast().seq();
             }
             return delivered;
         } finally {

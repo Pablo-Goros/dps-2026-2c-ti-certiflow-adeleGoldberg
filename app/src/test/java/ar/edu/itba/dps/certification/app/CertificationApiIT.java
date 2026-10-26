@@ -1,13 +1,13 @@
 package ar.edu.itba.dps.certification.app;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,6 +37,7 @@ class CertificationApiIT extends ApiTest {
         api.post(path + "/certificates", Map.of("subsystem", "pressure system"), null);
         api.post(path + "/certificates", Map.of("subsystem", "building safety"), null);
         var complete = api.get(path + "/global-derivation");
+        var byAsset = api.get("/api/assets/" + inspected.assetId() + "/global-derivation");
         var listed = api.get("/api/certificates?assetId=" + inspected.assetId());
 
         assertThat(electrical.status()).as(electrical.body()).isEqualTo(201);
@@ -45,6 +46,8 @@ class CertificationApiIT extends ApiTest {
         assertThat(again.text("outcome")).isEqualTo("ALREADY_ISSUED");
         assertThat(partialOnly.text("type")).isEqualTo("NotDerivable");
         assertThat(complete.text("type")).isEqualTo("Derived");
+        assertThat(byAsset.json()).isEqualTo(complete.json());
+        assertThat(byAsset.body()).contains("provenance", "backingInspectionId", "schemaVersionId", inspected.inspectionId());
         assertThat(listed.jsonList()).hasSize(3);
         assertThat(listed.jsonList()).allSatisfy(c -> {
             assertThat(c.get("scope")).isEqualTo("PARTIAL");
@@ -125,14 +128,21 @@ class CertificationApiIT extends ApiTest {
 
     @Test
     void everyEventOfTheRequestsIsDeliveredThroughTheOutbox() {
-        closedInspection("hazardous", "clean", "clean");
+        int deliveredBefore = api.get("/api/admin/outbox?status=DONE").jsonListOrEmpty().size();
+        var inspected = closedInspection("hazardous", "clean", "clean");
+        String findingId = (String) api.get("/api/findings?inspectionId=" + inspected.inspectionId())
+                .jsonList().getFirst().get("id");
+        var planned = api.post("/api/findings/" + findingId + "/plan", Map.of("work", "repair",
+                "executorId", person("Outbox executor"),
+                "dueDate", LocalDate.now(ZoneOffset.UTC).plusDays(10).toString()), inspected.owner());
+        assertThat(planned.status()).as(planned.body()).isEqualTo(200);
         api.post("/api/admin/jobs/run", Map.of(), null);
 
         var done = api.get("/api/admin/outbox?status=DONE");
         var pending = api.get("/api/admin/outbox?status=PENDING");
         var dead = api.get("/api/admin/outbox?status=DEAD");
 
-        assertThat(done.jsonListOrEmpty()).isNotEmpty();
+        assertThat(done.jsonListOrEmpty().size()).isGreaterThan(deliveredBefore);
         assertThat(pending.jsonListOrEmpty()).isEmpty();
         assertThat(dead.jsonListOrEmpty()).isEmpty();
     }

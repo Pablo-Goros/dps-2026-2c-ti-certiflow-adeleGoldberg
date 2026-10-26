@@ -4,8 +4,8 @@ import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
-import ar.edu.itba.dps.certification.domain.certification.ValidityPeriod;
 import ar.edu.itba.dps.certification.domain.certification.policy.CertificationPolicySnapshot;
+import ar.edu.itba.dps.certification.domain.certification.ValidityPeriod;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
@@ -18,8 +18,6 @@ import java.util.stream.Collectors;
 
 public record GlobalCertificate(
         AssetId assetId,
-        InspectionId backingInspectionId,
-        SchemaVersionId schemaVersionId,
         ValidityPeriod validity,
         Set<Subsystem> coveredSubsystems,
         List<CertificateId> derivedFrom,
@@ -27,17 +25,18 @@ public record GlobalCertificate(
         List<PartialProvenance> provenance) {
 
     public record PartialProvenance(CertificateId certificateId, Subsystem subsystem,
+            InspectionId backingInspectionId, SchemaVersionId schemaVersionId,
             CertificationPolicySnapshot policy,
             CertificateMode mode) {
         public PartialProvenance {
             Validate.required(certificateId, "certificate id"); Validate.required(subsystem, "subsystem");
+            Validate.required(backingInspectionId, "backing inspection id");
+            Validate.required(schemaVersionId, "schema version id");
             Validate.required(policy, "policy"); Validate.required(mode, "mode");
         }
     }
     public GlobalCertificate {
         Validate.required(assetId, "asset id");
-        Validate.required(backingInspectionId, "backing inspection id");
-        Validate.required(schemaVersionId, "schema version id");
         Validate.required(validity, "validity period");
         coveredSubsystems = Collections.unmodifiableSet(new LinkedHashSet<>(
                 Validate.requiredNonEmpty(coveredSubsystems, "covered subsystems")));

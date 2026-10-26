@@ -3,7 +3,6 @@ package ar.edu.itba.dps.certification.support;
 import ar.edu.itba.dps.certification.adapter.catalogue.CatalogueAssetDirectory;
 import ar.edu.itba.dps.certification.adapter.schema.PublishedSchemaCatalog;
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetResponsible;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
@@ -14,7 +13,6 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.CloseInspect
 import ar.edu.itba.dps.certification.application.inspection.usecase.RecordAnswer;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
 import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
@@ -24,23 +22,25 @@ import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.PartyKind;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.evaluation.CriterionEvaluator;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
-import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
-import ar.edu.itba.dps.certification.domain.schema.PublicationResult;
-import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
-import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
-import ar.edu.itba.dps.certification.domain.schema.Section;
-import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceType;
+import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
+import ar.edu.itba.dps.certification.domain.schema.PublicationResult;
 import ar.edu.itba.dps.certification.domain.schema.rule.MappedOptionsRule;
 import ar.edu.itba.dps.certification.domain.schema.rule.NumericBand;
 import ar.edu.itba.dps.certification.domain.schema.rule.NumericRangeRule;
 import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
 import ar.edu.itba.dps.certification.domain.schema.rule.YesNoRule;
+import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
+import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
+import ar.edu.itba.dps.certification.domain.schema.Section;
+import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 
@@ -77,33 +77,33 @@ public final class DomainWorld {
             new CatalogueAssetDirectory(catalogue.assets, clock);
     public final SchemaCatalog schemaCatalog = new PublishedSchemaCatalog(schemas);
     public final RegisterParty registerParty =
-            new RegisterParty(catalogue.parties, ids, audit);
+            new RegisterParty(catalogue.parties, ids, audit, DirectTransactions.INSTANCE);
     public final RegisterAsset registerAsset =
-            new RegisterAsset(catalogue.assets, catalogue.parties, ids, audit);
+            new RegisterAsset(catalogue.assets, catalogue.parties, ids, audit, DirectTransactions.INSTANCE);
     public final ChangeAssetResponsible changeAssetResponsible =
-            new ChangeAssetResponsible(catalogue.assets, catalogue.parties, audit);
+            new ChangeAssetResponsible(catalogue.assets, catalogue.parties, audit, DirectTransactions.INSTANCE);
 
     public final CreateSchema createSchema =
-            new CreateSchema(schemas, new SchemaApplicability(), ids, audit);
-    public final OpenDraft openDraft = new OpenDraft(schemas, audit);
-    public final EditDraft editDraft = new EditDraft(schemas, audit);
+            new CreateSchema(schemas, new SchemaApplicability(), ids, audit, DirectTransactions.INSTANCE);
+    public final OpenDraft openDraft = new OpenDraft(schemas, audit, DirectTransactions.INSTANCE);
+    public final EditDraft editDraft = new EditDraft(schemas, audit, DirectTransactions.INSTANCE);
     public final PublishSchemaVersion publishSchemaVersion =
-            new PublishSchemaVersion(schemas, clock, audit);
+            new PublishSchemaVersion(schemas, clock, audit, DirectTransactions.INSTANCE);
 
     public final AssignInspection assignInspection =
-            new AssignInspection(inspections, assetDirectory, catalogue.parties, ids, audit);
+            new AssignInspection(inspections, assetDirectory, catalogue.parties, ids, audit, DirectTransactions.INSTANCE);
     public final StartInspection startInspection =
-            new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit, actors);
+            new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit, actors, DirectTransactions.INSTANCE);
     public final RecordAnswer recordAnswer =
-            new RecordAnswer(inspections, audit, actors);
+            new RecordAnswer(inspections, audit, actors, DirectTransactions.INSTANCE);
     public final AttachEvidence attachEvidence =
-            new AttachEvidence(inspections, ids, clock, audit, actors);
+            new AttachEvidence(inspections, ids, clock, audit, actors, DirectTransactions.INSTANCE);
     public final CloseInspection closeInspection =
-            new CloseInspection(inspections, assetDirectory, findings, clock, audit, actors);
+            new CloseInspection(inspections, assetDirectory, findings, clock, audit, actors, DirectTransactions.INSTANCE);
     public final RectifyClosedInspection rectifyClosedInspection =
             new RectifyClosedInspection(inspections, findings,
                     new RectificationConsequences(findings, assetDirectory),
-                    events, ids, clock, audit, actors);
+                    events, ids, clock, audit, actors, DirectTransactions.INSTANCE);
 
     /** Makes the given party the authenticated user for the following operations. */
     public void actAs(Party party) {

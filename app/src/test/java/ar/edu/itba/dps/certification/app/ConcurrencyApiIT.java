@@ -58,6 +58,23 @@ class ConcurrencyApiIT extends ApiTest {
     }
 
     @Test
+    void simultaneousAssignmentsCannotLeaveTwoOpenInspectionsForOneAsset() throws Exception {
+        String owner = organization("Assignment owner");
+        String inspector = person("Assignment inspector");
+        String assetId = api.post("/api/assets", Map.of("name", "Concurrent asset", "assetType", "LABORATORY",
+                "responsibleId", owner, "location", "Workshop", "characteristics", Map.of(),
+                "jurisdiction", "REFERENCE"), null).text("id");
+
+        var replies = simultaneously(CALLERS, () -> api.post("/api/inspections",
+                Map.of("assetId", assetId, "inspectorId", inspector, "expectedDate", "2027-01-15"), null));
+
+        assertThat(replies).extracting(Api.Reply::status)
+                .allMatch(status -> status == 201 || status == 409 || status == 422);
+        assertThat(replies.stream().filter(reply -> reply.status() == 201).count()).isEqualTo(1);
+        assertThat(api.get("/api/inspections?assetId=" + assetId).jsonList()).hasSize(1);
+    }
+
+    @Test
     void ofSeveralSimultaneousSchemasForTheSameAssetTypeOnlyOneIsCreated() throws Exception {
         var replies = simultaneously(CALLERS, () -> api.post("/api/schemas",
                 Map.of("name", "Factory", "assetTypes", List.of("FACTORY")), null));

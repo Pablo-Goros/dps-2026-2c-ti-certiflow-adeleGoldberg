@@ -1,7 +1,7 @@
 package ar.edu.itba.dps.certification.infrastructure.notification;
 
-import ar.edu.itba.dps.certification.application.notification.Notification;
-import ar.edu.itba.dps.certification.application.notification.port.NotificationSender;
+import ar.edu.itba.dps.certification.domain.notification.Notification;
+import ar.edu.itba.dps.certification.domain.notification.port.NotificationSender;
 
 /** The default channel: writes the notification to the application log. */
 public final class LogNotificationSender implements NotificationSender {

@@ -3,7 +3,7 @@ package ar.edu.itba.dps.certification.application.report.usecase;
 import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
@@ -13,46 +13,51 @@ import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectificati
 import ar.edu.itba.dps.certification.domain.report.InspectionAct;
 import ar.edu.itba.dps.certification.domain.report.ReportedValue;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.Section;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.domain.shared.answer.Answer;
+import ar.edu.itba.dps.certification.domain.shared.port.Transactions;
 
 import java.util.ArrayList;
+import java.util.function.Predicate;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
 
-public final class GenerateInspectionAct {
+public final class GenerateInspectionAct implements ar.edu.itba.dps.certification.domain.report.port.inbound.GenerateInspectionAct {
+    private final Transactions transactions;
 
     private static final String NOT_RECORDED = "(not recorded)";
 
     private final InspectionQuery inspections;
     private final SchemaCatalog schemas;
 
-    public GenerateInspectionAct(InspectionQuery inspections, SchemaCatalog schemas) {
+    public GenerateInspectionAct(InspectionQuery inspections, SchemaCatalog schemas, Transactions transactions) {
+        this.transactions = transactions;
         this.inspections = inspections;
         this.schemas = schemas;
     }
 
     public InspectionAct generate(InspectionId inspectionId) {
-        Inspection inspection = inspections.require(inspectionId);
-        List<InspectionAct.ActSection> sections = inspection.frozenSchemaVersionId()
-                .map(schemas::requireVersion)
-                .map(version -> sectionsOf(inspection, version))
-                .orElseGet(List::of);
-        return new InspectionAct(
-                inspection.id(),
-                inspection.status(),
-                inspection.assetSnapshot(),
-                inspection.inspector(),
-                inspection.expectedDate(),
-                inspection.startedAt(),
-                inspection.closedAt(),
-                inspection.frozenSchemaVersionId(),
-                sections,
-                notesOf(inspection),
-                rectificationsOf(inspection));
+        return transactions.execute(() -> {
+            Inspection inspection = inspections.require(inspectionId);
+            List<InspectionAct.ActSection> sections = inspection.frozenSchemaVersionId()
+                    .map(schemas::requireVersion)
+                    .map(version -> sectionsOf(inspection, version))
+                    .orElseGet(List::of);
+            return new InspectionAct(
+                    inspection.id(),
+                    inspection.status(),
+                    inspection.assetSnapshot(),
+                    inspection.inspector(),
+                    inspection.expectedDate(),
+                    inspection.startedAt(),
+                    inspection.closedAt(),
+                    inspection.frozenSchemaVersionId(),
+                    sections,
+                    notesOf(inspection),
+                    rectificationsOf(inspection));
+        });
     }
 
     private List<InspectionAct.ActSection> sectionsOf(Inspection inspection, SchemaVersion version) {

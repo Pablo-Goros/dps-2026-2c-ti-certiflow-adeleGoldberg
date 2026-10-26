@@ -1,11 +1,11 @@
 package ar.edu.itba.dps.certification.adapter.certification;
 
-import ar.edu.itba.dps.certification.application.certification.port.CertificationPolicyRegistry;
 import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.certification.policy.CertificationPolicyRef;
 import ar.edu.itba.dps.certification.domain.certification.policy.CertificationPolicySnapshot;
 import ar.edu.itba.dps.certification.domain.certification.policy.JurisdictionCertificationPolicy;
 import ar.edu.itba.dps.certification.domain.certification.policy.PolicyResolutionException;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificationPolicyRegistry;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.util.HashMap;

@@ -2,7 +2,6 @@ package ar.edu.itba.dps.certification.application.certification.usecase;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
 import ar.edu.itba.dps.certification.application.certification.CertificateFactory;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
@@ -10,17 +9,21 @@ import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.certification.policy.PolicyResolutionException;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificateRepository;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.shared.port.Transactions;
 
 import java.util.function.Supplier;
 
-public final class RenewCertificate {
+public final class RenewCertificate implements ar.edu.itba.dps.certification.domain.certification.port.inbound.RenewCertificate {
+    private final Transactions transactions;
 
     private final CertificateFactory factory;
     private final CertificateRepository certificates;
     private final AuditRecorder audit;
 
-    public RenewCertificate(CertificateFactory factory, CertificateRepository certificates, AuditRecorder audit) {
+    public RenewCertificate(CertificateFactory factory, CertificateRepository certificates, AuditRecorder audit, Transactions transactions) {
+        this.transactions = transactions;
         this.factory = factory;
         this.certificates = certificates;
         this.audit = audit;
@@ -37,10 +40,10 @@ public final class RenewCertificate {
     private IssuanceDecision execute(InspectionId inspectionId,
             CertificateScope scope,
             Supplier<IssuanceDecision> operation) {
-        try { return record(inspectionId, operation.get()); }
+        try { return transactions.execute(() -> record(inspectionId, operation.get())); }
         catch (PolicyResolutionException error) {
-            audit.record(AuditedElementRef.inspection(inspectionId.value()), AuditAction.CERTIFICATE_ISSUANCE_BLOCKED,
-                    new AuditDetail.PolicyResolutionFailed("renew", inspectionId, scope, error.getMessage()));
+            transactions.execute(() -> audit.record(AuditedElementRef.inspection(inspectionId.value()), AuditAction.CERTIFICATE_ISSUANCE_BLOCKED,
+                    new AuditDetail.PolicyResolutionFailed("renew", inspectionId, scope, error.getMessage())));
             throw error;
         }
     }

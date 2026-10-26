@@ -1,4 +1,5 @@
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { type ComponentType } from 'react'
+import { NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { useParties } from './components/Party'
 import { Dashboard } from './pages/Dashboard'
 import { Parties } from './pages/Parties'
@@ -37,6 +38,12 @@ function Seal() {
   )
 }
 
+/** Form state belongs to one record and must not follow navigation to another id. */
+function RecordRoute({ page: Page }: { page: ComponentType }) {
+  const { id } = useParams()
+  return <Page key={id} />
+}
+
 export function App() {
   const { parties, actorId, chooseActor } = useParties()
   return (
@@ -69,15 +76,15 @@ export function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/personas" element={<Parties />} />
           <Route path="/activos" element={<Assets />} />
-          <Route path="/activos/:id" element={<AssetDetail />} />
+          <Route path="/activos/:id" element={<RecordRoute page={AssetDetail} />} />
           <Route path="/esquemas" element={<Schemas />} />
-          <Route path="/esquemas/:id" element={<SchemaDetail />} />
+          <Route path="/esquemas/:id" element={<RecordRoute page={SchemaDetail} />} />
           <Route path="/inspecciones" element={<Inspections />} />
-          <Route path="/inspecciones/:id" element={<InspectionDetail />} />
+          <Route path="/inspecciones/:id" element={<RecordRoute page={InspectionDetail} />} />
           <Route path="/hallazgos" element={<Findings />} />
-          <Route path="/hallazgos/:id" element={<FindingDetail />} />
+          <Route path="/hallazgos/:id" element={<RecordRoute page={FindingDetail} />} />
           <Route path="/certificados" element={<Certificates />} />
-          <Route path="/certificados/:id" element={<CertificateDetail />} />
+          <Route path="/certificados/:id" element={<RecordRoute page={CertificateDetail} />} />
           <Route path="/auditoria" element={<Audit />} />
           <Route path="/procesos" element={<Processes />} />
           <Route path="*" element={<Navigate to="/" replace />} />

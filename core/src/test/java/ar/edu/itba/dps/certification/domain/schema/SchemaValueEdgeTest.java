@@ -147,26 +147,26 @@ class SchemaValueEdgeTest {
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("already covered");
         assertThatThrownBy(() -> applicability.applyTo(target, AssetType.LABORATORY,
-                Optional.of(source.id())))
+                Optional.of(source.id()), Instant.parse("2026-03-01T10:00:00Z")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("already covered");
         assertThatThrownBy(() -> applicability.stopApplyingTo(target, AssetType.LABORATORY))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("does not apply");
         assertThatThrownBy(() -> applicability.transfer(source, source, AssetType.LABORATORY,
-                Optional.of(source.id())))
+                Optional.of(source.id()), Instant.parse("2026-03-01T10:00:00Z")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("another schema");
         assertThatThrownBy(() -> applicability.transfer(source, target, AssetType.EQUIPMENT,
-                Optional.of(source.id())))
+                Optional.of(source.id()), Instant.parse("2026-03-01T10:00:00Z")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("source schema does not apply");
         assertThatThrownBy(() -> applicability.transfer(source, target, AssetType.FACTORY,
-                Optional.empty()))
+                Optional.empty(), Instant.parse("2026-03-01T10:00:00Z")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("registered owner");
         assertThatThrownBy(() -> applicability.transfer(source, target, AssetType.FACTORY,
-                Optional.of(source.id())))
+                Optional.of(source.id()), Instant.parse("2026-03-01T10:00:00Z")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("replacement schema must have a published version");
     }

@@ -1,23 +1,23 @@
 package ar.edu.itba.dps.certification.app.demo;
 
 import ar.edu.itba.dps.certification.app.config.RequestActor;
-import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
-import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
-import ar.edu.itba.dps.certification.application.catalogue.usecase.SearchAssets;
-import ar.edu.itba.dps.certification.application.certification.usecase.DeriveGlobalCertificate;
-import ar.edu.itba.dps.certification.application.certification.usecase.IssueCertificate;
-import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
-import ar.edu.itba.dps.certification.application.finding.usecase.PlanCorrectiveAction;
-import ar.edu.itba.dps.certification.application.inspection.usecase.AssignInspection;
-import ar.edu.itba.dps.certification.application.inspection.usecase.AttachEvidence;
-import ar.edu.itba.dps.certification.application.inspection.usecase.CloseInspection;
-import ar.edu.itba.dps.certification.application.inspection.usecase.RecordAnswer;
-import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
-import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
-import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
-import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
-import ar.edu.itba.dps.certification.application.schema.usecase.PublishSchemaVersion;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingQuery;
+import ar.edu.itba.dps.certification.domain.catalogue.port.inbound.RegisterAsset;
+import ar.edu.itba.dps.certification.domain.catalogue.port.inbound.RegisterParty;
+import ar.edu.itba.dps.certification.domain.catalogue.port.inbound.SearchAssets;
+import ar.edu.itba.dps.certification.domain.certification.port.inbound.DeriveGlobalCertificate;
+import ar.edu.itba.dps.certification.domain.certification.port.inbound.IssueCertificate;
+import ar.edu.itba.dps.certification.domain.finding.port.inbound.PlanCorrectiveAction;
+import ar.edu.itba.dps.certification.domain.inspection.port.inbound.AssignInspection;
+import ar.edu.itba.dps.certification.domain.inspection.port.inbound.AttachEvidence;
+import ar.edu.itba.dps.certification.domain.inspection.port.inbound.CloseInspection;
+import ar.edu.itba.dps.certification.domain.inspection.port.inbound.RecordAnswer;
+import ar.edu.itba.dps.certification.domain.inspection.port.inbound.StartInspection;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.CreateSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.EditDraft;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.OpenDraft;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.PublishSchemaVersion;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
@@ -55,8 +55,8 @@ import java.util.function.Supplier;
  * different severities, a certificate per subsystem with its derived global one, and the same
  * inspection outcome decided under two jurisdictions.
  *
- * <p>It drives the real use cases rather than inserting rows. Everything the demo shows — the
- * evaluations, the findings and their severities, the certificates and their validity — is state
+ * <p>It drives the real use cases rather than inserting rows. Everything the demo shows â€” the
+ * evaluations, the findings and their severities, the certificates and their validity â€” is state
  * the domain computes, so writing it as SQL would mean recomputing by hand what the rules already
  * decide, and would silently drift the day a rule changes.
  */
@@ -153,18 +153,18 @@ class DemoDataSeeder implements ApplicationRunner {
     }
 
     private void seed() {
-        Party inspector = asSystem(() -> registerParty.register("Ana Pérez", PartyKind.PERSON));
+        Party inspector = asSystem(() -> registerParty.register("Ana PÃ©rez", PartyKind.PERSON));
         Party northern = asSystem(() ->
                 registerParty.register("Northern Industrial Park", PartyKind.ORGANIZATION));
         Party cordoba = asSystem(() ->
-                registerParty.register("Córdoba Logistics Hub", PartyKind.ORGANIZATION));
+                registerParty.register("CÃ³rdoba Logistics Hub", PartyKind.ORGANIZATION));
         Party reference = asSystem(() ->
                 registerParty.register("Reference Testing Grounds", PartyKind.ORGANIZATION));
 
         Asset buenosAires = asSystem(() -> registerAsset.register("Buenos Aires Plant",
                 AssetType.FACILITY, northern.id(), "Panamericana km 32",
                 Map.of("room", "Main hall", "purpose", "assembly"), BUENOS_AIRES));
-        Asset cordobaPlant = asSystem(() -> registerAsset.register("Córdoba Plant",
+        Asset cordobaPlant = asSystem(() -> registerAsset.register("CÃ³rdoba Plant",
                 AssetType.FACILITY, cordoba.id(), "Ruta 9 km 701",
                 Map.of("room", "Main hall", "purpose", "logistics"), CORDOBA));
         Asset referencePlant = asSystem(() -> registerAsset.register("Reference Plant",

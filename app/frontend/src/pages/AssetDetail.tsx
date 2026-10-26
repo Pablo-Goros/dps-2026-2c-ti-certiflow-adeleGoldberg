@@ -6,6 +6,7 @@ import { useLoad } from '../lib/hooks'
 import { label } from '../lib/labels'
 import type { Asset, Certificate, InspectionRow } from '../lib/types'
 import { PartySelect, useParties } from '../components/Party'
+import { AssetGlobalCertification } from '../components/GlobalCertification'
 import {
   CertificateBadge, Card, Empty, ErrorLine, Facts, Field, InspectionBadge, Loading, LoadError, Page, useAction,
 } from '../components/ui'
@@ -42,6 +43,8 @@ export function AssetDetail() {
         <Relocate asset={a} onDone={asset.reload} />
         <ChangeResponsible asset={a} onDone={asset.reload} />
       </div>
+
+      {a.subsystems.length > 0 && <AssetGlobalCertification assetId={a.id} />}
 
       <Card title="Inspecciones">
         {inspections.data && inspections.data.length === 0 ? (

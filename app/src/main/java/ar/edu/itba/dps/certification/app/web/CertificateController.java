@@ -1,21 +1,28 @@
 package ar.edu.itba.dps.certification.app.web;
 
+import ar.edu.itba.dps.certification.app.web.dto.CertificateDtos.AssessmentResponse;
 import ar.edu.itba.dps.certification.app.web.dto.CertificateDtos.IssueRequest;
-import ar.edu.itba.dps.certification.application.certification.usecase.BrowseCertificates;
-import ar.edu.itba.dps.certification.application.certification.usecase.DeriveGlobalCertificate;
-import ar.edu.itba.dps.certification.application.certification.usecase.EvaluateIssuanceEligibility;
-import ar.edu.itba.dps.certification.application.certification.usecase.IssueCertificate;
-import ar.edu.itba.dps.certification.application.certification.usecase.RenewCertificate;
-import ar.edu.itba.dps.certification.application.inspection.usecase.BrowseInspections;
-import ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport;
-import ar.edu.itba.dps.certification.application.shared.port.Transactions;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
+import ar.edu.itba.dps.certification.domain.catalogue.port.inbound.SearchAssets;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
+import ar.edu.itba.dps.certification.domain.certification.port.inbound.BrowseCertificates;
+import ar.edu.itba.dps.certification.domain.certification.port.inbound.DeriveGlobalCertificate;
+import ar.edu.itba.dps.certification.domain.certification.port.inbound.EvaluateIssuanceEligibility;
+import ar.edu.itba.dps.certification.domain.certification.port.inbound.IssueCertificate;
+import ar.edu.itba.dps.certification.domain.certification.port.inbound.RenewCertificate;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.port.inbound.BrowseInspections;
+import ar.edu.itba.dps.certification.domain.report.port.inbound.GenerateCertificateReport;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,11 +31,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * Certificates (F1 partial by subsystem, plus the global one) issued from a closed inspection under
@@ -46,12 +48,12 @@ class CertificateController {
     private final GenerateCertificateReport report;
     private final BrowseCertificates certificates;
     private final BrowseInspections inspections;
-    private final Transactions transactions;
+    private final SearchAssets assets;
 
     CertificateController(IssueCertificate issue, RenewCertificate renew,
             EvaluateIssuanceEligibility eligibility, DeriveGlobalCertificate derivation,
             GenerateCertificateReport report, BrowseCertificates certificates,
-            BrowseInspections inspections, Transactions transactions) {
+            BrowseInspections inspections, SearchAssets assets) {
         this.issue = issue;
         this.renew = renew;
         this.eligibility = eligibility;
@@ -59,7 +61,7 @@ class CertificateController {
         this.report = report;
         this.certificates = certificates;
         this.inspections = inspections;
-        this.transactions = transactions;
+        this.assets = assets;
     }
 
     @PostMapping("/inspections/{id}/certificates")
@@ -68,9 +70,9 @@ class CertificateController {
         requireInspection(id);
         InspectionId inspectionId = InspectionId.of(id);
         String subsystem = request == null ? null : request.subsystem();
-        return respond(transactions.execute(() -> subsystem == null
+        return respond(subsystem == null
                 ? issue.issue(inspectionId)
-                : issue.issuePartial(inspectionId, Subsystem.of(subsystem))));
+                : issue.issuePartial(inspectionId, Subsystem.of(subsystem)));
     }
 
     @PostMapping("/inspections/{id}/certificates/renewal")
@@ -79,9 +81,9 @@ class CertificateController {
         requireInspection(id);
         InspectionId inspectionId = InspectionId.of(id);
         String subsystem = request == null ? null : request.subsystem();
-        return respond(transactions.execute(() -> subsystem == null
+        return respond(subsystem == null
                 ? renew.renew(inspectionId)
-                : renew.renewPartial(inspectionId, Subsystem.of(subsystem))));
+                : renew.renewPartial(inspectionId, Subsystem.of(subsystem)));
     }
 
     /** Whether a certificate could be issued now and, if not, every blocker. Changes nothing. */
@@ -90,9 +92,9 @@ class CertificateController {
             @RequestParam(name = "subsystem", required = false) String subsystem) {
         requireInspection(id);
         InspectionId inspectionId = InspectionId.of(id);
-        return Plain.of(subsystem == null
+        return Plain.of(AssessmentResponse.from(subsystem == null
                 ? eligibility.assess(inspectionId)
-                : eligibility.assess(inspectionId, Subsystem.of(subsystem)));
+                : eligibility.assess(inspectionId, Subsystem.of(subsystem))));
     }
 
     /** Whether the partial certificates in force add up to a global one. Changes nothing. */
@@ -100,6 +102,12 @@ class CertificateController {
     Object globalDerivation(@PathVariable("id") String id) {
         requireInspection(id);
         return Plain.of(derivation.deriveFor(InspectionId.of(id)));
+    }
+
+    @GetMapping("/assets/{id}/global-derivation")
+    Object globalDerivationForAsset(@PathVariable("id") String id) {
+        assets.byId(new AssetId(id)).orElseThrow(() -> new NotFoundException("asset " + id + " does not exist"));
+        return Plain.of(derivation.deriveFor(AssetId.of(id)));
     }
 
     @GetMapping("/certificates")
@@ -139,7 +147,7 @@ class CertificateController {
             }
             case IssuanceDecision.Blocked blocked -> {
                 body.put("outcome", "BLOCKED");
-                body.put("assessment", Plain.of(blocked.assessment()));
+                body.put("assessment", Plain.of(AssessmentResponse.from(blocked.assessment())));
                 yield ResponseEntity.status(422).body(body);
             }
         };

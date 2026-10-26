@@ -11,20 +11,25 @@ import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.CertificationPlan;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
+import ar.edu.itba.dps.certification.domain.certification.policy.*;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.report.CertificateReport;
 import ar.edu.itba.dps.certification.domain.schema.Section;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.OptionAnswer;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
+import ar.edu.itba.dps.certification.support.TestPolicies;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +38,8 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static ar.edu.itba.dps.certification.support.Decisions.alreadyIssuedCertificate;
 import static ar.edu.itba.dps.certification.support.Decisions.blockers;
@@ -82,6 +89,44 @@ class PartialCertificationIT {
         assertThat(global.coveredSubsystems()).containsExactly(ELECTRICAL, PRESSURE);
         assertThat(global.derivedFrom()).containsExactly(electrical.id(), pressure.id());
         assertThat(global.assetId()).isEqualTo(asset.id());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void staggeredRenewalsKeepTheAssetGloballyCertifiedAcrossInspectionsAndSchemaVersions(boolean conditional) {
+        if (conditional) {
+            var reference = TestPolicies.reference();
+            system.policies.register(TestPolicies.REFERENCE, new ConfiguredJurisdictionCertificationPolicy(
+                    new CertificationPolicySnapshot(new CertificationPolicyRef(TestPolicies.REFERENCE, "reference", 2),
+                            reference.blockingSeverities(), true, Period.ofMonths(12), Period.ofMonths(6), reference.restrictions())));
+        }
+        InspectionId first = inspectAndClose(conditional ? "untidy" : "clean", "clean", true);
+        system.findings.findByInspection(first).forEach(finding -> system.planAsResponsible(finding.id(), "repair",
+                PartyId.of("executor"), system.clock.today().plusDays(400)));
+        Certificate electrical = issuedCertificate(system.issueCertificate.issuePartial(first, ELECTRICAL));
+        system.clock.advanceDays(30);
+        Certificate pressure = issuedCertificate(system.issueCertificate.issuePartial(first, PRESSURE));
+        system.clock.advance(Duration.between(system.clock.now(), electrical.validity().expiresAt().plus(Duration.ofDays(5))));
+
+        var schema = system.schemas.findByApplicableAssetType(AssetType.FACILITY).orElseThrow();
+        system.openDraft.open(schema.id());
+        system.publishSchemaVersion.publish(schema.id());
+        InspectionId second = inspectAndClose("clean", "clean", true);
+        Certificate renewed = issuedCertificate(system.renewCertificate.renewPartial(second, ELECTRICAL));
+        assertThat(renewed.inForceAt(system.clock.now())).isTrue();
+        assertThat(pressure.inForceAt(system.clock.now())).isTrue();
+
+        var global = system.deriveGlobalCertificate.deriveFor(asset.id()).derivedCertificate().orElseThrow();
+        assertThat(global.derivedFrom()).containsExactly(renewed.id(), pressure.id());
+        assertThat(global.validity().issuedAt()).isEqualTo(renewed.validity().issuedAt());
+        assertThat(global.validity().expiresAt()).isEqualTo(pressure.validity().expiresAt());
+        assertThat(global.provenance()).extracting(p -> p.backingInspectionId()).containsExactly(second, first);
+        assertThat(global.provenance()).extracting(p -> p.schemaVersionId().number()).containsExactly(2, 1);
+        assertThat(system.deriveGlobalCertificate.deriveFor(first).derivedCertificate()).contains(global);
+        assertThat(system.deriveGlobalCertificate.deriveFor(second).derivedCertificate()).contains(global);
+
+        system.clock.advance(Duration.between(system.clock.now(), pressure.validity().expiresAt()));
+        assertThat(system.deriveGlobalCertificate.deriveFor(asset.id()).derivedCertificate()).isEmpty();
     }
 
     @Test
@@ -164,58 +209,6 @@ class PartialCertificationIT {
         var derivation = system.deriveGlobalCertificate.deriveFor(inspectionId);
         assertThat(derivation.derivedCertificate()).isEmpty();
         assertThat(derivation.describe()).contains("electrical installation is suspended");
-    }
-
-    @Test
-    @DisplayName("one configured calendar date governs planning, eligibility, expiry and verification")
-    void correctiveActionDeadlineUsesTheConfiguredCalendarDate() {
-        system.clock.useZone(ZoneId.of("America/Argentina/Buenos_Aires"));
-        InspectionId inspectionId = inspectAndClose("untidy", "clean", true);
-        Finding finding = system.findings.findByInspection(inspectionId).getFirst();
-        system.clock.setNow(Instant.parse("2026-03-03T00:30:00Z")); // March 2 in Buenos Aires.
-
-        system.planAsResponsible(finding.id(), "tidy the switchboard", PartyId.of("executor"),
-                LocalDate.parse("2026-03-02"));
-        Certificate certificate = issuedCertificate(system.issueCertificate.issuePartial(inspectionId, ELECTRICAL));
-
-        assertThat(system.evaluateEligibility.blockersFor(inspectionId, ELECTRICAL))
-                .noneMatch(IssuanceBlocker.OverdueOpenAction.class::isInstance);
-        assertThat(system.expireActions.sweep()).isEmpty();
-        assertThat(finding.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.PLANNED);
-        assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
-
-        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(
-                finding.id(), "switchboard tidied", List.of("file://photo.jpg")));
-        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(
-                finding.id(), true, "area is clean"));
-
-        assertThat(finding.correctiveAction().metItsDeadline()).isTrue();
-        assertThat(finding.correctiveAction().deadlineBreached()).isFalse();
-    }
-
-    @Test
-    @DisplayName("rectification refuses a known criterion that is not applicable to the asset")
-    void rectificationOfAnInapplicableCriterionDoesNotMutateTheInspection() {
-        InspectionId inspectionId = inspectAndClose("clean", "clean", true);
-        var before = system.generateInspectionAct.generate(inspectionId);
-        int auditEntries = system.auditTrail.all().size();
-
-        assertThatThrownBy(() -> system.actingAs(inspector.id(), () -> system.rectifyClosedInspection.rectify(
-                inspectionId, "the asset does not have building safety", List.of(
-                        new ar.edu.itba.dps.certification.domain.inspection.rectification.Correction.AnswerCorrection(
-                                DomainWorld.BUILDING_EXITS, OptionAnswer.of("clean"))))))
-                .isInstanceOf(DomainException.class)
-                .hasMessageContaining("does not have");
-
-        var after = system.generateInspectionAct.generate(inspectionId);
-        assertThat(after.rectifications()).isEmpty();
-        assertThat(after.sections().stream().flatMap(section -> section.lines().stream())
-                .filter(line -> line.criterionId().equals(DomainWorld.BUILDING_EXITS))
-                .findFirst().orElseThrow().answer().current())
-                .isEqualTo(before.sections().stream().flatMap(section -> section.lines().stream())
-                        .filter(line -> line.criterionId().equals(DomainWorld.BUILDING_EXITS))
-                        .findFirst().orElseThrow().answer().current());
-        assertThat(system.auditTrail.all()).hasSize(auditEntries);
     }
 
     @Test
@@ -692,17 +685,44 @@ class PartialCertificationIT {
         assertThat(system.publishSchemaVersion.publish(generic.id()).published()).isTrue();
 
         var change = new ChangeSchemaApplicability(system.schemas, system.schemaApplicability,
-                system.audit);
+                system.audit, system.clock, DirectTransactions.INSTANCE);
 
         assertThatThrownBy(() -> change.applyTo(generic.id(), AssetType.FACTORY))
                 .isInstanceOf(DomainException.class)
-                .hasMessageContaining("does not evaluate every part")
+                .hasMessageContaining("evaluates no criterion for")
                 .hasMessageContaining("assets of type FACTORY may have");
 
         assertThatThrownBy(() -> change.transferTo(generic.id(), generic.id(), AssetType.EQUIPMENT))
                 .isInstanceOf(DomainException.class);
         assertThat(system.schemas.require(generic.id()).applicableAssetTypes())
                 .containsExactly(AssetType.EQUIPMENT);
+    }
+
+    @Test
+    @DisplayName("one configured calendar date governs corrective-action deadline decisions")
+    void correctiveActionDeadlineUsesTheConfiguredCalendarDate() {
+        system.clock.useZone(ZoneId.of("America/Argentina/Buenos_Aires"));
+        InspectionId inspectionId = inspectAndClose("untidy", "clean", true);
+        Finding finding = system.findings.findByInspection(inspectionId).getFirst();
+        system.clock.setNow(Instant.parse("2026-03-03T00:30:00Z")); // March 2 in Buenos Aires.
+
+        system.planAsResponsible(finding.id(), "tidy the switchboard", PartyId.of("executor"),
+                LocalDate.parse("2026-03-02"));
+        Certificate certificate = issuedCertificate(system.issueCertificate.issuePartial(inspectionId, ELECTRICAL));
+
+        assertThat(system.evaluateEligibility.blockersFor(inspectionId, ELECTRICAL))
+                .noneMatch(IssuanceBlocker.OverdueOpenAction.class::isInstance);
+        assertThat(system.expireActions.sweep()).isEmpty();
+        assertThat(finding.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.PLANNED);
+        assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
+
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(
+                finding.id(), "switchboard tidied", List.of("file://photo.jpg")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(
+                finding.id(), true, "area is clean"));
+
+        assertThat(finding.correctiveAction().metItsDeadline()).isTrue();
+        assertThat(finding.correctiveAction().deadlineBreached()).isFalse();
     }
 
     private InspectionId inspectAndClose(String electrical, String pressure, boolean documentation) {

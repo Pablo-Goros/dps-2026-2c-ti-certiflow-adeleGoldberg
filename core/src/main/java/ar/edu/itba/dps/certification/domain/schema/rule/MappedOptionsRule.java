@@ -6,6 +6,7 @@ import ar.edu.itba.dps.certification.domain.shared.answer.Answer;
 import ar.edu.itba.dps.certification.domain.shared.answer.OptionAnswer;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -17,7 +18,14 @@ public final class MappedOptionsRule implements EvaluationRule {
     public MappedOptionsRule(Map<String, RuleOutcome> outcomeByOption) {
         Validate.required(outcomeByOption, "option outcomes");
         Validate.ensure(!outcomeByOption.isEmpty(), "at least one option must be declared");
-        this.outcomeByOption = Map.copyOf(outcomeByOption);
+        Map<String, RuleOutcome> normalized = new LinkedHashMap<>();
+        outcomeByOption.forEach((key, outcome) -> {
+            String option = Validate.requiredText(key, "option key");
+            Validate.required(outcome, "option outcome");
+            Validate.ensure(normalized.putIfAbsent(option, outcome) == null,
+                    "duplicate option after normalization: " + option);
+        });
+        this.outcomeByOption = Map.copyOf(normalized);
     }
 
     /** The admitted options and the outcome each one produces (read-only view). */

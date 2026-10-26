@@ -1,29 +1,31 @@
 package ar.edu.itba.dps.certification.application.certification;
 
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
-import ar.edu.itba.dps.certification.application.certification.port.CertificationPolicyRegistry;
-import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
+import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
 import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
-import ar.edu.itba.dps.certification.domain.certification.ValidityPeriod;
-import ar.edu.itba.dps.certification.domain.certification.derivation.AllSubsystemsMustBeInForce;
-import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationAssessment;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.certification.policy.JurisdictionCertificationPolicy;
 import ar.edu.itba.dps.certification.domain.certification.policy.PolicyResolutionException;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificateRepository;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificationPolicyRegistry;
+import ar.edu.itba.dps.certification.domain.certification.ValidityPeriod;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingQuery;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
+import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.support.CertificationScenarios;
 import ar.edu.itba.dps.certification.support.PolicyFacts;
 import ar.edu.itba.dps.certification.support.TestPolicies;
 
+import java.time.ZoneOffset;
 import java.util.*;
 
 import org.junit.jupiter.api.*;
@@ -42,13 +44,13 @@ class CertificateFactoryTest {
     private final PolicyFacts facts = new PolicyFacts(CriterionResult.APPROVED, null);
     private final JurisdictionCertificationPolicy policy = TestPolicies.profile("REFERENCE", 1, Set.of(), true, 12, 6);
     private final CertificateFactory factory = new CertificateFactory(inspections, findings, certificates, assets,
-            policies, new AllSubsystemsMustBeInForce(), ids, clock);
+            policies, ids, clock);
     @BeforeEach void setup() {
         when(inspections.require(facts.inspection.id())).thenReturn(facts.inspection);
         when(assets.jurisdictionOf(facts.inspection.assetId())).thenReturn(TestPolicies.REFERENCE);
         when(policies.resolve(TestPolicies.REFERENCE)).thenReturn(policy);
         when(clock.now()).thenReturn(PolicyFacts.AT);
-        when(clock.today(PolicyFacts.AT)).thenReturn(PolicyFacts.today());
+        when(clock.today(any())).thenAnswer(call -> ((java.time.Instant) call.getArgument(0)).atZone(ZoneOffset.UTC).toLocalDate());
         when(ids.newIdentifier()).thenReturn("certificate");
     }
     @Test void eligibilityAndIssuanceSharePolicyTimeAndMode() {
@@ -59,9 +61,7 @@ class CertificateFactoryTest {
         assertThat(certificate.validity().issuedAt()).isEqualTo(assessment.evaluatedAt());
         verify(assets, times(2)).jurisdictionOf(facts.inspection.assetId());
         verify(policies, times(2)).resolve(TestPolicies.REFERENCE);
-        verify(clock, times(2)).now();
-        verify(clock, times(2)).today(PolicyFacts.AT);
-        verify(clock, never()).today();
+        verify(clock, times(2)).now(); verify(clock, never()).today();
     }
     @Test void resolutionFailuresNeverConsumeCertificateIdentifiers() {
         when(policies.resolve(TestPolicies.REFERENCE)).thenThrow(new PolicyResolutionException("missing"));
@@ -82,30 +82,39 @@ class CertificateFactoryTest {
         assertThatThrownBy(() -> factory.issue(facts.inspection.id())).isInstanceOf(PolicyResolutionException.class);
         verifyNoInteractions(ids);
     }
-    @Test void invalidValidityAndFutureClosureFailBeforeGeneratingId() {
+    @Test void validityComesFromSnapshotAndFutureClosureFailsBeforeGeneratingId() {
         var strategy = mock(JurisdictionCertificationPolicy.class);
         when(strategy.snapshot()).thenReturn(policy.snapshot()); when(strategy.reference()).thenReturn(policy.reference());
         when(strategy.assess(any(), any())).thenAnswer(call -> policy.assess(call.getArgument(0), call.getArgument(1)));
         when(strategy.validityFrom(any(), any())).thenReturn(new ValidityPeriod(PolicyFacts.AT.minusSeconds(1), PolicyFacts.AT.plusSeconds(1)));
         when(policies.resolve(TestPolicies.REFERENCE)).thenReturn(strategy);
-        assertThatThrownBy(() -> factory.issue(facts.inspection.id())).hasMessageContaining("begin at issuance");
+        var issued = ((IssuanceDecision.Issued) factory.issue(facts.inspection.id())).certificate();
+        assertThat(issued.validity()).isEqualTo(policy.validityFrom(PolicyFacts.AT, CertificateMode.REGULAR));
+        verify(strategy, never()).validityFrom(any(), any());
+        clearInvocations(ids);
         when(clock.now()).thenReturn(PolicyFacts.AT.minusSeconds(1));
         assertThatThrownBy(() -> factory.issue(facts.inspection.id())).hasMessageContaining("precede closure");
         verifyNoInteractions(ids);
     }
     @Test void repetitionUsesStoredDefinitionWithoutConsultingCurrentConfiguration() {
-        var stored = new CertificateIssuer().issue(CertificateId.of("old"), facts.inspection.assetId(), facts.inspection.id(),
-                facts.inspection.requireFrozenSchemaVersionId(), CertificateScope.global(), policy.validityFrom(PolicyFacts.AT, CertificateMode.REGULAR),
-                null, policy.snapshot(), CertificateMode.REGULAR);
+        var stored = new CertificateIssuer().issue(CertificateId.of("old"), facts.inspection,
+                policy.assess(facts.context(), PolicyFacts.AT), null);
         when(certificates.findByBackingInspection(facts.inspection.id(), CertificateScope.global())).thenReturn(Optional.of(stored));
         var repeated = (IssuanceDecision.AlreadyIssued) factory.issue(facts.inspection.id());
         assertThat(repeated.policy()).isEqualTo(stored.policy()); assertThat(repeated.mode()).isEqualTo(stored.mode());
         verifyNoInteractions(assets, policies, ids, clock);
     }
+    private Certificate predecessor() {
+        var inspection = CertificationScenarios.approvedInspection(
+                InspectionId.of("previous-inspection"),
+                facts.inspection.assetId(), facts.inspection.requireFrozenSchemaVersionId(), Set.of(),
+                PolicyFacts.AT.atZone(ZoneOffset.UTC).minusYears(1).toInstant());
+        return CertificationScenarios.issue(CertificateId.of("predecessor"),
+                inspection, CertificateScope.global(), policy.snapshot(), inspection.closedAt().orElseThrow(), null);
+    }
     @Test void repeatedRenewalDoesNotNeedAnActivePolicyOrAnUnexpiredPredecessor() {
-        var stored = new CertificateIssuer().issue(CertificateId.of("renewed"), facts.inspection.assetId(), facts.inspection.id(),
-                facts.inspection.requireFrozenSchemaVersionId(), CertificateScope.global(), policy.validityFrom(PolicyFacts.AT, CertificateMode.REGULAR),
-                CertificateId.of("predecessor"), policy.snapshot(), CertificateMode.REGULAR);
+        var stored = new CertificateIssuer().issue(CertificateId.of("renewed"), facts.inspection,
+                policy.assess(facts.context(), PolicyFacts.AT), predecessor());
         when(certificates.findByBackingInspection(facts.inspection.id(), CertificateScope.global())).thenReturn(Optional.of(stored));
         var repeated = (IssuanceDecision.AlreadyIssued) factory.renew(facts.inspection.id());
         assertThat(repeated.policy()).isEqualTo(stored.policy());
@@ -118,8 +127,8 @@ class CertificateFactoryTest {
         when(findings.findingsOf(pending.inspection.id())).thenReturn(List.of(pending.finding));
         var strategy = mock(JurisdictionCertificationPolicy.class);
         when(strategy.snapshot()).thenReturn(policy.snapshot()); when(strategy.reference()).thenReturn(policy.reference());
-        when(strategy.assess(any(), any())).thenReturn(new CertificationAssessment(pending.inspection.id(), CertificateScope.global(),
-                PolicyFacts.AT, policy.snapshot(), List.of(), Optional.of(CertificateMode.CONDITIONAL)));
+        // A strategy tries to reuse a favorable decision for other facts with the same inspection id.
+        when(strategy.assess(any(), any())).thenReturn(policy.assess(facts.context(), PolicyFacts.AT));
         when(policies.resolve(TestPolicies.REFERENCE)).thenReturn(strategy);
         assertThat(((IssuanceDecision.Blocked) factory.issue(pending.inspection.id())).blockers()).anyMatch(IssuanceBlocker.UnplannedAction.class::isInstance);
         verifyNoInteractions(ids);

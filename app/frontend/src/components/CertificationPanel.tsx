@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { api, ApiError, query } from '../lib/api'
 import { useLoad } from '../lib/hooks'
 import { label, humanize } from '../lib/labels'
-import type { Assessment, Certificate } from '../lib/types'
+import type { Assessment, Certificate, GlobalDerivation } from '../lib/types'
 import { Blockers } from './Blockers'
-import { Badge, Card, CertificateBadge, ErrorLine, Loading, Notice, useAction, useToast } from './ui'
+import { GlobalDerivationView } from './GlobalCertification'
+import { Badge, Card, CertificateBadge, ErrorLine, Loading, LoadError, Notice, useAction, useToast } from './ui'
 
 interface Target {
   /** null = the global certificate. */
@@ -21,12 +22,10 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
   const issued = useLoad(() => api.get<Certificate[]>('/certificates' + query({ inspectionId })), [inspectionId])
   const assetCertificates = useLoad(() => api.get<Certificate[]>('/certificates' + query({ assetId })), [assetId])
   const derivation = useLoad(
-    () => (subsystems.length ? api.get<{ type: string; reasons?: string[] }>(`/inspections/${inspectionId}/global-derivation`) : Promise.resolve(null)),
-    [inspectionId, subsystems.length],
+    () => (subsystems.length ? api.get<GlobalDerivation>(`/assets/${assetId}/global-derivation`) : Promise.resolve(null)),
+    [assetId, subsystems.length],
   )
-  const targets: Target[] = subsystems.length
-    ? subsystems.map((subsystem) => ({ subsystem }))
-    : [{ subsystem: null }]
+  const targets: Target[] = subsystems.length ? subsystems.map((subsystem) => ({ subsystem })) : [{ subsystem: null }]
   const reloadAll = () => {
     issued.reload()
     assetCertificates.reload()
@@ -37,10 +36,14 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
     <Card title="Certificación">
       {subsystems.length > 0 && (
         <p className="muted">
-          Cada subsistema se certifica por separado. El certificado global se compone cuando todos los parciales est?n en regla.
+          Cada subsistema se certifica por separado. El certificado global se deriva cuando todos los parciales están en regla.
         </p>
       )}
-      {issued.loading && !issued.data ? <Loading /> : (
+      {issued.error && <LoadError message={issued.error} retry={issued.reload} />}
+      {assetCertificates.error && <LoadError message={assetCertificates.error} retry={assetCertificates.reload} />}
+      {derivation.error && <LoadError message={derivation.error} retry={derivation.reload} />}
+      {((issued.loading && !issued.data) || (assetCertificates.loading && !assetCertificates.data)) && <Loading />}
+      {issued.data && assetCertificates.data && (
         <div className="stack">
           {targets.map((target) => (
             <TargetRow
@@ -48,9 +51,9 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
               inspectionId={inspectionId}
               target={target}
               certificate={issued.data?.find((c) => (target.subsystem ? c.subsystem === target.subsystem : c.scope === 'GLOBAL'))}
-              previous={assetCertificates.data?.find(
-                (c) => c.backingInspectionId !== inspectionId && (target.subsystem ? c.subsystem === target.subsystem : c.scope === 'GLOBAL'),
-              )}
+              previous={assetCertificates.data?.filter(
+                  (c) => c.backingInspectionId !== inspectionId && (target.subsystem ? c.subsystem === target.subsystem : c.scope === 'GLOBAL'),
+              )?.sort((a, b) => Date.parse(b.issuedAt) - Date.parse(a.issuedAt))?.[0]}
               onChange={reloadAll}
             />
           ))}
@@ -58,14 +61,7 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
       )}
       {derivation.data && (
         <div style={{ marginTop: 14 }}>
-          {derivation.data.type === 'Derived' ? (
-            <Notice kind="ok">Los certificados parciales vigentes componen un certificado global.</Notice>
-          ) : (
-            <Notice kind="info">
-              Todavía no se puede componer un global a partir de los parciales{derivation.data.reasons?.length ? ':' : '.'}
-              {derivation.data.reasons && <ul>{derivation.data.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
-            </Notice>
-          )}
+          <GlobalDerivationView result={derivation.data} />
         </div>
       )}
     </Card>
@@ -130,9 +126,9 @@ function TargetRow({ inspectionId, target, certificate, previous, onChange }: {
                 Renovar
               </button>
             )}
-            <button className="primary" disabled={busy || !eligible} onClick={() => run(() => issue('certificates'))}>
+            {!previous && <button className="primary" disabled={busy || !eligible} onClick={() => run(() => issue('certificates'))}>
               Emitir certificado
-            </button>
+            </button>}
           </div>
         )}
       </header>

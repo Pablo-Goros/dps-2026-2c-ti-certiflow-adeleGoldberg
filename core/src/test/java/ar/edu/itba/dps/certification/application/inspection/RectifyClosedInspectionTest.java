@@ -7,28 +7,26 @@ import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.CriterionResultRevised;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
-import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectification;
-import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationChange;
-import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.support.DomainWorld;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import java.time.LocalDate;
 import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RectifyClosedInspectionTest {
 
@@ -212,6 +210,7 @@ class RectifyClosedInspectionTest {
     }
 
     private void publishASecondVersionWhereWarmIsCritical() {
+        world.clock.advance(java.time.Duration.ofSeconds(1));
         InspectionSchema schema = world.schemas.findByApplicableAssetType(laboratory).orElseThrow();
         world.openDraft.open(schema.id());
         world.editDraft.removeSection(schema.id(), "Safety");

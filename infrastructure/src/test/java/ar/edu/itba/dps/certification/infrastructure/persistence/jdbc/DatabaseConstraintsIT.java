@@ -1,6 +1,12 @@
 package ar.edu.itba.dps.certification.infrastructure.persistence.jdbc;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
+import ar.edu.itba.dps.certification.domain.inspection.Inspection;
+import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.schema.SchemaId;
+import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.Section;
@@ -10,18 +16,37 @@ import ar.edu.itba.dps.certification.infrastructure.persistence.TestDatabase;
 import ar.edu.itba.dps.certification.infrastructure.persistence.codec.StateCodec;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
+import ar.edu.itba.dps.certification.support.CertificationScenarios;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.Set;
+import java.time.Instant;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Business uniqueness rules that the database enforces on its own, whatever the application does. */
 class DatabaseConstraintsIT {
+    @Test
+    void closingReleasesTheUniqueOpenInspectionKeyWithoutRemovingHistory() {
+        var database = TestDatabase.create();
+        var asset = AssetId.of("exclusive-asset");
+        var first = new Inspection(InspectionId.of("first"), asset, PartyId.of("inspector"), LocalDate.of(2026, 3, 5));
+        var next = new Inspection(InspectionId.of("next"), asset, PartyId.of("inspector"), LocalDate.of(2027, 3, 5));
+        database.inspections().save(first);
+        assertThatThrownBy(() -> database.inspections().save(next)).isInstanceOf(DuplicateKeyException.class);
+        var closed = CertificationScenarios.approvedInspection(first.id(), asset,
+                new SchemaVersionId(SchemaId.of("schema"), 1), Set.of(), Instant.parse("2026-03-05T10:00:00Z"));
+        database.inspections().save(closed);
+        database.inspections().save(next);
+        assertThat(database.inspections().findAll()).hasSize(2);
+        assertThat(database.inspections().findNonClosedByAsset(asset).orElseThrow().id()).isEqualTo(next.id());
+    }
+
 
     private final StateCodec codec = new StateCodec();
     private final Scenario scenario = new Scenario();
@@ -62,7 +87,7 @@ class DatabaseConstraintsIT {
         fresh.schemas().save(source);
         fresh.schemas().save(target);
 
-        system.schemaApplicability.transfer(source, target, AssetType.LABORATORY, Optional.of(source.id()));
+        system.schemaApplicability.transfer(source, target, AssetType.LABORATORY, Optional.of(source.id()), system.clock.now());
         fresh.schemas().save(source);
         fresh.schemas().save(target);
 

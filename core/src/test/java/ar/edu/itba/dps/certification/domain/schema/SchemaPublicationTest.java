@@ -1,15 +1,5 @@
 package ar.edu.itba.dps.certification.domain.schema;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.List;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceType;
@@ -17,6 +7,17 @@ import ar.edu.itba.dps.certification.domain.schema.rule.NumericBand;
 import ar.edu.itba.dps.certification.domain.schema.rule.NumericRangeRule;
 import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SchemaPublicationTest {
 
@@ -169,7 +170,7 @@ class SchemaPublicationTest {
 
         assertThatThrownBy(() -> schema.publish(PUBLISHED_AT.plusSeconds(3600), effectiveV2Earlier))
                 .isInstanceOf(DomainException.class)
-                .hasMessageContaining("cannot be earlier than previous version effectiveFrom");
+                .hasMessageContaining("must be strictly after previous active version effectiveFrom");
     }
 
     private SchemaVersion publishValid(InspectionSchema schema) {
@@ -177,7 +178,7 @@ class SchemaPublicationTest {
         if (schema.requireDraft().sections().isEmpty()) {
             schema.addSection(Section.of("Safety", 1, criterion(validNumericRule())));
         }
-        return schema.publish(PUBLISHED_AT).publishedVersion();
+        return schema.publish(PUBLISHED_AT.plusSeconds(schema.publishedVersions().size())).publishedVersion();
     }
 
     private List<String> violationsOf(NumericRangeRule rule) {

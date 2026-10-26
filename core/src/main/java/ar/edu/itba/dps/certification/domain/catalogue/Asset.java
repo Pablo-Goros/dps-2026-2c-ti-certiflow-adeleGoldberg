@@ -73,7 +73,7 @@ public final class Asset {
     }
 
     public void relocate(String newLocation) {
-        Validate.requiredText(newLocation, "new location");
+        newLocation = Validate.requiredText(newLocation, "new location");
         Validate.ensure(!newLocation.equals(location),
                 "asset " + id + " is already located at " + newLocation);
         this.location = newLocation;

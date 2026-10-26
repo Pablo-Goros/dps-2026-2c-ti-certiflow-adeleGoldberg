@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { api, currentActor, setActor } from '../lib/api'
+import { api, ApiError, currentActor, setActor } from '../lib/api'
 import type { Party } from '../lib/types'
 
 interface PartyDirectory {
@@ -33,7 +33,16 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           setActorId(null)
         }
       })
-      .catch(() => undefined)
+      .catch((error: unknown) => {
+        // An obsolete remembered identity is rejected before the directory can be read.
+        // Retry anonymously so the visitor can choose an existing person again.
+        if (alive && error instanceof ApiError && error.status === 401 && actorId
+          && currentActor() === actorId) {
+          setActor(null)
+          setActorId(null)
+          setTick((value) => value + 1)
+        }
+      })
       .finally(() => alive && setLoaded(true))
     return () => {
       alive = false

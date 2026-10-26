@@ -5,27 +5,32 @@ import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.schema.SchemaDraft;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
+import ar.edu.itba.dps.certification.domain.shared.port.Transactions;
 
-public final class OpenDraft {
+public final class OpenDraft implements ar.edu.itba.dps.certification.domain.schema.port.inbound.OpenDraft {
+    private final Transactions transactions;
 
     private final SchemaRepository schemas;
     private final AuditRecorder audit;
 
-    public OpenDraft(SchemaRepository schemas, AuditRecorder audit) {
+    public OpenDraft(SchemaRepository schemas, AuditRecorder audit, Transactions transactions) {
+        this.transactions = transactions;
         this.schemas = schemas;
         this.audit = audit;
     }
 
     public SchemaDraft open(SchemaId schemaId) {
-        InspectionSchema schema = schemas.require(schemaId);
-        SchemaDraft draft = schema.openDraft();
-        schemas.save(schema);
-        audit.record(AuditedElementRef.schema(schema.id().value()), AuditAction.SCHEMA_DRAFT_OPENED,
-                AuditDetail.created("draft seeded from " + schema.latestPublishedVersion()
-                        .map(version -> "version " + version.number()).orElse("an empty schema")));
-        return draft;
+        return transactions.execute(() -> {
+            InspectionSchema schema = schemas.require(schemaId);
+            SchemaDraft draft = schema.openDraft();
+            schemas.save(schema);
+            audit.record(AuditedElementRef.schema(schema.id().value()), AuditAction.SCHEMA_DRAFT_OPENED,
+                    AuditDetail.created("draft seeded from " + schema.latestNonWithdrawnVersion()
+                            .map(version -> "version " + version.number()).orElse("an empty schema")));
+            return draft;
+        });
     }
 }

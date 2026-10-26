@@ -130,8 +130,9 @@ public final class Inspection {
 
     public void reassign(PartyId newInspector, LocalDate newExpectedDate) {
         requireStatus(InspectionStatus.ASSIGNED, "reassign");
+        Validate.required(newExpectedDate, "expected date");
         this.inspector = Validate.required(newInspector, "inspector");
-        this.expectedDate = Validate.required(newExpectedDate, "expected date");
+        this.expectedDate = newExpectedDate;
     }
 
     public void start(PartyId actor, SchemaVersion version, AssetSnapshot snapshot, Instant at) {

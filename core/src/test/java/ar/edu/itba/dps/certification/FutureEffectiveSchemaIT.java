@@ -12,6 +12,7 @@ import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.support.DomainWorld;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.FullSystem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -110,11 +111,12 @@ class FutureEffectiveSchemaIT {
 
         assertThat(v1.declaredSubsystems()).isEmpty();
         assertThat(v2.declaredSubsystems()).containsExactlyInAnyOrderElementsOf(AssetType.FACTORY.subsystems());
-        var change = new ChangeSchemaApplicability(system.schemas, system.schemaApplicability, system.audit);
+        var change = new ChangeSchemaApplicability(
+                system.schemas, system.schemaApplicability, system.audit, system.clock, DirectTransactions.INSTANCE);
 
         assertThatThrownBy(() -> change.applyTo(schema.id(), AssetType.FACTORY))
                 .isInstanceOf(DomainException.class)
-                .hasMessageContaining("version 1")
+                .hasMessageContaining("v1")
                 .hasMessageContaining("electrical installation")
                 .hasMessageContaining("pressure system");
         assertThat(system.schemas.require(schema.id()).applicableAssetTypes()).containsExactly(AssetType.EQUIPMENT);
@@ -158,11 +160,12 @@ class FutureEffectiveSchemaIT {
         system.editDraft.addSection(target.id(), Section.of("Electrical", 2, DomainWorld.electricalCriterion()));
         system.editDraft.addSection(target.id(), Section.of("Pressure", 3, DomainWorld.pressureCriterion()));
         system.publishSchemaVersion.publish(target.id(), system.clock.now().plus(Duration.ofDays(10)));
-        var change = new ChangeSchemaApplicability(system.schemas, system.schemaApplicability, system.audit);
+        var change = new ChangeSchemaApplicability(
+                system.schemas, system.schemaApplicability, system.audit, system.clock, DirectTransactions.INSTANCE);
 
         assertThatThrownBy(() -> change.transferTo(source.id(), target.id(), AssetType.FACTORY))
                 .isInstanceOf(DomainException.class)
-                .hasMessageContaining("version 1")
+                .hasMessageContaining("v1")
                 .hasMessageContaining("electrical installation")
                 .hasMessageContaining("pressure system");
         assertThat(system.schemas.require(source.id()).applicableAssetTypes())

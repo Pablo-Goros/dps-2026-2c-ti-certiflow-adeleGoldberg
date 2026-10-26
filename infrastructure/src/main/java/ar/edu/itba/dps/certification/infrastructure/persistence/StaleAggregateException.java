@@ -1,6 +1,6 @@
 package ar.edu.itba.dps.certification.infrastructure.persistence;
 
-import ar.edu.itba.dps.certification.application.shared.ConflictException;
+import ar.edu.itba.dps.certification.domain.shared.ConflictException;
 
 /**
  * Optimistic concurrency failure: the aggregate was changed by someone else after it was read in

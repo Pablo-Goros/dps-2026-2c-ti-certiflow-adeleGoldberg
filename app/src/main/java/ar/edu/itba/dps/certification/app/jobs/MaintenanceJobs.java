@@ -1,10 +1,8 @@
 package ar.edu.itba.dps.certification.app.jobs;
 
-import ar.edu.itba.dps.certification.app.ops.OutboxOperations;
-import ar.edu.itba.dps.certification.application.certification.usecase.ExpireDueCertificates;
-import ar.edu.itba.dps.certification.application.finding.usecase.ExpireOverdueCorrectiveActions;
-import ar.edu.itba.dps.certification.application.shared.port.Transactions;
-import ar.edu.itba.dps.certification.application.shared.usecase.PublishPendingDomainEvents;
+import ar.edu.itba.dps.certification.domain.shared.port.inbound.RunMaintenance;
+import ar.edu.itba.dps.certification.domain.shared.port.OutboxOperations;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -23,39 +21,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class MaintenanceJobs {
 
-    /** What one run did. */
-    public record Result(int expiredCertificates, int expiredActions, int deliveredEvents) {
-    }
-
     private static final System.Logger LOG = System.getLogger(MaintenanceJobs.class.getName());
 
-    private final Transactions transactions;
-    private final ExpireDueCertificates expireCertificates;
-    private final ExpireOverdueCorrectiveActions expireActions;
-    private final PublishPendingDomainEvents republish;
+    private final RunMaintenance maintenance;
     private final OutboxOperations outbox;
     private final boolean enabled;
 
-    public MaintenanceJobs(Transactions transactions, ExpireDueCertificates expireCertificates,
-            ExpireOverdueCorrectiveActions expireActions, PublishPendingDomainEvents republish,
-            OutboxOperations outbox, @Value("${certiflow.jobs.enabled:true}") boolean enabled) {
-        this.transactions = transactions;
-        this.expireCertificates = expireCertificates;
-        this.expireActions = expireActions;
-        this.republish = republish;
+    public MaintenanceJobs(RunMaintenance maintenance, OutboxOperations outbox,
+            @Value("${certiflow.jobs.enabled:true}") boolean enabled) {
+        this.maintenance = maintenance;
         this.outbox = outbox;
         this.enabled = enabled;
     }
 
-    /** Runs every sweep once, in an order where each one feeds the next. */
-    public Result runAll() {
-        int actions = transactions.execute(() -> expireActions.sweep().size());
-        int delivered = outbox.dispatchPending();
-        int certificates = transactions.execute(() -> expireCertificates.sweep().size());
-        transactions.execute(republish::publish);
-        delivered += outbox.dispatchPending();
-        return new Result(certificates, actions, delivered);
-    }
+    public RunMaintenance.Result runAll() { return maintenance.runAll(); }
 
     @Scheduled(fixedDelayString = "${certiflow.jobs.sweep-interval:PT1M}",
             initialDelayString = "${certiflow.jobs.initial-delay:PT30S}")
@@ -64,7 +43,7 @@ public class MaintenanceJobs {
             return;
         }
         try {
-            Result result = runAll();
+            RunMaintenance.Result result = runAll();
             LOG.log(System.Logger.Level.DEBUG, "maintenance run: " + result);
         } catch (RuntimeException e) {
             LOG.log(System.Logger.Level.ERROR, "maintenance run failed; it will be retried", e);

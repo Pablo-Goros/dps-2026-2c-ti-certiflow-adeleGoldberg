@@ -1,19 +1,19 @@
 package ar.edu.itba.dps.certification.app.config;
 
-import ar.edu.itba.dps.certification.application.audit.port.AuditTrail;
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetRepository;
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
-import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionRepository;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
-import ar.edu.itba.dps.certification.infrastructure.persistence.JdbcPersistence;
+import ar.edu.itba.dps.certification.domain.audit.port.AuditTrail;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetRepository;
+import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificateRepository;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionRepository;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcEventOutbox;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
+import ar.edu.itba.dps.certification.infrastructure.persistence.JdbcPersistence;
+import javax.sql.DataSource;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import javax.sql.DataSource;
 
 /** Opens the database (applying the migrations) and exposes each adapter under its port. */
 @Configuration(proxyBeanMethods = false)

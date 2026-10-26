@@ -1,6 +1,6 @@
 package ar.edu.itba.dps.certification.app.config;
 
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -17,11 +17,6 @@ public final class SystemClock implements Clock {
     @Override
     public Instant now() {
         return Instant.now();
-    }
-
-    @Override
-    public LocalDate today() {
-        return LocalDate.now(zone);
     }
 
     @Override

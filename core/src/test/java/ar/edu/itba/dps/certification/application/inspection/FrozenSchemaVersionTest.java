@@ -11,17 +11,19 @@ import ar.edu.itba.dps.certification.domain.schema.PublicationResult;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.support.DomainWorld;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import org.junit.jupiter.api.Test;
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import java.time.LocalDate;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FrozenSchemaVersionTest {
 
@@ -105,6 +107,7 @@ class FrozenSchemaVersionTest {
     }
 
     private SchemaVersion publishASecondVersion() {
+        world.clock.advance(java.time.Duration.ofSeconds(1));
         InspectionSchema schema = world.schemas.findByApplicableAssetType(laboratory).orElseThrow();
         world.openDraft.open(schema.id());
         world.editDraft.removeSection(schema.id(), "Safety");

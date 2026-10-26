@@ -1,11 +1,12 @@
 package ar.edu.itba.dps.certification.application.notification;
 
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
-import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
-import ar.edu.itba.dps.certification.application.notification.port.NotificationSender;
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventHandler;
+import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
+import ar.edu.itba.dps.certification.domain.notification.Notification;
+import ar.edu.itba.dps.certification.domain.notification.port.NotificationSender;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
+import ar.edu.itba.dps.certification.domain.shared.port.DomainEventHandler;
 
 import java.util.function.BiConsumer;
 

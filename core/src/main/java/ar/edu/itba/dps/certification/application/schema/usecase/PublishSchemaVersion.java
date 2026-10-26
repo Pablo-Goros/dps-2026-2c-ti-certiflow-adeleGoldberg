@@ -5,20 +5,23 @@ import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.schema.PublicationResult;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.Transactions;
 
 import java.time.Instant;
 
-public final class PublishSchemaVersion {
+public final class PublishSchemaVersion implements ar.edu.itba.dps.certification.domain.schema.port.inbound.PublishSchemaVersion {
+    private final Transactions transactions;
 
     private final SchemaRepository schemas;
     private final Clock clock;
     private final AuditRecorder audit;
 
-    public PublishSchemaVersion(SchemaRepository schemas, Clock clock, AuditRecorder audit) {
+    public PublishSchemaVersion(SchemaRepository schemas, Clock clock, AuditRecorder audit, Transactions transactions) {
+        this.transactions = transactions;
         this.schemas = schemas;
         this.audit = audit;
         this.clock = clock;
@@ -26,12 +29,16 @@ public final class PublishSchemaVersion {
 
     /** Publishes with effect from the moment of publication, read from the clock once. */
     public PublicationResult publish(SchemaId schemaId) {
-        Instant now = clock.now();
-        return publish(schemaId, now, now);
+        return transactions.execute(() -> {
+            Instant now = clock.now();
+            return publish(schemaId, now, now);
+        });
     }
 
     public PublicationResult publish(SchemaId schemaId, Instant effectiveFrom) {
-        return publish(schemaId, clock.now(), effectiveFrom);
+        return transactions.execute(() -> {
+            return publish(schemaId, clock.now(), effectiveFrom);
+        });
     }
 
     private PublicationResult publish(SchemaId schemaId, Instant now, Instant effectiveFrom) {

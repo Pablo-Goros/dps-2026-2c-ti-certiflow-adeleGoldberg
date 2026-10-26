@@ -14,15 +14,14 @@ import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
-import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceShortfall;
+import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -49,7 +48,7 @@ public final class Finding {
     public Finding(FindingId id, InspectionId inspectionId, CriterionId criterionId,
             AssetId assetId, PartyId responsible, PartyId inspector, CriterionResult result,
             List<EvaluationReason> reasons, Severity severity, List<String> presentedEvidence,
-            CorrectiveActionId correctiveActionId, Instant createdAt) {
+            CorrectiveActionId correctiveActionId, Instant createdAt, LocalDate createdOn) {
         this.id = Validate.required(id, "finding id");
         this.inspectionId = Validate.required(inspectionId, "inspection id");
         this.criterionId = Validate.required(criterionId, "criterion id");
@@ -63,7 +62,7 @@ public final class Finding {
         this.presentedEvidence = List.copyOf(Validate.required(presentedEvidence, "presented evidence"));
         this.correctiveActions.add(new CorrectiveAction(
                 Validate.required(correctiveActionId, "corrective action id"), inspector,
-                Validate.required(createdAt, "creation instant").atZone(ZoneOffset.UTC).toLocalDate()));
+                Validate.required(createdOn, "creation business date")));
         this.createdAt = Validate.required(createdAt, "creation instant");
     }
 
@@ -136,7 +135,7 @@ public final class Finding {
 
     public void revise(CriterionResult newResult, List<EvaluationReason> newReasons,
             Severity newSeverity, List<String> newPresentedEvidence, RectificationId rectificationId,
-            String reason, Instant revisedAt, CorrectiveActionId replacementAction) {
+            String reason, Instant revisedAt, LocalDate revisedOn, CorrectiveActionId replacementAction) {
         CriterionResult validatedResult = Validate.required(newResult, "result");
 
         Validate.ensure(!validatedResult.approved(),
@@ -160,7 +159,7 @@ public final class Finding {
         if (correctiveAction().status().terminal()) {
             newAction = new CorrectiveAction(
                     Validate.required(replacementAction, "replacement corrective action id"), inspector,
-                    revisedAt.atZone(ZoneOffset.UTC).toLocalDate());
+                    Validate.required(revisedOn, "revision business date"));
         }
 
         this.result = validatedResult;

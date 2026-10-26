@@ -1,14 +1,14 @@
 package ar.edu.itba.dps.certification.infrastructure.notification;
 
-import ar.edu.itba.dps.certification.application.notification.Notification;
-import ar.edu.itba.dps.certification.application.notification.NotificationFailedException;
-import ar.edu.itba.dps.certification.application.notification.port.NotificationSender;
+import ar.edu.itba.dps.certification.domain.notification.Notification;
+import ar.edu.itba.dps.certification.domain.notification.NotificationFailedException;
+import ar.edu.itba.dps.certification.domain.notification.port.NotificationSender;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.URI;
 import java.time.Duration;
 
 /**

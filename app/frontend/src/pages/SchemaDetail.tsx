@@ -61,8 +61,6 @@ export function SchemaDetail() {
           {s.assetTypes.map((type: AssetType) => (
             <span key={type} className="row" style={{ gap: 4 }}>
               <Badge tone="seal">{label(type)}</Badge>
-              <button className="small" disabled={busy} aria-label={`Dejar de aplicar a ${label(type)}`}
-                onClick={() => change(() => api.del(`/schemas/${id}/applicability/${type}`), 'Aplicabilidad actualizada')}>×</button>
             </span>
           ))}
           {free.length > 0 && (
@@ -73,6 +71,7 @@ export function SchemaDetail() {
             </select>
           )}
         </div>
+        {s.assetTypes.length > 1 && <TransferApplicability schema={s} onDone={schema.reload} />}
       </Card>
 
       <Card
@@ -109,6 +108,7 @@ export function SchemaDetail() {
 
       {s.draft && !adding && (
         <Card title="Publicar">
+          <Notice kind="info">Las fechas deben ser posteriores a todas las versiones no retiradas. Para una corrección urgente, retirá las versiones futuras que bloqueen la fecha; después podés volver a programarlas.</Notice>
           <div className="form">
             <Field label="Vigente desde" hint="Vacío = desde ahora. Con una fecha futura, la versión queda programada y la actual sigue rigiendo hasta entonces.">
               <input type="datetime-local" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
@@ -139,9 +139,17 @@ export function SchemaDetail() {
                   <strong>v{version.number}</strong>{' '}
                   <span className="muted">publicada {formatInstant(version.publishedAt)} · vigente desde {formatInstant(version.effectiveFrom)}</span>{' '}
                   {version.number === s.effectiveVersion && <Badge tone="ok">Vigente</Badge>}
-                  {isFuture(version.effectiveFrom) && <Badge tone="info">Programada</Badge>}
+                  {s.withdrawals.some((w) => w.number === version.number)
+                    ? <Badge tone="info">Retirada</Badge>
+                    : isFuture(version.effectiveFrom) && <Badge tone="info">Programada</Badge>}
                 </summary>
                 <div className="stack" style={{ marginTop: 10 }}>
+                  {s.withdrawals.filter((w) => w.number === version.number).map((w) => (
+                    <Notice key={w.number} kind="info">Retirada {formatInstant(w.withdrawnAt)}: {w.reason}</Notice>
+                  ))}
+                  {isFuture(version.effectiveFrom) && !s.withdrawals.some((w) => w.number === version.number) && (
+                    <WithdrawVersion schemaId={s.id} number={version.number} onDone={schema.reload} />
+                  )}
                   {version.sections.map((section) => <SectionView key={section.name} section={section} />)}
                 </div>
               </details>
@@ -153,7 +161,63 @@ export function SchemaDetail() {
   )
 }
 
+function TransferApplicability({ schema, onDone }: { schema: Schema; onDone: () => void }) {
+  const schemas = useLoad(() => api.get<Schema[]>('/schemas'), [])
+  const [assetType, setAssetType] = useState<AssetType | ''>('')
+  const [targetId, setTargetId] = useState('')
+  const { run, busy, error } = useAction()
+  const targets = schemas.data?.filter((candidate) => candidate.id !== schema.id
+    && candidate.effectiveVersion !== null && !candidate.assetTypes.includes(assetType as AssetType)) ?? []
+  return (
+    <form className="form" style={{ marginTop: 14 }} onSubmit={async (event) => {
+      event.preventDefault()
+      if (await run(() => api.post(`/schemas/${schema.id}/applicability/transfer`,
+        { assetType, targetSchemaId: targetId }), 'Aplicabilidad transferida')) {
+        setAssetType('')
+        setTargetId('')
+        schemas.reload()
+        onDone()
+      }
+    }}>
+      <Field label="Transferir tipo" hint="El esquema de origen conserva al menos un tipo de activo.">
+        <select value={assetType} required disabled={busy} onChange={(event) => {
+          setAssetType(event.target.value as AssetType | '')
+          setTargetId('')
+        }}>
+          <option value="">Elegí un tipo…</option>
+          {schema.assetTypes.map((type) => <option key={type} value={type}>{label(type)}</option>)}
+        </select>
+      </Field>
+      <Field label="Esquema de destino" hint="Debe tener una versión vigente que evalúe los subsistemas del tipo transferido.">
+        <select value={targetId} required disabled={busy || !assetType} onChange={(event) => setTargetId(event.target.value)}>
+          <option value="">Elegí un esquema…</option>
+          {targets.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
+        </select>
+      </Field>
+      <div className="form-actions"><button disabled={busy || !assetType || !targetId}>Transferir aplicabilidad</button></div>
+      {schemas.error && <LoadError message={schemas.error} retry={schemas.reload} />}
+      <ErrorLine message={error} />
+    </form>
+  )
+}
+
 /** F2: which version was (or will be) in force on a given date. */
+function WithdrawVersion({ schemaId, number, onDone }: { schemaId: string; number: number; onDone: () => void }) {
+  const [reason, setReason] = useState('')
+  const { run, busy, error } = useAction()
+  return (
+    <div className="stack">
+      <Field label="Motivo del retiro" hint="El retiro conserva la versión y su historial. No afecta versiones que ya entraron en vigencia.">
+        <input value={reason} onChange={(e) => setReason(e.target.value)} />
+      </Field>
+      <div><button className="danger" disabled={busy || !reason.trim()} onClick={async () => {
+        if (await run(() => api.post(`/schemas/${schemaId}/versions/${number}/withdraw`, { reason: reason.trim() }), 'Versión retirada')) onDone()
+      }}>Retirar versión programada</button></div>
+      <ErrorLine message={error} />
+    </div>
+  )
+}
+
 function VersionAtDate({ schemaId }: { schemaId: string }) {
   const [at, setAt] = useState('')
   const [found, setFound] = useState<SchemaVersion | null>(null)

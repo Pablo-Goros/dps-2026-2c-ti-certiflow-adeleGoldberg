@@ -6,15 +6,18 @@ import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.shared.port.Transactions;
+import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public final class CreateSchema {
+public final class CreateSchema implements ar.edu.itba.dps.certification.domain.schema.port.inbound.CreateSchema {
+    private final Transactions transactions;
 
     private final SchemaRepository schemas;
     private final SchemaApplicability applicability;
@@ -22,7 +25,8 @@ public final class CreateSchema {
     private final AuditRecorder audit;
 
     public CreateSchema(SchemaRepository schemas, SchemaApplicability applicability, IdGenerator ids,
-            AuditRecorder audit) {
+            AuditRecorder audit, Transactions transactions) {
+        this.transactions = transactions;
         this.schemas = schemas;
         this.applicability = applicability;
         this.audit = audit;
@@ -30,14 +34,17 @@ public final class CreateSchema {
     }
 
     public InspectionSchema create(String name, Set<AssetType> applicableAssetTypes) {
-        Set<AssetType> alreadyCovered = applicableAssetTypes.stream()
-                .filter(type -> schemas.findByApplicableAssetType(type).isPresent())
-                .collect(Collectors.toSet());
-        InspectionSchema schema = applicability.create(new SchemaId(ids.newIdentifier()), name,
-                applicableAssetTypes, alreadyCovered);
-        schemas.save(schema);
-        audit.record(AuditedElementRef.schema(schema.id().value()), AuditAction.SCHEMA_CREATED,
-                AuditDetail.created("schema '" + schema.name() + "' for " + applicableAssetTypes));
-        return schema;
+        return transactions.execute(() -> {
+            Validate.requiredNonEmpty(applicableAssetTypes, "applicable asset types");
+            Set<AssetType> alreadyCovered = applicableAssetTypes.stream()
+                    .filter(type -> schemas.findByApplicableAssetType(type).isPresent())
+                    .collect(Collectors.toSet());
+            InspectionSchema schema = applicability.create(new SchemaId(ids.newIdentifier()), name,
+                    applicableAssetTypes, alreadyCovered);
+            schemas.save(schema);
+            audit.record(AuditedElementRef.schema(schema.id().value()), AuditAction.SCHEMA_CREATED,
+                    AuditDetail.created("schema '" + schema.name() + "' for " + applicableAssetTypes));
+            return schema;
+        });
     }
 }

@@ -1,17 +1,16 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 
 public final class TestClock implements Clock {
 
     private Instant now;
-    private ZoneId zone = ZoneOffset.UTC;
+    private java.time.ZoneId zone = ZoneOffset.UTC;
 
     public TestClock(Instant start) {
         this.now = start;
@@ -33,9 +32,7 @@ public final class TestClock implements Clock {
         now = instant;
     }
 
-    public void useZone(ZoneId zone) {
-        this.zone = zone;
-    }
+    public void useZone(java.time.ZoneId zone) { this.zone = zone; }
 
     @Override
     public Instant now() {
@@ -43,12 +40,12 @@ public final class TestClock implements Clock {
     }
 
     @Override
-    public LocalDate today() {
-        return today(now);
+    public LocalDate today(Instant at) {
+        return at.atZone(zone).toLocalDate();
     }
 
     @Override
-    public LocalDate today(Instant at) {
-        return at.atZone(zone).toLocalDate();
+    public LocalDate today() {
+        return today(now);
     }
 }

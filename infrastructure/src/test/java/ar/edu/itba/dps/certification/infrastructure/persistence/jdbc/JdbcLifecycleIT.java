@@ -67,6 +67,7 @@ class JdbcLifecycleIT {
         assertThat(blockers(system.tx(() -> system.issueCertificate.issue(inspectionId)))).isNotEmpty();
         assertThat(system.persistence.certificates().findAll()).isEmpty();
 
+        system.persistence.parties().save(new Party(PartyId.of("executor"), "Executor", PartyKind.PERSON));
         system.actingAs(finding.responsible(), () -> system.tx(() -> system.planCorrectiveAction.plan(
                 finding.id(), "recalibrate the cooling unit", PartyId.of("executor"), LocalDate.parse("2026-04-01"))));
         system.actingAs(PartyId.of("executor"), () -> system.tx(() -> system.reportExecution.report(

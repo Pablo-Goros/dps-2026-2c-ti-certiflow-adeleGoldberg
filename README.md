@@ -39,6 +39,11 @@ interface also provides audit views and on-demand maintenance processes.
 The project follows a hexagonal architecture. Architecture tests check dependency
 boundaries across the modules and within the core.
 
+Core ports belong to the domain. Application use cases implement inbound ports and
+open their own transactions; web controllers and scheduled jobs depend on those
+interfaces. JDBC adapters implement outbound ports, and the application
+configuration composes the implementations.
+
 ## Build and runtime
 
 The build requires JDK 25 and Maven 3.9 or later. Maven provisions Node for the

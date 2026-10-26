@@ -2,7 +2,6 @@ package ar.edu.itba.dps.certification;
 
 import ar.edu.itba.dps.certification.adapter.schema.PublishedSchemaCatalog;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.SearchAssets;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionSummary;
 import ar.edu.itba.dps.certification.application.inspection.usecase.ReassignInspection;
 import ar.edu.itba.dps.certification.application.schema.usecase.ChangeSchemaApplicability;
 import ar.edu.itba.dps.certification.application.schema.usecase.DiscardDraft;
@@ -13,14 +12,16 @@ import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionSummary;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.schema.Section;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
 
@@ -57,7 +58,7 @@ class ApplicationUseCasesCoverageTest {
         Asset equipment = system.registerAsset.register("Cooling Unit", AssetType.EQUIPMENT,
                 otherResponsible.id(), "Building 2",
                 Map.of("room", "12", "brand", "Acme", "model", "X1", "serialNumber", "SN-1"), JurisdictionId.of("REFERENCE"));
-        SearchAssets search = new SearchAssets(system.catalogue.assets);
+        SearchAssets search = new SearchAssets(system.catalogue.assets, DirectTransactions.INSTANCE);
 
         assertThat(search.byId(laboratory.id())).contains(laboratory);
         assertThat(search.byId(AssetId.of("missing"))).isEmpty();
@@ -76,7 +77,7 @@ class ApplicationUseCasesCoverageTest {
                 .assign(asset.id(), inspector.id(), LocalDate.parse("2026-03-05"));
         Party replacementInspector = system.person("Laura Gomez");
         ReassignInspection reassign = new ReassignInspection(system.inspections,
-                system.catalogue.parties, system.audit);
+                system.catalogue.parties, system.audit, DirectTransactions.INSTANCE);
 
         Inspection reassigned = reassign.reassign(inspection.id(), replacementInspector.id(),
                 LocalDate.parse("2026-03-07"));
@@ -97,7 +98,7 @@ class ApplicationUseCasesCoverageTest {
         system.startInspection.start(inspectionId);
         Party replacementInspector = system.person("Laura Gomez");
         ReassignInspection reassign = new ReassignInspection(system.inspections,
-                system.catalogue.parties, system.audit);
+                system.catalogue.parties, system.audit, DirectTransactions.INSTANCE);
 
         assertThatThrownBy(() -> reassign.reassign(inspectionId, replacementInspector.id(),
                 LocalDate.parse("2026-03-07")))
@@ -141,8 +142,8 @@ class ApplicationUseCasesCoverageTest {
     @DisplayName("schema applicability can be transferred and drafts can be discarded")
     void schemaApplicabilityCanBeTransferredAndDraftsCanBeDiscarded() {
         ChangeSchemaApplicability change = new ChangeSchemaApplicability(system.schemas,
-                system.schemaApplicability, system.audit);
-        DiscardDraft discardDraft = new DiscardDraft(system.schemas, system.audit);
+                system.schemaApplicability, system.audit, system.clock, DirectTransactions.INSTANCE);
+        DiscardDraft discardDraft = new DiscardDraft(system.schemas, system.audit, DirectTransactions.INSTANCE);
 
         InspectionSchema source = system.createSchema.create("Shared inspection",
                 Set.of(AssetType.LABORATORY, AssetType.FACTORY));

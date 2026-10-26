@@ -9,11 +9,9 @@ import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateFixtures;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
-import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
 import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
-import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
-import ar.edu.itba.dps.certification.domain.certification.ValidityPeriod;
+import ar.edu.itba.dps.certification.domain.certification.policy.CertificationPolicySnapshot;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
@@ -22,11 +20,14 @@ import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.CertificationScenarios;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.TestPolicies;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Period;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -56,7 +57,6 @@ class AllSubsystemsMustBeInForceTest {
     private static final SchemaVersionId VERSION = new SchemaVersionId(SchemaId.of("schema-1"), 1);
 
     private final AllSubsystemsMustBeInForce policy = new AllSubsystemsMustBeInForce();
-    private final CertificateIssuer issuer = new CertificateIssuer();
     private final CertificateLifecycle lifecycle = new CertificateLifecycle();
 
     private enum PartialState { IN_FORCE, MISSING, SUSPENDED, EXPIRED }
@@ -86,7 +86,7 @@ class AllSubsystemsMustBeInForceTest {
         partialIn(pressure, PRESSURE).ifPresent(partials::add);
 
         GlobalCertificateDerivation derivation =
-                policy.deriveFrom(new GlobalDerivationContext(inspection, partials, NOW));
+                policy.deriveFrom(new GlobalDerivationContext(inspection.assetSnapshot().orElseThrow(), partials, NOW));
 
         assertThat(derivation.derivedCertificate().isPresent()).isEqualTo(derivable);
         if (!derivable) {
@@ -105,7 +105,7 @@ class AllSubsystemsMustBeInForceTest {
                 certificate(PRESSURE, laterStart, earlierEnd));
 
         GlobalCertificateDerivation derivation =
-                policy.deriveFrom(new GlobalDerivationContext(inspection, partials, NOW));
+                policy.deriveFrom(new GlobalDerivationContext(inspection.assetSnapshot().orElseThrow(), partials, NOW));
 
         GlobalCertificate global = derivation.derivedCertificate().orElseThrow();
         assertThat(global.validity().issuedAt()).isEqualTo(laterStart);
@@ -124,7 +124,7 @@ class AllSubsystemsMustBeInForceTest {
                 certificate(PRESSURE, startsLater, IN_A_YEAR));
 
         GlobalCertificateDerivation derivation =
-                policy.deriveFrom(new GlobalDerivationContext(inspection, partials, NOW));
+                policy.deriveFrom(new GlobalDerivationContext(inspection.assetSnapshot().orElseThrow(), partials, NOW));
 
         assertThat(derivation.derivedCertificate()).isEmpty();
         assertThat(derivation.describe()).contains("pressure system is outside its validity period");
@@ -136,7 +136,7 @@ class AllSubsystemsMustBeInForceTest {
         Inspection inspection = inspectionDeclaring();
 
         GlobalCertificateDerivation derivation =
-                policy.deriveFrom(new GlobalDerivationContext(inspection, List.of(), NOW));
+                policy.deriveFrom(new GlobalDerivationContext(inspection.assetSnapshot().orElseThrow(), List.of(), NOW));
 
         assertThat(derivation.derivedCertificate()).isEmpty();
         assertThat(derivation.describe()).contains("declares no part");
@@ -160,8 +160,16 @@ class AllSubsystemsMustBeInForceTest {
     }
 
     private Certificate certificate(Subsystem subsystem, Instant from, Instant to) {
-        return issuer.issue(CertificateId.of("cert-" + subsystem.name()), ASSET, INSPECTION, VERSION,
-                CertificateScope.of(subsystem), new ValidityPeriod(from, to), null, TestPolicies.reference(), CertificateMode.REGULAR);
+        var inspection = CertificationScenarios.approvedInspection(INSPECTION, ASSET, VERSION,
+                Set.of(ELECTRICAL, PRESSURE), STARTED_AT);
+        var duration = Period.between(from.atZone(ZoneOffset.UTC).toLocalDate(),
+                to.atZone(ZoneOffset.UTC).toLocalDate());
+        var reference = TestPolicies.reference();
+        var policy = new CertificationPolicySnapshot(
+                reference.reference(), reference.blockingSeverities(), reference.allowsConditional(),
+                duration, duration, reference.restrictions());
+        return CertificationScenarios.issue(CertificateId.of("cert-" + subsystem.name()), inspection,
+                CertificateScope.of(subsystem), policy, from, null);
     }
 
     private Inspection inspectionDeclaring(Subsystem... subsystems) {
@@ -205,7 +213,7 @@ class AllSubsystemsMustBeInForceTest {
         inspection.start(inspector, version, snapshotHaving(ELECTRICAL), STARTED_AT);
 
         GlobalCertificateDerivation derivation = policy.deriveFrom(new GlobalDerivationContext(
-                inspection, List.of(certificate(ELECTRICAL, STARTED_AT, IN_A_YEAR)), NOW));
+                inspection.assetSnapshot().orElseThrow(), List.of(certificate(ELECTRICAL, STARTED_AT, IN_A_YEAR)), NOW));
 
         GlobalCertificate global = derivation.derivedCertificate().orElseThrow();
         assertThat(global.coveredSubsystems()).containsExactly(ELECTRICAL);

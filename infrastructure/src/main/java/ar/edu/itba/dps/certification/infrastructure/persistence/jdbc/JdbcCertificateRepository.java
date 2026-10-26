@@ -1,11 +1,11 @@
 package ar.edu.itba.dps.certification.infrastructure.persistence.jdbc;
 
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificateRepository;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.infrastructure.persistence.codec.StateCodec;
 

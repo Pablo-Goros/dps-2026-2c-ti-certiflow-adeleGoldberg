@@ -1,16 +1,17 @@
 package ar.edu.itba.dps.certification.app.web;
 
-import ar.edu.itba.dps.certification.app.jobs.MaintenanceJobs;
-import ar.edu.itba.dps.certification.app.ops.OutboxOperations;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
+import ar.edu.itba.dps.certification.domain.shared.port.inbound.RunMaintenance;
+import ar.edu.itba.dps.certification.domain.shared.port.OutboxOperations;
+
+import java.util.List;
+import java.util.Set;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-import java.util.Set;
 
 /**
  * Operations on the background processes. Not protected (see the security debt in DESIGN.md): they
@@ -22,17 +23,17 @@ class AdminController {
 
     private static final Set<String> STATUSES = Set.of("PENDING", "DONE", "DEAD");
 
-    private final MaintenanceJobs jobs;
+    private final RunMaintenance jobs;
     private final OutboxOperations outbox;
 
-    AdminController(MaintenanceJobs jobs, OutboxOperations outbox) {
+    AdminController(RunMaintenance jobs, OutboxOperations outbox) {
         this.jobs = jobs;
         this.outbox = outbox;
     }
 
     /** Runs every sweep now and reports what each one did. */
     @PostMapping("/jobs/run")
-    MaintenanceJobs.Result run() {
+    RunMaintenance.Result run() {
         return jobs.runAll();
     }
 

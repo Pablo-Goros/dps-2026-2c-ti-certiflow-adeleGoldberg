@@ -5,21 +5,21 @@ import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
-import ar.edu.itba.dps.certification.domain.finding.Finding;
-import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
-import ar.edu.itba.dps.certification.application.finding.port.FindingRepository;
+import ar.edu.itba.dps.certification.domain.finding.Finding;
+import ar.edu.itba.dps.certification.domain.finding.FindingId;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingRepository;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.application.inspection.port.FindingRegistry;
-import ar.edu.itba.dps.certification.application.inspection.port.NonConformity;
+import ar.edu.itba.dps.certification.domain.inspection.port.FindingRegistry;
+import ar.edu.itba.dps.certification.domain.inspection.port.NonConformity;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
 
 import java.time.Instant;
 import java.util.List;
@@ -73,7 +73,7 @@ public final class FindingService implements FindingRegistry {
         String previousEvaluation = describe(finding);
         finding.revise(nonConformity.evaluation().result(), nonConformity.evaluation().reasons(),
                 nonConformity.evaluation().severity(), nonConformity.presentedEvidence(),
-                rectificationId, reason, at, new CorrectiveActionId(ids.newIdentifier()));
+                rectificationId, reason, at, clock.today(at), new CorrectiveActionId(ids.newIdentifier()));
         findings.save(finding);
         audit.record(AuditedElementRef.finding(finding.id().value()), AuditAction.FINDING_REVISED,
                 AuditDetail.stateChanged(previousEvaluation, describe(finding)), reason);
@@ -162,7 +162,7 @@ public final class FindingService implements FindingRegistry {
                 nonConformity.evaluation().severity(),
                 nonConformity.presentedEvidence(),
                 new CorrectiveActionId(ids.newIdentifier()),
-                at);
+                at, clock.today(at));
         findings.save(finding);
         audit.record(AuditedElementRef.finding(finding.id().value()), AuditAction.FINDING_CREATED,
                 AuditDetail.created(finding.result() + " on criterion " + finding.criterionId()

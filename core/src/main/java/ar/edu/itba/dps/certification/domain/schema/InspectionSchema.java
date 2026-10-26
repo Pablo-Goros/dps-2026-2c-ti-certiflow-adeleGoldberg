@@ -21,6 +21,37 @@ public final class InspectionSchema {
     private final Set<AssetType> applicableAssetTypes = new LinkedHashSet<>();
     private final List<SchemaVersion> publishedVersions = new ArrayList<>();
     private SchemaDraft draft;
+    private final List<VersionWithdrawal> withdrawals = new ArrayList<>();
+
+    public record VersionWithdrawal(SchemaVersionId versionId, Instant withdrawnAt, String reason) {
+        public VersionWithdrawal {
+            Validate.required(versionId, "version id");
+            Validate.required(withdrawnAt, "withdrawal instant");
+            reason = Validate.requiredText(reason, "withdrawal reason");
+        }
+    }
+
+    public List<VersionWithdrawal> withdrawals() { return List.copyOf(withdrawals); }
+
+    public boolean withdrawn(SchemaVersionId versionId) {
+        return withdrawals.stream().anyMatch(withdrawal -> withdrawal.versionId().equals(versionId));
+    }
+
+    public Optional<SchemaVersion> latestNonWithdrawnVersion() {
+        return publishedVersions.stream().filter(version -> !withdrawn(version.id()))
+                .max(Comparator.comparingInt(SchemaVersion::number));
+    }
+
+    public VersionWithdrawal withdrawScheduledVersion(int number, Instant at, String reason) {
+        Validate.required(at, "withdrawal instant");
+        var version = findVersion(number).orElseThrow(() -> new DomainException("schema " + id + " has no version " + number));
+        Validate.ensure(!withdrawn(version.id()), "version " + number + " is already withdrawn");
+        Validate.ensure(!at.isBefore(version.publishedAt()), "withdrawal cannot precede publication");
+        Validate.ensure(at.isBefore(version.effectiveFrom()), "only a future scheduled version can be withdrawn");
+        var withdrawal = new VersionWithdrawal(version.id(), at, reason);
+        withdrawals.add(withdrawal);
+        return withdrawal;
+    }
 
     /** Package-private: schemas are created through {@link SchemaApplicability}, which owns "one schema per asset type". */
     InspectionSchema(SchemaId id, String name, Set<AssetType> applicableAssetTypes) {
@@ -73,7 +104,7 @@ public final class InspectionSchema {
 
     public SchemaDraft openDraft() {
         Validate.ensure(draft == null, "schema " + id + " already has an open draft");
-        draft = latestPublishedVersion().map(SchemaDraft::new).orElseGet(SchemaDraft::new);
+        draft = latestNonWithdrawnVersion().map(SchemaDraft::new).orElseGet(SchemaDraft::new);
         return draft;
     }
 
@@ -108,6 +139,7 @@ public final class InspectionSchema {
     public Optional<SchemaVersion> effectiveVersionAt(Instant at) {
         Validate.required(at, "evaluation instant");
         return publishedVersions.stream()
+                .filter(version -> !withdrawn(version.id()))
                 .filter(version -> !version.effectiveFrom().isAfter(at))
                 .max(Comparator.comparing(SchemaVersion::effectiveFrom)
                         .thenComparingInt(SchemaVersion::number));
@@ -123,9 +155,9 @@ public final class InspectionSchema {
         Validate.required(effectiveFrom, "effective from instant");
         Validate.ensure(!effectiveFrom.isBefore(publishedAt), "effectiveFrom cannot be earlier than publishedAt");
 
-        latestPublishedVersion().ifPresent(latest ->
-                Validate.ensure(!effectiveFrom.isBefore(latest.effectiveFrom()),
-                        "effectiveFrom " + effectiveFrom + " cannot be earlier than previous version effectiveFrom " + latest.effectiveFrom()));
+        latestNonWithdrawnVersion().ifPresent(latest ->
+                Validate.ensure(effectiveFrom.isAfter(latest.effectiveFrom()),
+                        "effectiveFrom " + effectiveFrom + " must be strictly after previous active version effectiveFrom " + latest.effectiveFrom()));
 
         List<String> violations = new ArrayList<>(open.publicationViolations());
         violations.addAll(partsLeftUnevaluated(open));

@@ -2,15 +2,16 @@ package ar.edu.itba.dps.certification.app.web;
 
 import ar.edu.itba.dps.certification.app.config.AuthenticationRequiredException;
 import ar.edu.itba.dps.certification.app.web.dto.ApiError;
-import ar.edu.itba.dps.certification.application.shared.ConflictException;
+import ar.edu.itba.dps.certification.domain.shared.ConflictException;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
+
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

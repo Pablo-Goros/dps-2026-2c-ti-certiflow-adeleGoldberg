@@ -12,20 +12,21 @@ import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionCause;
-import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
+import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionStatus;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.report.ReportedValue;
-import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceType;
+import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.FullSystem;
 
 import java.lang.reflect.Modifier;
@@ -129,7 +130,7 @@ class SecondReviewIT {
         assertThat(system.inspections.findAll()).isEmpty();
 
         InspectionId id = assign();
-        var reassign = new ReassignInspection(system.inspections, system.catalogue.parties, system.audit);
+        var reassign = new ReassignInspection(system.inspections, system.catalogue.parties, system.audit, DirectTransactions.INSTANCE);
         assertThatThrownBy(() -> reassign.reassign(id, owner.id(), system.clock.today()))
                 .hasMessageContaining("cannot be assigned as inspector");
         assertThat(system.inspections.require(id).inspector()).isEqualTo(inspector.id());
@@ -260,7 +261,7 @@ class SecondReviewIT {
         system.rectifyClosedInspection.rectify(id, "wrong file linked",
                 List.of(new Correction.EvidenceReferenceCorrection(DOCUMENTATION, evidenceId, "file://manual-v2")));
 
-        var act = new GenerateInspectionAct(system.inspections, system.schemaCatalog).generate(id);
+        var act = new GenerateInspectionAct(system.inspections, system.schemaCatalog, DirectTransactions.INSTANCE).generate(id);
         var line = act.sections().getFirst().lines().stream()
                 .filter(l -> l.criterionId().equals(DOCUMENTATION)).findFirst().orElseThrow();
         assertThat(line.evidenceReferences()).singleElement().isInstanceOfSatisfying(ReportedValue.Rectified.class,

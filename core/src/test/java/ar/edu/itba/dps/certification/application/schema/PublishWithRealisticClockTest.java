@@ -1,16 +1,18 @@
 package ar.edu.itba.dps.certification.application.schema;
 
 import ar.edu.itba.dps.certification.application.schema.usecase.PublishSchemaVersion;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.schema.Section;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
-import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Set;
+
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -30,7 +32,7 @@ class PublishWithRealisticClockTest {
         }
 
         @Override
-        public LocalDate today() {
+        public LocalDate today(Instant at) {
             return LocalDate.of(2026, 3, 1);
         }
     }
@@ -43,7 +45,7 @@ class PublishWithRealisticClockTest {
         system.editDraft.addSection(schema.id(), Section.of("Safety", 1,
                 DomainWorld.temperatureCriterion(), DomainWorld.documentationCriterion()));
 
-        var result = new PublishSchemaVersion(system.schemas, new TickingClock(), system.audit)
+        var result = new PublishSchemaVersion(system.schemas, new TickingClock(), system.audit, DirectTransactions.INSTANCE)
                 .publish(schema.id());
 
         assertThat(result.published()).isTrue();
