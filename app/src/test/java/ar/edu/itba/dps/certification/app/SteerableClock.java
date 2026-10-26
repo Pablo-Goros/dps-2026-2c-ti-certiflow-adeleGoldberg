@@ -52,9 +52,4 @@ final class SteerableClock implements Clock {
     public LocalDate today(Instant at) {
         return LocalDate.ofInstant(at, zone);
     }
-
-    @Override
-    public LocalDate today(Instant at) {
-        return LocalDate.ofInstant(at, zone);
-    }
 }

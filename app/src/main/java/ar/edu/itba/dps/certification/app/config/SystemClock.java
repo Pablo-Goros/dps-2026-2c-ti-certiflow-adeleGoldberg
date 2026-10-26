@@ -23,9 +23,4 @@ public final class SystemClock implements Clock {
     public LocalDate today(Instant at) {
         return at.atZone(zone).toLocalDate();
     }
-
-    @Override
-    public LocalDate today(Instant at) {
-        return at.atZone(zone).toLocalDate();
-    }
 }

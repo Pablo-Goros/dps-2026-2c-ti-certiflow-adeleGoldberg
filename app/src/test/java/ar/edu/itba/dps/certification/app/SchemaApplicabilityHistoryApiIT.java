@@ -34,7 +34,7 @@ class SchemaApplicabilityHistoryApiIT extends ApiTest {
 
         assertThat(refused.status()).as(refused.body()).isEqualTo(422);
         assertThat(refused.text("code")).isEqualTo("BUSINESS_RULE");
-        assertThat(refused.text("message")).contains("version 1").contains("electrical installation");
+        assertThat(refused.text("message")).contains("v1").contains("electrical installation");
         assertThat(api.get("/api/schemas/" + id).json().get("assetTypes")).isEqualTo(List.of("EQUIPMENT"));
     }
 }

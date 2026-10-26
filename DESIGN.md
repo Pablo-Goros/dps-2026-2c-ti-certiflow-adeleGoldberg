@@ -1033,21 +1033,3 @@ atado el contrato a un idioma.
 
 **Deuda técnica deliberada.** Sigue en pie la de la sección 16: los textos que arma el núcleo (motivos,
 descripciones de resultados) viajan en inglés y se muestran como llegan, porque son datos y no códigos.
-
-
-## 20. Auditoría posterior a las correcciones
-
-La [auditoría del 26 de octubre](docs/auditoria-integral.md) registra defectos adicionales,
-regresiones, recorridos ejecutados, deuda confirmada y límites de la revisión. La planilla
-por archivo distingue lectura completa de revisión focalizada y controles estáticos.
-
-La aplicabilidad se decide con el instante de la operación: se exige cobertura de los
-subsistemas tanto en la versión vigente como en todas las futuras no retiradas. Las
-versiones históricas sustituidas no bloquean el cambio. Una transferencia requiere que
-el destino tenga una versión ya vigente; no basta con una publicación programada.
-El servicio de dominio recibe el instante; el caso de uso lo obtiene de `Clock` y
-guarda/audita origen y destino dentro de su transacción.
-
-La interfaz recupera una identidad recordada inexistente volviendo a cargar el directorio
-sin esa identidad y recargando las consultas al cambiar el actor. Esto no incorpora
-autenticación: la limitación de `X-Actor-Id` sigue vigente.

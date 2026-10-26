@@ -116,7 +116,7 @@ class FutureEffectiveSchemaIT {
 
         assertThatThrownBy(() -> change.applyTo(schema.id(), AssetType.FACTORY))
                 .isInstanceOf(DomainException.class)
-                .hasMessageContaining("version 1")
+                .hasMessageContaining("v1")
                 .hasMessageContaining("electrical installation")
                 .hasMessageContaining("pressure system");
         assertThat(system.schemas.require(schema.id()).applicableAssetTypes()).containsExactly(AssetType.EQUIPMENT);
@@ -165,7 +165,7 @@ class FutureEffectiveSchemaIT {
 
         assertThatThrownBy(() -> change.transferTo(source.id(), target.id(), AssetType.FACTORY))
                 .isInstanceOf(DomainException.class)
-                .hasMessageContaining("version 1")
+                .hasMessageContaining("v1")
                 .hasMessageContaining("electrical installation")
                 .hasMessageContaining("pressure system");
         assertThat(system.schemas.require(source.id()).applicableAssetTypes())

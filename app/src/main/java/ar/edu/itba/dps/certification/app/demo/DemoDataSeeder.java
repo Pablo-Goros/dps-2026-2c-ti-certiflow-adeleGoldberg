@@ -1,4 +1,4 @@
-﻿package ar.edu.itba.dps.certification.app.demo;
+package ar.edu.itba.dps.certification.app.demo;
 
 import ar.edu.itba.dps.certification.app.config.RequestActor;
 import ar.edu.itba.dps.certification.domain.finding.port.FindingQuery;
@@ -282,4 +282,3 @@ class DemoDataSeeder implements ApplicationRunner {
         }
     }
 }
-

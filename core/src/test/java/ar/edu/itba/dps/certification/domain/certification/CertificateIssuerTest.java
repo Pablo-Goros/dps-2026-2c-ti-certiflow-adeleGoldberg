@@ -123,27 +123,26 @@ class CertificateIssuerTest {
                 .hasMessageContaining("scope must be certified");
     }
 
-    @Test void anAssetWithUnevaluatedSubsystemsCannotReceiveADirectGlobalCertificate() {
+    @Test void anInspectionCannotStartWhenItsSchemaLeavesAnAssetSubsystemUnevaluated() {
         var snapshot = new AssetSnapshot(
                 facts.inspection.assetId(), AssetType.FACTORY,
-                "Factory", Map.of(), "Here",
+                "Factory",
+                Map.of("room", "Control Room", "productionLine", "Line A"), // Usamos las claves obligatorias
+                "Here",
                 new ResponsiblePartyRef(PolicyFacts.OWNER, "Owner"),
                 PolicyFacts.AT, TestPolicies.REFERENCE);
+
         var criterion = Criterion.of("GENERAL", new MappedOptionsRule(
                 Map.of("yes", RuleOutcome.approved("OK", "approved"))));
+
         var version = new SchemaVersion(facts.inspection.requireFrozenSchemaVersionId(),
                 List.of(Section.of("General", 1, criterion)), PolicyFacts.AT);
+
         var inspection = new Inspection(InspectionId.of("uncovered"), snapshot.assetId(),
                 PolicyFacts.INSPECTOR, PolicyFacts.today());
-        inspection.start(PolicyFacts.INSPECTOR, version, snapshot, PolicyFacts.AT);
-        inspection.recordAnswer(PolicyFacts.INSPECTOR, criterion.id(), OptionAnswer.of("yes"));
-        inspection.close(PolicyFacts.INSPECTOR, PolicyFacts.AT);
-        var context = new CertificationContext(inspection, List.of(), PolicyFacts.today(),
-                CertificateScope.global(), Optional.empty(), Optional.empty());
-        var assessment = policy.assess(context, PolicyFacts.AT);
 
-        assertThatThrownBy(() -> issuer.issue(id, inspection, assessment, null))
-                .hasMessageContaining("scope must be certified");
+        assertThatThrownBy(() -> inspection.start(PolicyFacts.INSPECTOR, version, snapshot, PolicyFacts.AT))
+                .hasMessageContaining("does not evaluate subsystems");
     }
 
     @Test void policyMustBelongToTheInspectionJurisdiction() {
