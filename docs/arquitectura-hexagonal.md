@@ -110,6 +110,15 @@ Antes, algunos servicios del dominio dependian de repositorios o puertos. Eso ha
 
 El dominio conserva las reglas: solo dejo de conocer como se recupera o persiste la informacion.
 
+La emisión también está protegida dentro del dominio: `CertificationAssessment` solo se
+construye evaluando hechos y una definición inmutable de política; su constructor es privado.
+`Certificate` exige esa prueba incluso en su constructor de paquete, rechaza evaluaciones
+bloqueadas u obsoletas y calcula su modalidad y vigencia desde la decisión. Para renovar
+recibe el certificado anterior y comprueba activo, alcance, vencimiento y posterioridad de
+la inspección. `CertificateFactory` reúne los hechos mediante puertos y resuelve la política
+activa; no determina una vigencia arbitraria. El adaptador HTTP proyecta la decisión a
+`AssessmentResponse`, sin serializar los hechos internos de la evaluación.
+
 ## Proteccion arquitectonica
 
 Se agrego `ArchitectureBoundaryTest`, una prueba de frontera que verifica:

@@ -9,10 +9,8 @@ import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
 import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
-import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
-import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
-import ar.edu.itba.dps.certification.domain.certification.FixedDurationValidityPolicy;
+import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationAssessment;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionPlanned;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
@@ -31,10 +29,10 @@ import static org.mockito.Mockito.*;
 class CertificationReactionsTest {
     @Test void duplicateAndStaleEventsEvaluateCurrentFactsRatherThanRestoringOldViolations() {
         var facts = new PolicyFacts(CriterionResult.OBSERVED, Severity.HIGH); facts.plan();
-        var c = new CertificateIssuer().issue(CertificateId.of("certificate"), facts.inspection.assetId(), facts.inspection.id(),
-                facts.inspection.requireFrozenSchemaVersionId(), CertificateScope.global(),
-                FixedDurationValidityPolicy.ofMonths(12).validityFrom(PolicyFacts.AT), null,
-                TestPolicies.reference(), CertificateMode.REGULAR);
+        var approved = new PolicyFacts(CriterionResult.APPROVED, null);
+        var c = new CertificateIssuer().issue(CertificateId.of("certificate"), approved.inspection,
+                CertificationAssessment.evaluate(
+                        approved.context(), PolicyFacts.AT, TestPolicies.reference()), null);
         var repository = mock(CertificateRepository.class); var inspections = mock(InspectionQuery.class);
         var findings = mock(FindingQuery.class); var audit = mock(AuditRecorder.class); var clock = TestClock.at(PolicyFacts.AT.toString());
         when(repository.findByBackingInspection(facts.inspection.id())).thenReturn(List.of(c));

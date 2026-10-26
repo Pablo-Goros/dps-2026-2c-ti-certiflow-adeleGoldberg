@@ -10,9 +10,11 @@ import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
+import ar.edu.itba.dps.certification.support.CertificationScenarios;
 import ar.edu.itba.dps.certification.support.TestPolicies;
 
 import java.time.Instant;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,14 +40,10 @@ class CertificateSuspensionTest {
 
     @BeforeEach
     void setUp() {
-        certificate = new Certificate(
-                CertificateId.of("cert-1"),
-                AssetId.of("asset-1"),
-                InspectionId.of("inspection-1"),
-                new SchemaVersionId(SchemaId.of("schema-1"), 1),
-                CertificateScope.global(),
-                new ValidityPeriod(ISSUED_AT, EXPIRES_AT),
-                null, TestPolicies.reference(), CertificateMode.REGULAR);
+        var inspection = CertificationScenarios.approvedInspection(InspectionId.of("inspection-1"),
+                AssetId.of("asset-1"), new SchemaVersionId(SchemaId.of("schema-1"), 1), Set.of(), ISSUED_AT);
+        certificate = CertificationScenarios.issue(CertificateId.of("cert-1"), inspection,
+                CertificateScope.global(), TestPolicies.reference(), ISSUED_AT, null);
     }
 
     @Test
@@ -129,14 +127,10 @@ class CertificateSuspensionTest {
     @Test
     @DisplayName("a certificate cannot be recorded as its own predecessor")
     void aCertificateCannotSucceedItself() {
-        assertThatThrownBy(() -> new Certificate(
-                CertificateId.of("cert-1"),
-                AssetId.of("asset-1"),
-                InspectionId.of("inspection-1"),
-                new SchemaVersionId(SchemaId.of("schema-1"), 1),
-                CertificateScope.global(),
-                new ValidityPeriod(ISSUED_AT, EXPIRES_AT),
-                CertificateId.of("cert-1"), TestPolicies.reference(), CertificateMode.REGULAR))
+        assertThatThrownBy(() -> CertificationScenarios.issue(certificate.id(),
+                CertificationScenarios.approvedInspection(InspectionId.of("next-inspection"), certificate.assetId(),
+                        certificate.schemaVersionId(), Set.of(), AFTER_EXPIRY),
+                CertificateScope.global(), TestPolicies.reference(), AFTER_EXPIRY, certificate))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("cannot succeed itself");
     }
@@ -174,14 +168,10 @@ class CertificateSuspensionTest {
     @Test
     @DisplayName("a certificate has to say what it covers")
     void aCertificateNeedsAScope() {
-        assertThatThrownBy(() -> new Certificate(
-                CertificateId.of("cert-2"),
-                AssetId.of("asset-1"),
-                InspectionId.of("inspection-1"),
-                new SchemaVersionId(SchemaId.of("schema-1"), 1),
-                null,
-                new ValidityPeriod(ISSUED_AT, EXPIRES_AT),
-                null, TestPolicies.reference(), CertificateMode.REGULAR))
+        assertThatThrownBy(() -> CertificationScenarios.issue(CertificateId.of("cert-2"),
+                CertificationScenarios.approvedInspection(InspectionId.of("inspection-1"), certificate.assetId(),
+                        certificate.schemaVersionId(), Set.of(), ISSUED_AT),
+                null, TestPolicies.reference(), ISSUED_AT, null))
                 .isInstanceOf(InvalidArgumentException.class)
                 .hasMessageContaining("certificate scope");
     }

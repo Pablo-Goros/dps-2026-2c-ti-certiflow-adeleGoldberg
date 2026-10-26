@@ -8,7 +8,6 @@ import ar.edu.itba.dps.certification.domain.catalogue.ResponsiblePartyRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
-import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
 import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.CertificationPlan;
@@ -23,6 +22,7 @@ import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.CertificationScenarios;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.TestPolicies;
 
@@ -48,7 +48,6 @@ class DerivationEdgeTest {
     private static final Instant AT = Instant.parse("2026-03-01T10:00:00Z");
     private static final Instant IN_A_YEAR = Instant.parse("2027-03-01T10:00:00Z");
 
-    private final CertificateIssuer issuer = new CertificateIssuer();
 
     @Test
     @DisplayName("a partial scope needs the subsystem it covers")
@@ -110,9 +109,9 @@ class DerivationEdgeTest {
     @Test
     @DisplayName("the context refuses a certificate backed by another inspection")
     void theContextRefusesAForeignCertificate() {
-        Certificate foreign = issuer.issue(CertificateId.of("c1"), ASSET,
-                InspectionId.of("another"), VERSION, CertificateScope.of(ELECTRICAL),
-                new ValidityPeriod(AT, IN_A_YEAR), null, TestPolicies.reference(), CertificateMode.REGULAR);
+        Certificate foreign = CertificationScenarios.issue(CertificateId.of("c1"),
+                CertificationScenarios.approvedInspection(InspectionId.of("another"), ASSET, VERSION,
+                        Set.of(ELECTRICAL, PRESSURE), AT), CertificateScope.of(ELECTRICAL), TestPolicies.reference(), AT, null);
 
         assertThatThrownBy(() -> new GlobalDerivationContext(startedInspection(), List.of(foreign), AT))
                 .isInstanceOf(DomainException.class)
@@ -122,8 +121,9 @@ class DerivationEdgeTest {
     @Test
     @DisplayName("the context refuses a global certificate among the partials it derives from")
     void theContextRefusesAGlobalAmongThePartials() {
-        Certificate global = issuer.issue(CertificateId.of("c1"), ASSET, INSPECTION, VERSION,
-                CertificateScope.global(), new ValidityPeriod(AT, IN_A_YEAR), null, TestPolicies.reference(), CertificateMode.REGULAR);
+        Certificate global = CertificationScenarios.issue(CertificateId.of("c1"),
+                CertificationScenarios.approvedInspection(INSPECTION, ASSET, VERSION, Set.of(), AT),
+                CertificateScope.global(), TestPolicies.reference(), AT, null);
 
         assertThatThrownBy(() -> new GlobalDerivationContext(startedInspection(), List.of(global), AT))
                 .isInstanceOf(DomainException.class)
@@ -198,8 +198,9 @@ class DerivationEdgeTest {
     }
 
     private Certificate partial(Subsystem subsystem, String id) {
-        return issuer.issue(CertificateId.of(id), ASSET, INSPECTION, VERSION,
-                CertificateScope.of(subsystem), new ValidityPeriod(AT, IN_A_YEAR), null, TestPolicies.reference(), CertificateMode.REGULAR);
+        return CertificationScenarios.issue(CertificateId.of(id),
+                CertificationScenarios.approvedInspection(INSPECTION, ASSET, VERSION, Set.of(ELECTRICAL, PRESSURE), AT),
+                CertificateScope.of(subsystem), TestPolicies.reference(), AT, null);
     }
 
     private Inspection startedInspection() {

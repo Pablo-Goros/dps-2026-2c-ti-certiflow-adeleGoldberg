@@ -19,7 +19,6 @@ import ar.edu.itba.dps.certification.domain.certification.issuance.Certification
 import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationContext;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
-import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceRequirements;
 import ar.edu.itba.dps.certification.domain.certification.policy.JurisdictionCertificationPolicy;
 import ar.edu.itba.dps.certification.domain.certification.policy.PolicyResolutionException;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
@@ -29,7 +28,6 @@ import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -109,13 +107,9 @@ public final class CertificateFactory {
         Validate.ensure(assessment.inspectionId().equals(inspection.id()) && assessment.scope().equals(scope)
                 && assessment.evaluatedAt().equals(at) && assessment.policy().equals(policy.snapshot()),
                 "policy returned an inconsistent assessment");
-        // Strategies cannot remove structural or compliance guarantees.
-        var blockers = new ArrayList<>(assessment.blockers());
-        for (var requirement : IssuanceRequirements.common()) {
-            requirement.unmetBy(context).filter(blocker -> !blockers.contains(blocker)).ifPresent(blockers::add);
-        }
-        return new CertificationAssessment(inspection.id(), scope, at, policy.snapshot(), blockers,
-                blockers.isEmpty() ? assessment.mode() : Optional.empty());
+        // Rebind strategies to the actual port facts; they can add restrictions, never remove them.
+        return CertificationAssessment.evaluate(context, at, policy.snapshot())
+                .withAdditionalBlockers(assessment.blockers());
     }
 
     /**
@@ -201,13 +195,8 @@ public final class CertificateFactory {
         if (!assessment.blockers().isEmpty()) return new IssuanceDecision.Blocked(assessment);
         Validate.ensure(inspection.status().closed(), "the backing inspection must be closed");
         Validate.ensure(!inspection.closedAt().orElseThrow().isAfter(at), "issuance cannot precede closure");
-        var mode = assessment.mode().orElseThrow();
-        var validity = Validate.required(policy.validityFrom(at, mode), "validity");
-        Validate.ensure(validity.issuedAt().equals(at), "validity must begin at issuance");
-        Validate.ensure(validity.expiresAt().isAfter(at), "validity must end after issuance");
         return new IssuanceDecision.Issued(issuer.issue(new CertificateId(ids.newIdentifier()),
-                inspection.assetId(), inspection.id(), inspection.requireFrozenSchemaVersionId(),
-                scope, validity, previous == null ? null : previous.id(), assessment.policy(), mode));
+                inspection, assessment, previous));
     }
 
     private CertificationContext contextFor(Inspection inspection, CertificateScope scope, Instant at) {

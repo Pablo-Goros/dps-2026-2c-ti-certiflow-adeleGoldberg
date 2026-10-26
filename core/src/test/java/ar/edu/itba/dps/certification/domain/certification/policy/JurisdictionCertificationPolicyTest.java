@@ -1,7 +1,7 @@
 package ar.edu.itba.dps.certification.domain.certification.policy;
 
-import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
+import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationContext;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
@@ -62,7 +62,7 @@ class JurisdictionCertificationPolicyTest {
         assertThat(policy.assess(facts.context(), PolicyFacts.AT).blockers()).anyMatch(IssuanceBlocker.UnplannedAction.class::isInstance);
         facts.plan();
         assertThat(facts.context().overdueOpenActions()).isZero();
-        assertThat(policy.assess(facts.context(PolicyFacts.today().plusDays(1), List.of(facts.finding)), PolicyFacts.AT).blockers()).hasSize(3);
+        assertThat(policy.assess(facts.context(PolicyFacts.today().plusDays(1), List.of(facts.finding)), PolicyFacts.AT.plusSeconds(86400)).blockers()).hasSize(3);
         facts.finding.voidObligation(RectificationId.of("void"), "removed", PolicyFacts.AT);
         assertThat(policy.assess(facts.context(), PolicyFacts.AT).mode()).contains(CertificateMode.REGULAR);
     }

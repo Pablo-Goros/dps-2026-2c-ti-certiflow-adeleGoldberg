@@ -10,9 +10,7 @@ import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
-import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
-import ar.edu.itba.dps.certification.domain.certification.FixedDurationValidityPolicy;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.certification.policy.ConfiguredJurisdictionCertificationPolicy;
 import ar.edu.itba.dps.certification.domain.certification.policy.PolicyResolutionException;
@@ -34,10 +32,9 @@ class CertificationUseCasesTest {
     private final AuditRecorder audit = mock(AuditRecorder.class);
     private final PolicyFacts facts = new PolicyFacts(CriterionResult.APPROVED, null);
     private Certificate certificate() {
-        return new CertificateIssuer().issue(CertificateId.of("certificate"), facts.inspection.assetId(), facts.inspection.id(),
-                facts.inspection.requireFrozenSchemaVersionId(), CertificateScope.global(),
-                new FixedDurationValidityPolicy(TestPolicies.reference().regularDuration()).validityFrom(PolicyFacts.AT),
-                CertificateId.of("previous"), TestPolicies.reference(), CertificateMode.REGULAR);
+        return new CertificateIssuer().issue(CertificateId.of("certificate"), facts.inspection,
+                new ConfiguredJurisdictionCertificationPolicy(TestPolicies.reference()).assess(facts.context(), PolicyFacts.AT),
+                null);
     }
     @Test void successIsSavedBeforeStructuredAuditAndSaveFailureDoesNotAuditSuccess() {
         var c = certificate(); var decision = new IssuanceDecision.Issued(c);

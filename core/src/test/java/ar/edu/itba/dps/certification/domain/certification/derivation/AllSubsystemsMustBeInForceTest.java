@@ -9,11 +9,9 @@ import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateFixtures;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
-import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
 import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
-import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
-import ar.edu.itba.dps.certification.domain.certification.ValidityPeriod;
+import ar.edu.itba.dps.certification.domain.certification.policy.CertificationPolicySnapshot;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
@@ -22,11 +20,14 @@ import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.CertificationScenarios;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.TestPolicies;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Period;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -56,7 +57,6 @@ class AllSubsystemsMustBeInForceTest {
     private static final SchemaVersionId VERSION = new SchemaVersionId(SchemaId.of("schema-1"), 1);
 
     private final AllSubsystemsMustBeInForce policy = new AllSubsystemsMustBeInForce();
-    private final CertificateIssuer issuer = new CertificateIssuer();
     private final CertificateLifecycle lifecycle = new CertificateLifecycle();
 
     private enum PartialState { IN_FORCE, MISSING, SUSPENDED, EXPIRED }
@@ -160,8 +160,16 @@ class AllSubsystemsMustBeInForceTest {
     }
 
     private Certificate certificate(Subsystem subsystem, Instant from, Instant to) {
-        return issuer.issue(CertificateId.of("cert-" + subsystem.name()), ASSET, INSPECTION, VERSION,
-                CertificateScope.of(subsystem), new ValidityPeriod(from, to), null, TestPolicies.reference(), CertificateMode.REGULAR);
+        var inspection = CertificationScenarios.approvedInspection(INSPECTION, ASSET, VERSION,
+                Set.of(ELECTRICAL, PRESSURE), STARTED_AT);
+        var duration = Period.between(from.atZone(ZoneOffset.UTC).toLocalDate(),
+                to.atZone(ZoneOffset.UTC).toLocalDate());
+        var reference = TestPolicies.reference();
+        var policy = new CertificationPolicySnapshot(
+                reference.reference(), reference.blockingSeverities(), reference.allowsConditional(),
+                duration, duration, reference.restrictions());
+        return CertificationScenarios.issue(CertificateId.of("cert-" + subsystem.name()), inspection,
+                CertificateScope.of(subsystem), policy, from, null);
     }
 
     private Inspection inspectionDeclaring(Subsystem... subsystems) {

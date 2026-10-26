@@ -1,5 +1,6 @@
 package ar.edu.itba.dps.certification.app.web;
 
+import ar.edu.itba.dps.certification.app.web.dto.CertificateDtos.AssessmentResponse;
 import ar.edu.itba.dps.certification.app.web.dto.CertificateDtos.IssueRequest;
 import ar.edu.itba.dps.certification.application.certification.usecase.BrowseCertificates;
 import ar.edu.itba.dps.certification.application.certification.usecase.DeriveGlobalCertificate;
@@ -16,6 +17,12 @@ import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,11 +31,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * Certificates (F1 partial by subsystem, plus the global one) issued from a closed inspection under
@@ -90,9 +92,9 @@ class CertificateController {
             @RequestParam(name = "subsystem", required = false) String subsystem) {
         requireInspection(id);
         InspectionId inspectionId = InspectionId.of(id);
-        return Plain.of(subsystem == null
+        return Plain.of(AssessmentResponse.from(subsystem == null
                 ? eligibility.assess(inspectionId)
-                : eligibility.assess(inspectionId, Subsystem.of(subsystem)));
+                : eligibility.assess(inspectionId, Subsystem.of(subsystem))));
     }
 
     /** Whether the partial certificates in force add up to a global one. Changes nothing. */
@@ -139,7 +141,7 @@ class CertificateController {
             }
             case IssuanceDecision.Blocked blocked -> {
                 body.put("outcome", "BLOCKED");
-                body.put("assessment", Plain.of(blocked.assessment()));
+                body.put("assessment", Plain.of(AssessmentResponse.from(blocked.assessment())));
                 yield ResponseEntity.status(422).body(body);
             }
         };

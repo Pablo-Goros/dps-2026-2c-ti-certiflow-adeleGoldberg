@@ -1,18 +1,20 @@
 package ar.edu.itba.dps.certification.domain.certification;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
+import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationAssessment;
 import ar.edu.itba.dps.certification.domain.certification.policy.CertificationPolicySnapshot;
 import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionCause;
 import ar.edu.itba.dps.certification.domain.certification.suspension.SuspensionRecord;
+import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.function.Predicate;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 public final class Certificate {
 
@@ -28,21 +30,34 @@ public final class Certificate {
     private final List<SuspensionRecord> suspensions = new ArrayList<>();
     private CertificateStatus status = CertificateStatus.VALID;
 
-    Certificate(CertificateId id, AssetId assetId, InspectionId backingInspectionId,
-            SchemaVersionId schemaVersionId, CertificateScope scope, ValidityPeriod validity,
-            CertificateId previousCertificateId, CertificationPolicySnapshot policy, CertificateMode mode) {
-        this.policy = Validate.required(policy, "policy snapshot");
-        this.mode = Validate.required(mode, "certificate mode");
-        Validate.ensure(mode != CertificateMode.CONDITIONAL || policy.allowsConditional(), "conditional mode is forbidden");
+    Certificate(CertificateId id, Inspection inspection, CertificationAssessment assessment, Certificate previous) {
         this.id = Validate.required(id, "certificate id");
-        this.assetId = Validate.required(assetId, "asset id");
-        this.backingInspectionId = Validate.required(backingInspectionId, "backing inspection id");
-        this.schemaVersionId = Validate.required(schemaVersionId, "schema version id");
-        this.scope = Validate.required(scope, "certificate scope");
-        this.validity = Validate.required(validity, "validity period");
-        Validate.ensure(!this.id.equals(previousCertificateId),
-                "certificate " + id + " cannot succeed itself");
-        this.previousCertificateId = previousCertificateId;
+        Validate.required(assessment, "assessment").requireEligibleFor(inspection);
+        Validate.ensure(inspection.status().closed(), "the backing inspection must be closed");
+        this.scope = assessment.scope();
+        Validate.ensure(scope.coveredSubsystem().map(inspection.certifiableSubsystems()::contains)
+                .orElseGet(() -> inspection.certifiableSubsystems().isEmpty()),
+                "assessment scope must be certified by the inspection");
+        this.policy = assessment.policy();
+        inspection.assetSnapshot().ifPresent(asset -> Validate.ensure(
+                asset.jurisdiction().equals(policy.reference().jurisdiction()),
+                "assessment policy must match the inspection jurisdiction"));
+        this.mode = assessment.mode().orElseThrow();
+        this.assetId = inspection.assetId();
+        this.backingInspectionId = inspection.id();
+        this.schemaVersionId = inspection.requireFrozenSchemaVersionId();
+        this.validity = policy.validityFrom(assessment.evaluatedAt(), mode);
+        if (previous != null) {
+            Validate.ensure(!id.equals(previous.id()), "certificate " + id + " cannot succeed itself");
+            Validate.ensure(assetId.equals(previous.assetId()) && scope.equals(previous.scope()),
+                    "renewal must cover the same asset and scope");
+            Validate.ensure(previous.validity().expiredAt(validity.issuedAt()),
+                    "the previous certificate must be expired before renewal");
+            Validate.ensure(!backingInspectionId.equals(previous.backingInspectionId()), "renewal requires a new inspection");
+            Validate.ensure(inspection.startedAt().orElseThrow().isAfter(previous.validity().issuedAt()),
+                    "renewal requires an inspection started after the previous certificate was issued");
+        }
+        this.previousCertificateId = previous == null ? null : previous.id();
     }
 
     public CertificationPolicySnapshot policy() { return policy; }

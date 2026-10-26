@@ -15,9 +15,12 @@ import static org.assertj.core.api.Assertions.*;
 class PolicyAwareCertificateLifecycleTest {
     private Certificate certificate(PolicyFacts facts, CertificateMode mode, Set<Severity> blocking) {
         var policy = TestPolicies.profile("REFERENCE", 1, blocking, true, 12, 6);
-        return new CertificateIssuer().issue(CertificateId.of("certificate"), facts.inspection.assetId(), facts.inspection.id(),
-                facts.inspection.requireFrozenSchemaVersionId(), CertificateScope.global(), policy.validityFrom(PolicyFacts.AT, mode),
-                null, policy.snapshot(), mode);
+        // Issue against an eligible earlier state, then reconcile the current facts below.
+        var eligible = mode == CertificateMode.REGULAR ? new PolicyFacts(CriterionResult.APPROVED, null)
+                : new PolicyFacts(CriterionResult.OBSERVED, Severity.LOW);
+        if (eligible.finding != null) eligible.plan();
+        return new CertificateIssuer().issue(CertificateId.of("certificate"), eligible.inspection,
+                policy.assess(eligible.context(), PolicyFacts.AT), null);
     }
     @Test void aPlannedPermittedRejectionRemainsConditionalAndRepeatedFactsDoNotAuditAgain() {
         var facts = new PolicyFacts(CriterionResult.REJECTED, Severity.MEDIUM); facts.plan();
