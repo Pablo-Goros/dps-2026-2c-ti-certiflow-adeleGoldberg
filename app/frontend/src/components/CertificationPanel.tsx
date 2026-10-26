@@ -52,8 +52,8 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
               target={target}
               certificate={issued.data?.find((c) => (target.subsystem ? c.subsystem === target.subsystem : c.scope === 'GLOBAL'))}
               previous={assetCertificates.data?.filter(
-                (c) => c.backingInspectionId !== inspectionId && (target.subsystem ? c.subsystem === target.subsystem : c.scope === 'GLOBAL'),
-              ).sort((a, b) => Date.parse(b.issuedAt) - Date.parse(a.issuedAt))[0]}
+                  (c) => c.backingInspectionId !== inspectionId && (target.subsystem ? c.subsystem === target.subsystem : c.scope === 'GLOBAL'),
+              )?.sort((a, b) => Date.parse(b.issuedAt) - Date.parse(a.issuedAt))?.[0]}
               onChange={reloadAll}
             />
           ))}

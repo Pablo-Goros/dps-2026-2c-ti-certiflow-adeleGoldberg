@@ -28,6 +28,10 @@ public final class TestClock implements Clock {
         advance(Duration.ofDays(days));
     }
 
+    public void setNow(Instant instant) {
+        now = instant;
+    }
+
     public void useZone(java.time.ZoneId zone) { this.zone = zone; }
 
     @Override
@@ -38,5 +42,10 @@ public final class TestClock implements Clock {
     @Override
     public LocalDate today(Instant at) {
         return at.atZone(zone).toLocalDate();
+    }
+
+    @Override
+    public LocalDate today() {
+        return today(now);
     }
 }

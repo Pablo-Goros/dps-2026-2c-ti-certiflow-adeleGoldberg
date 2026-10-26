@@ -12,6 +12,7 @@ import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.CertificationPlan;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
 import ar.edu.itba.dps.certification.domain.certification.policy.*;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.report.CertificateReport;
@@ -29,6 +30,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -694,6 +696,33 @@ class PartialCertificationIT {
                 .isInstanceOf(DomainException.class);
         assertThat(system.schemas.require(generic.id()).applicableAssetTypes())
                 .containsExactly(AssetType.EQUIPMENT);
+    }
+
+    @Test
+    @DisplayName("one configured calendar date governs corrective-action deadline decisions")
+    void correctiveActionDeadlineUsesTheConfiguredCalendarDate() {
+        system.clock.useZone(ZoneId.of("America/Argentina/Buenos_Aires"));
+        InspectionId inspectionId = inspectAndClose("untidy", "clean", true);
+        Finding finding = system.findings.findByInspection(inspectionId).getFirst();
+        system.clock.setNow(Instant.parse("2026-03-03T00:30:00Z")); // March 2 in Buenos Aires.
+
+        system.planAsResponsible(finding.id(), "tidy the switchboard", PartyId.of("executor"),
+                LocalDate.parse("2026-03-02"));
+        Certificate certificate = issuedCertificate(system.issueCertificate.issuePartial(inspectionId, ELECTRICAL));
+
+        assertThat(system.evaluateEligibility.blockersFor(inspectionId, ELECTRICAL))
+                .noneMatch(IssuanceBlocker.OverdueOpenAction.class::isInstance);
+        assertThat(system.expireActions.sweep()).isEmpty();
+        assertThat(finding.correctiveAction().status()).isEqualTo(CorrectiveActionStatus.PLANNED);
+        assertThat(certificate.status()).isEqualTo(CertificateStatus.VALID);
+
+        system.actingAs(PartyId.of("executor"), () -> system.reportExecution.report(
+                finding.id(), "switchboard tidied", List.of("file://photo.jpg")));
+        system.actingAs(inspector.id(), () -> system.verifyCorrectiveAction.verify(
+                finding.id(), true, "area is clean"));
+
+        assertThat(finding.correctiveAction().metItsDeadline()).isTrue();
+        assertThat(finding.correctiveAction().deadlineBreached()).isFalse();
     }
 
     private InspectionId inspectAndClose(String electrical, String pressure, boolean documentation) {

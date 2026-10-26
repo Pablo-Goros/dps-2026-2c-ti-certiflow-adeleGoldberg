@@ -13,6 +13,9 @@ public interface AssetRepository {
 
     void save(Asset asset);
 
+    /** Serializes inspection assignments for this asset until the surrounding transaction ends. */
+    void lockForInspectionAssignment(AssetId id);
+
     Optional<Asset> findById(AssetId id);
 
     default Asset require(AssetId id) {

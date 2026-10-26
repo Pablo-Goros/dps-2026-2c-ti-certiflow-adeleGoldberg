@@ -47,12 +47,11 @@ public final class OutboxDispatcher {
         }
         try {
             int delivered = 0;
+            long throughSeq = highWatermarkSafely();
             long afterSeq = 0;
-            while (true) {
-                List<JdbcEventOutbox.Pending> rows = pendingSafely(afterSeq);
-                if (rows.isEmpty()) {
-                    break;
-                }
+            while (afterSeq < throughSeq) {
+                List<JdbcEventOutbox.Pending> rows = pendingSafely(afterSeq, throughSeq);
+                if (rows.isEmpty()) break;
                 for (JdbcEventOutbox.Pending row : rows) {
                     afterSeq = row.seq();
                     if (deliver(row)) {
@@ -66,9 +65,18 @@ public final class OutboxDispatcher {
         }
     }
 
-    private List<JdbcEventOutbox.Pending> pendingSafely(long afterSeq) {
+    private long highWatermarkSafely() {
         try {
-            return outbox.pendingAfter(afterSeq, BATCH);
+            return outbox.highWatermark();
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.ERROR, "could not read the event outbox upper bound", e);
+            return 0;
+        }
+    }
+
+    private List<JdbcEventOutbox.Pending> pendingSafely(long afterSeq, long throughSeq) {
+        try {
+            return outbox.pendingAfter(afterSeq, throughSeq, BATCH);
         } catch (RuntimeException e) {
             LOG.log(System.Logger.Level.ERROR, "could not read the event outbox", e);
             return List.of();

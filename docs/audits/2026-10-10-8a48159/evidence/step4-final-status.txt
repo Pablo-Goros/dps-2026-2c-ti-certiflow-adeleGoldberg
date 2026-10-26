@@ -1,0 +1,14 @@
+ M docs/audits/2026-10-10-8a48159/README.md
+ M docs/audits/2026-10-10-8a48159/correctness.md
+ M docs/audits/2026-10-10-8a48159/failure-scenarios.md
+ M docs/audits/2026-10-10-8a48159/findings.md
+ M docs/audits/2026-10-10-8a48159/requirements.md
+ M docs/audits/2026-10-10-8a48159/validation.md
+?? docs/audits/2026-10-10-8a48159/end-to-end.md
+?? docs/audits/2026-10-10-8a48159/evidence/AuditControlledApp.java
+?? docs/audits/2026-10-10-8a48159/evidence/AuditShutdownAgent.java
+?? docs/audits/2026-10-10-8a48159/evidence/step4-ci.json
+?? docs/audits/2026-10-10-8a48159/evidence/step4-http-excerpts.json
+?? docs/audits/2026-10-10-8a48159/evidence/step4-results.md
+?? docs/audits/2026-10-10-8a48159/evidence/step4-run-metadata.json
+?? docs/audits/2026-10-10-8a48159/evidence/step4_api_probe.py

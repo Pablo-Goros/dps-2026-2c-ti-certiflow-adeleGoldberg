@@ -38,6 +38,7 @@ public final class AssignInspection implements ar.edu.itba.dps.certification.dom
 
     public Inspection assign(AssetId assetId, PartyId inspector, LocalDate expectedDate) {
         return transactions.execute(() -> {
+            assets.lockForInspectionAssignment(assetId);
             assets.assetTypeOf(assetId);
             PartyId assignedInspector = parties.require(inspector).asInspector();
             inspections.findNonClosedByAsset(assetId).ifPresent(open -> {

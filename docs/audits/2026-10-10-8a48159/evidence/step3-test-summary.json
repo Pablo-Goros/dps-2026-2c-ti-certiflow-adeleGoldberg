@@ -1,0 +1,201 @@
+{
+  "totals": {
+    "core/surefire-reports": {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "core/failsafe-reports": {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "infrastructure/failsafe-reports": {
+      "tests": 31,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "app/surefire-reports": {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "app/failsafe-reports": {
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "reports": [
+    {
+      "module": "core",
+      "kind": "surefire-reports",
+      "name": "NotifyCorrectiveActionExpiryTest",
+      "timestamp": null,
+      "mtime": 1791671950.781345,
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "core",
+      "kind": "failsafe-reports",
+      "name": "CertificationLifecycleIT",
+      "timestamp": null,
+      "mtime": 1791671962.9017532,
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "core",
+      "kind": "failsafe-reports",
+      "name": "RenewalIT",
+      "timestamp": null,
+      "mtime": 1791671963.6578848,
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "infrastructure",
+      "kind": "failsafe-reports",
+      "name": "OutboxIT",
+      "timestamp": null,
+      "mtime": 1791671985.5591192,
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "infrastructure",
+      "kind": "failsafe-reports",
+      "name": "WebhookNotificationSenderIT",
+      "timestamp": null,
+      "mtime": 1791671988.4043658,
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "infrastructure",
+      "kind": "failsafe-reports",
+      "name": "DatabaseConstraintsIT",
+      "timestamp": null,
+      "mtime": 1791671989.6412523,
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "infrastructure",
+      "kind": "failsafe-reports",
+      "name": "JdbcAuditTrailIT",
+      "timestamp": null,
+      "mtime": 1791671990.5197525,
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "infrastructure",
+      "kind": "failsafe-reports",
+      "name": "JdbcLifecycleIT",
+      "timestamp": null,
+      "mtime": 1791671991.2748392,
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "infrastructure",
+      "kind": "failsafe-reports",
+      "name": "JdbcTransactionsIT",
+      "timestamp": null,
+      "mtime": 1791671992.2653198,
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "app",
+      "kind": "surefire-reports",
+      "name": "MaintenanceJobsTest",
+      "timestamp": null,
+      "mtime": 1791672000.2476628,
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "app",
+      "kind": "failsafe-reports",
+      "name": "AdminApiIT",
+      "timestamp": null,
+      "mtime": 1791672014.2557895,
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "app",
+      "kind": "failsafe-reports",
+      "name": "CertificationApiIT",
+      "timestamp": null,
+      "mtime": 1791672017.2376392,
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "app",
+      "kind": "failsafe-reports",
+      "name": "ConcurrencyApiIT",
+      "timestamp": null,
+      "mtime": 1791672018.3976512,
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "app",
+      "kind": "failsafe-reports",
+      "name": "NotificationWebhookApiIT",
+      "timestamp": null,
+      "mtime": 1791672019.6808295,
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "app",
+      "kind": "failsafe-reports",
+      "name": "ProcessesApiIT",
+      "timestamp": null,
+      "mtime": 1791672021.4937649,
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

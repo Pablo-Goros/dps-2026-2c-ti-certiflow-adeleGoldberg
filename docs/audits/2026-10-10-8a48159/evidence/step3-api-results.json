@@ -1,0 +1,91 @@
+{
+  "start": "2026-10-10T19:46:24.910954-03:00",
+  "command": [
+    "C:/Program Files/Java/jdk-26.0.2/bin/java.exe",
+    "-jar",
+    "target\\audit-evidence\\2026-10-10-8a48159\\014-step3-tests\\baseline-exec.jar",
+    "--server.port=18083",
+    "--spring.datasource.url=jdbc:h2:file:./target/audit-evidence/2026-10-10-8a48159/022-step3-api/db/certiflow",
+    "--certiflow.jobs.enabled=false"
+  ],
+  "jarSHA256": "91a192ed7dea02a09f3dca1a96ff4c8f73281a714ec132d535872dee11beb076",
+  "exit": 0,
+  "end": "2026-10-10T19:46:45.722674-03:00",
+  "results": {
+    "F-REPEAT-03": {
+      "repeatPublicationHTTP": 422,
+      "auditUnchanged": true
+    },
+    "F-REPEAT-01/02": {
+      "repeatCloseUnchanged": true,
+      "repeatIssue": "ALREADY_ISSUED",
+      "auditUnchanged": true,
+      "prematureRenewalHTTP": 422
+    },
+    "F-REPEAT-04": {
+      "repeatVerificationHTTP": 422,
+      "findingAuditOutboxUnchanged": true
+    },
+    "F-CONCUR-03": {
+      "0": {
+        "HTTP": [
+          422,
+          201,
+          422,
+          201,
+          422,
+          201
+        ],
+        "storedOpen": 3
+      },
+      "1": {
+        "HTTP": [
+          201,
+          201,
+          201,
+          201,
+          422,
+          422
+        ],
+        "storedOpen": 4
+      },
+      "2": {
+        "HTTP": [
+          422,
+          201,
+          201,
+          422,
+          422,
+          422
+        ],
+        "storedOpen": 2
+      }
+    },
+    "F-CONCUR-04": {
+      "HTTP": [
+        409,
+        422,
+        200,
+        422,
+        409,
+        409
+      ],
+      "equipmentOwners": [
+        "bdede5fb-7b71-4952-ac20-1df2f8524e52"
+      ]
+    },
+    "F-RESTART-02": {
+      "equality": {
+        "/inspections/52cc0265-0ae9-4e17-95aa-0a3032771520": true,
+        "/inspections/52cc0265-0ae9-4e17-95aa-0a3032771520/act": true,
+        "/certificates/af6e588d-efaf-41ec-a079-e0d8c17e8bc5": true,
+        "/certificates/af6e588d-efaf-41ec-a079-e0d8c17e8bc5/report": true,
+        "/audit": false,
+        "/admin/outbox": true,
+        "/schemas": false
+      },
+      "repeatIssueAfterReopen": "ALREADY_ISSUED",
+      "termination": "Windows terminate after requests completed; not graceful JVM shutdown or in-flight crash test"
+    }
+  }
+}

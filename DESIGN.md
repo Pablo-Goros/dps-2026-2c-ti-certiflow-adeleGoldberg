@@ -665,15 +665,15 @@ entrega la página y sus recursos). **Modificados:** `app/pom.xml` (plugin del f
 
 **Refactorizaciones.** Ninguna en el núcleo ni en la API.
 
-**Pruebas.** Vitest (24): cliente HTTP, conversión de formularios de reglas (regla de opciones, tramos numéricos,
-secciones), formatos y etiquetas. `FrontendIT` (3): la página, sus scripts y la API conviven. Además se recorrió el
-flujo completo en un navegador real contra una imitación del contrato (esa imitación no se incluye en el repositorio).
+**Pruebas.** Vitest cubre el cliente HTTP, conversiones de formularios, formatos, etiquetas, panel de certificación,
+rectificación y acta de inspección. `FrontendIT` verifica que la página, sus recursos y la API conviven. No hay
+una prueba automatizada versionada de extremo a extremo en navegador real.
 
 **Deuda técnica deliberada.**
-- *Sin pruebas de componentes ni de extremo a extremo versionadas;* la interfaz se probó a mano y con un recorrido
-  automatizado que no forma parte del repositorio.
-- *La interfaz no cubre* la rectificación de inspecciones, la reasignación de inspector ni la consulta de
-  versiones por número (están en la API).
+- *Sin prueba automatizada versionada de extremo a extremo en navegador real.* Las pruebas de componentes usan Vitest
+  y jsdom.
+- *La interfaz no cubre* la reasignación de inspector, la transferencia de aplicabilidad entre esquemas ni la consulta
+  de versiones por número (están en la API).
 - *Textos de dominio en inglés:* los nombres de subsistemas y características, y los mensajes de error y de motivos
   que arma el núcleo, se muestran como llegan; un diccionario (`labels.ts`) traduce los conocidos y el resto se
   muestra legible pero sin traducir. Internacionalizar bien exige que la API devuelva códigos en lugar de frases.
