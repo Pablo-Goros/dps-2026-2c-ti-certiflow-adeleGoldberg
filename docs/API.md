@@ -45,6 +45,7 @@ Al crear una sección, cada criterio lleva una regla en `rule.type`:
 | `POST` / `DELETE /schemas/{id}/draft` | abrir / descartar borrador |
 | `POST /schemas/{id}/draft/sections`, `DELETE .../sections/{name}` | editar el borrador |
 | `POST /schemas/{id}/publish` | publicar; `{"effectiveFrom": "<instante futuro>"}` opcional (F2) |
+| `POST /schemas/{id}/versions/{n}/withdraw` | retirar una versión todavía futura, con `{"reason": "motivo obligatorio"}`; conserva publicación y contenido, agrega auditoría y libera su fecha (F2) |
 | `POST /schemas/{id}/applicability`, `DELETE .../applicability/{assetType}`, `POST .../applicability/transfer` | a qué tipos de activo aplica |
 | `POST /inspections`, `GET /inspections?assetId=&inspectorId=&status=`, `GET /inspections/{id}` | inspecciones |
 | `PUT /inspections/{id}/assignment` | reasignar inspector y fecha |
@@ -60,7 +61,8 @@ Al crear una sección, cada criterio lleva una regla en `rule.type`:
 | `POST /inspections/{id}/certificates` | emitir; `{"subsystem": "..."}` = parcial (F1), sin cuerpo = global |
 | `POST /inspections/{id}/certificates/renewal` | renovar |
 | `GET /inspections/{id}/eligibility?subsystem=` | si se puede emitir y qué lo bloquea |
-| `GET /inspections/{id}/global-derivation` | si los parciales vigentes componen un global |
+| `GET /assets/{id}/global-derivation` | global actual a partir del último parcial de cada subsistema; pueden pertenecer a distintas inspecciones y esquemas (F1) |
+| `GET /inspections/{id}/global-derivation` | acceso compatible al mismo global actual del activo de esa inspección |
 | `GET /certificates?assetId=&inspectionId=&status=`, `GET /certificates/{id}`, `GET /certificates/{id}/report` | certificados |
 | `GET /audit?type=&id=` | auditoría, completa o de un elemento |
 | `POST /admin/jobs/run` | ejecuta ahora los barridos y devuelve `{expiredCertificates, expiredActions, deliveredEvents}` |
@@ -69,6 +71,23 @@ Al crear una sección, cada criterio lleva una regla en `rule.type`:
 
 Una emisión bloqueada responde **422** con `{"outcome": "BLOCKED", "assessment": {... "blockers": [...]}}`;
 una emisión repetida responde 200 con `"outcome": "ALREADY_ISSUED"`.
+
+La derivación responde `Derived` o `NotDerivable`. El global derivado no atribuye una
+inspección ni una versión de esquema únicas al activo: `certificate.provenance` contiene,
+por cada parcial, `certificateId`, `subsystem`, `backingInspectionId`, `schemaVersionId`,
+`policy` y `mode`. La vigencia global es la intersección de las vigencias de esos parciales.
+Se consulta el último certificado de cada parte, sin recurrir a uno anterior si ese último
+está suspendido o vencido. El acceso por inspección devuelve el estado actual del activo,
+no una reconstrucción histórica de esa inspección.
+
+F2 admite varias versiones programadas con fechas estrictamente crecientes entre las
+publicaciones no retiradas. Publicar con la misma fecha o antes de la última no retirada
+responde 422 y conserva el borrador. Para una corrección urgente se retiran explícitamente
+las futuras que bloquean la fecha. El retiro responde 200 con el esquema actualizado y
+`withdrawals: [{number, withdrawnAt, reason}]`; no borra versiones ni reutiliza sus números.
+Un motivo vacío responde 400; retirar una versión vigente o ya retirada responde 422.
+La consulta por fecha omite las retiradas. El retiro exige usuario (`X-Actor-Id`) y se
+guarda junto con su auditoría en la misma transacción.
 
 ## Notificaciones
 

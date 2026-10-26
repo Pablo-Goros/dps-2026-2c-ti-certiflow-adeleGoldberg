@@ -109,6 +109,7 @@ export function SchemaDetail() {
 
       {s.draft && !adding && (
         <Card title="Publicar">
+          <Notice kind="info">Las fechas deben ser posteriores a todas las versiones no retiradas. Para una corrección urgente, retirá las versiones futuras que bloqueen la fecha; después podés volver a programarlas.</Notice>
           <div className="form">
             <Field label="Vigente desde" hint="Vacío = desde ahora. Con una fecha futura, la versión queda programada y la actual sigue rigiendo hasta entonces.">
               <input type="datetime-local" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
@@ -139,9 +140,17 @@ export function SchemaDetail() {
                   <strong>v{version.number}</strong>{' '}
                   <span className="muted">publicada {formatInstant(version.publishedAt)} · vigente desde {formatInstant(version.effectiveFrom)}</span>{' '}
                   {version.number === s.effectiveVersion && <Badge tone="ok">Vigente</Badge>}
-                  {isFuture(version.effectiveFrom) && <Badge tone="info">Programada</Badge>}
+                  {s.withdrawals.some((w) => w.number === version.number)
+                    ? <Badge tone="info">Retirada</Badge>
+                    : isFuture(version.effectiveFrom) && <Badge tone="info">Programada</Badge>}
                 </summary>
                 <div className="stack" style={{ marginTop: 10 }}>
+                  {s.withdrawals.filter((w) => w.number === version.number).map((w) => (
+                    <Notice key={w.number} kind="info">Retirada {formatInstant(w.withdrawnAt)}: {w.reason}</Notice>
+                  ))}
+                  {isFuture(version.effectiveFrom) && !s.withdrawals.some((w) => w.number === version.number) && (
+                    <WithdrawVersion schemaId={s.id} number={version.number} onDone={schema.reload} />
+                  )}
                   {version.sections.map((section) => <SectionView key={section.name} section={section} />)}
                 </div>
               </details>
@@ -154,6 +163,22 @@ export function SchemaDetail() {
 }
 
 /** F2: which version was (or will be) in force on a given date. */
+function WithdrawVersion({ schemaId, number, onDone }: { schemaId: string; number: number; onDone: () => void }) {
+  const [reason, setReason] = useState('')
+  const { run, busy, error } = useAction()
+  return (
+    <div className="stack">
+      <Field label="Motivo del retiro" hint="El retiro conserva la versión y su historial. No afecta versiones que ya entraron en vigencia.">
+        <input value={reason} onChange={(e) => setReason(e.target.value)} />
+      </Field>
+      <div><button className="danger" disabled={busy || !reason.trim()} onClick={async () => {
+        if (await run(() => api.post(`/schemas/${schemaId}/versions/${number}/withdraw`, { reason: reason.trim() }), 'Versión retirada')) onDone()
+      }}>Retirar versión programada</button></div>
+      <ErrorLine message={error} />
+    </div>
+  )
+}
+
 function VersionAtDate({ schemaId }: { schemaId: string }) {
   const [at, setAt] = useState('')
   const [found, setFound] = useState<SchemaVersion | null>(null)

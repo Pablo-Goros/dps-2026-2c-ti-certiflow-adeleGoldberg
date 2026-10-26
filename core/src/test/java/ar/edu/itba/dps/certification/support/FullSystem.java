@@ -129,7 +129,7 @@ public final class FullSystem {
             new AllSubsystemsMustBeInForce();
     public final CertificateFactory certificateFactory =
             new CertificateFactory(inspections, findingQuery,
-                    certificates, assetDirectory, policies, globalPolicy, ids, clock);
+                    certificates, assetDirectory, policies, ids, clock);
     public final IssueCertificate issueCertificate = new IssueCertificate(certificateFactory, certificates, audit);
     public final RenewCertificate renewCertificate =
             new RenewCertificate(certificateFactory, certificates, audit);
@@ -138,7 +138,7 @@ public final class FullSystem {
     public final EvaluateIssuanceEligibility evaluateEligibility =
             new EvaluateIssuanceEligibility(certificateFactory);
     public final DeriveGlobalCertificate deriveGlobalCertificate =
-            new DeriveGlobalCertificate(certificateFactory);
+            new DeriveGlobalCertificate(assetDirectory, certificates, inspections, globalPolicy, clock);
     public final GenerateInspectionAct generateInspectionAct =
             new GenerateInspectionAct(
                     inspections, schemaCatalog);

@@ -29,7 +29,6 @@ import ar.edu.itba.dps.certification.application.schema.usecase.PublishSchemaVer
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
-import ar.edu.itba.dps.certification.domain.certification.derivation.AllSubsystemsMustBeInForce;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
 import ar.edu.itba.dps.certification.domain.schema.Section;
@@ -43,8 +42,8 @@ import ar.edu.itba.dps.certification.support.SequentialIds;
 import ar.edu.itba.dps.certification.support.TestClock;
 import ar.edu.itba.dps.certification.support.TestPolicies;
 
-import java.util.Set;
 import java.util.function.Supplier;
+import java.util.Set;
 
 /**
  * The application wired to the real repositories. It is the same composition the REST layer will
@@ -84,7 +83,7 @@ final class JdbcSystem {
         var applicability = new SchemaApplicability();
         var certificateFactory = new CertificateFactory(persistence.inspections(), findingQuery,
                 persistence.certificates(), assetDirectory, TestPolicies.registry(),
-                new AllSubsystemsMustBeInForce(), ids, clock);
+                ids, clock);
 
         registerParty = new RegisterParty(persistence.parties(), ids, audit);
         registerAsset = new RegisterAsset(persistence.assets(), persistence.parties(), ids, audit);

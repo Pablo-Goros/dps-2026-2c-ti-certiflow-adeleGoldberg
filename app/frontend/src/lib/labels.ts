@@ -67,6 +67,7 @@ const dictionary: Record<string, string> = {
   SCHEMA_DRAFT_OPENED: 'Borrador abierto',
   SCHEMA_DRAFT_EDITED: 'Borrador editado',
   SCHEMA_DRAFT_DISCARDED: 'Borrador descartado',
+  SCHEMA_VERSION_WITHDRAWN: 'Versi\u00f3n retirada',
   SCHEMA_VERSION_PUBLISHED: 'Versión publicada',
   SCHEMA_PUBLICATION_REFUSED: 'Publicación rechazada',
   INSPECTION_ASSIGNED: 'Inspección asignada',

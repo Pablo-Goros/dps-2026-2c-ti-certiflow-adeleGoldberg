@@ -33,8 +33,8 @@ import ar.edu.itba.dps.certification.application.finding.usecase.ExpireOverdueCo
 import ar.edu.itba.dps.certification.application.finding.usecase.PlanCorrectiveAction;
 import ar.edu.itba.dps.certification.application.finding.usecase.ReportCorrectiveActionExecution;
 import ar.edu.itba.dps.certification.application.finding.usecase.VerifyCorrectiveAction;
-import ar.edu.itba.dps.certification.application.inspection.RectificationConsequences;
 import ar.edu.itba.dps.certification.application.inspection.port.InspectionRepository;
+import ar.edu.itba.dps.certification.application.inspection.RectificationConsequences;
 import ar.edu.itba.dps.certification.application.inspection.usecase.AssignInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.AttachEvidence;
 import ar.edu.itba.dps.certification.application.inspection.usecase.BrowseInspections;
@@ -48,11 +48,11 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveAnswer
 import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveEvidence;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveNote;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
+import ar.edu.itba.dps.certification.application.notification.NotifyCorrectiveActionExpiry;
+import ar.edu.itba.dps.certification.application.notification.port.NotificationSender;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateFindingsSummary;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct;
-import ar.edu.itba.dps.certification.application.notification.NotifyCorrectiveActionExpiry;
-import ar.edu.itba.dps.certification.application.notification.port.NotificationSender;
 import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.application.schema.usecase.BrowseSchemas;
@@ -62,6 +62,7 @@ import ar.edu.itba.dps.certification.application.schema.usecase.DiscardDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.PublishSchemaVersion;
+import ar.edu.itba.dps.certification.application.schema.usecase.WithdrawScheduledSchemaVersion;
 import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
 import ar.edu.itba.dps.certification.application.shared.port.Clock;
 import ar.edu.itba.dps.certification.application.shared.port.DomainEventPublisher;
@@ -71,6 +72,7 @@ import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
 import ar.edu.itba.dps.certification.domain.certification.derivation.AllSubsystemsMustBeInForce;
 import ar.edu.itba.dps.certification.domain.certification.derivation.GlobalCertificatePolicy;
 import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -167,6 +169,12 @@ class ApplicationConfig {
     }
 
     @Bean
+    WithdrawScheduledSchemaVersion withdrawScheduledSchemaVersion(SchemaRepository schemas, Clock clock,
+            AuditRecorder audit, ActorProvider actors) {
+        return new WithdrawScheduledSchemaVersion(schemas, clock, audit, actors);
+    }
+
+    @Bean
     ChangeSchemaApplicability changeSchemaApplicability(SchemaRepository schemas, SchemaApplicability applicability, AuditRecorder audit) {
         return new ChangeSchemaApplicability(schemas, applicability, audit);
     }
@@ -257,8 +265,8 @@ class ApplicationConfig {
     }
 
     @Bean
-    CertificateFactory factory(InspectionRepository inspections, FindingQuery findingQuery, CertificateRepository certificates, AssetDirectory assetDirectory, CertificationPolicyRegistry policies, GlobalCertificatePolicy globalPolicy, IdGenerator ids, Clock clock) {
-        return new CertificateFactory(inspections, findingQuery, certificates, assetDirectory, policies, globalPolicy, ids, clock);
+    CertificateFactory factory(InspectionRepository inspections, FindingQuery findingQuery, CertificateRepository certificates, AssetDirectory assetDirectory, CertificationPolicyRegistry policies, IdGenerator ids, Clock clock) {
+        return new CertificateFactory(inspections, findingQuery, certificates, assetDirectory, policies, ids, clock);
     }
 
     @Bean
@@ -282,8 +290,9 @@ class ApplicationConfig {
     }
 
     @Bean
-    DeriveGlobalCertificate deriveGlobalCertificate(CertificateFactory factory) {
-        return new DeriveGlobalCertificate(factory);
+    DeriveGlobalCertificate deriveGlobalCertificate(AssetDirectory assets, CertificateRepository certificates,
+            InspectionRepository inspections, GlobalCertificatePolicy policy, Clock clock) {
+        return new DeriveGlobalCertificate(assets, certificates, inspections, policy, clock);
     }
 
     // Read side used by the REST controllers, so they never touch a repository directly.

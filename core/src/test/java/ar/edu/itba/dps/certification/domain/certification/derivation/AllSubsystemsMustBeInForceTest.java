@@ -86,7 +86,7 @@ class AllSubsystemsMustBeInForceTest {
         partialIn(pressure, PRESSURE).ifPresent(partials::add);
 
         GlobalCertificateDerivation derivation =
-                policy.deriveFrom(new GlobalDerivationContext(inspection, partials, NOW));
+                policy.deriveFrom(new GlobalDerivationContext(inspection.assetSnapshot().orElseThrow(), partials, NOW));
 
         assertThat(derivation.derivedCertificate().isPresent()).isEqualTo(derivable);
         if (!derivable) {
@@ -105,7 +105,7 @@ class AllSubsystemsMustBeInForceTest {
                 certificate(PRESSURE, laterStart, earlierEnd));
 
         GlobalCertificateDerivation derivation =
-                policy.deriveFrom(new GlobalDerivationContext(inspection, partials, NOW));
+                policy.deriveFrom(new GlobalDerivationContext(inspection.assetSnapshot().orElseThrow(), partials, NOW));
 
         GlobalCertificate global = derivation.derivedCertificate().orElseThrow();
         assertThat(global.validity().issuedAt()).isEqualTo(laterStart);
@@ -124,7 +124,7 @@ class AllSubsystemsMustBeInForceTest {
                 certificate(PRESSURE, startsLater, IN_A_YEAR));
 
         GlobalCertificateDerivation derivation =
-                policy.deriveFrom(new GlobalDerivationContext(inspection, partials, NOW));
+                policy.deriveFrom(new GlobalDerivationContext(inspection.assetSnapshot().orElseThrow(), partials, NOW));
 
         assertThat(derivation.derivedCertificate()).isEmpty();
         assertThat(derivation.describe()).contains("pressure system is outside its validity period");
@@ -136,7 +136,7 @@ class AllSubsystemsMustBeInForceTest {
         Inspection inspection = inspectionDeclaring();
 
         GlobalCertificateDerivation derivation =
-                policy.deriveFrom(new GlobalDerivationContext(inspection, List.of(), NOW));
+                policy.deriveFrom(new GlobalDerivationContext(inspection.assetSnapshot().orElseThrow(), List.of(), NOW));
 
         assertThat(derivation.derivedCertificate()).isEmpty();
         assertThat(derivation.describe()).contains("declares no part");
@@ -213,7 +213,7 @@ class AllSubsystemsMustBeInForceTest {
         inspection.start(inspector, version, snapshotHaving(ELECTRICAL), STARTED_AT);
 
         GlobalCertificateDerivation derivation = policy.deriveFrom(new GlobalDerivationContext(
-                inspection, List.of(certificate(ELECTRICAL, STARTED_AT, IN_A_YEAR)), NOW));
+                inspection.assetSnapshot().orElseThrow(), List.of(certificate(ELECTRICAL, STARTED_AT, IN_A_YEAR)), NOW));
 
         GlobalCertificate global = derivation.derivedCertificate().orElseThrow();
         assertThat(global.coveredSubsystems()).containsExactly(ELECTRICAL);

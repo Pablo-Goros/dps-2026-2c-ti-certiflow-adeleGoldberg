@@ -44,7 +44,7 @@ public final class SchemaApplicability {
         Validate.ensure(!target.appliesTo(type), "target schema already applies to asset type " + type);
         Validate.ensure(owner.isPresent() && owner.get().equals(source.id()),
                 "source schema must be the registered owner of the asset type");
-        Validate.ensure(target.latestPublishedVersion().isPresent(),
+        Validate.ensure(target.latestNonWithdrawnVersion().isPresent(),
                 "the replacement schema must have a published version");
         requireVersionEvaluatesEveryPartOf(target, type);
         source.stopApplyingTo(type);
@@ -52,7 +52,7 @@ public final class SchemaApplicability {
     }
 
     private void requireVersionEvaluatesEveryPartOf(InspectionSchema schema, AssetType type) {
-        schema.latestPublishedVersion().ifPresent(version -> {
+        schema.latestNonWithdrawnVersion().ifPresent(version -> {
             Set<Subsystem> unevaluated = type.subsystems().stream()
                     .filter(subsystem -> !version.declaredSubsystems().contains(subsystem))
                     .collect(Collectors.toCollection(LinkedHashSet::new));

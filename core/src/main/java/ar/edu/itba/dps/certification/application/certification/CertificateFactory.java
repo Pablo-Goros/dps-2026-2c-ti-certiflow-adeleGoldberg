@@ -12,9 +12,6 @@ import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
-import ar.edu.itba.dps.certification.domain.certification.derivation.GlobalCertificateDerivation;
-import ar.edu.itba.dps.certification.domain.certification.derivation.GlobalCertificatePolicy;
-import ar.edu.itba.dps.certification.domain.certification.derivation.GlobalDerivationContext;
 import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationAssessment;
 import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationContext;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
@@ -43,21 +40,19 @@ public final class CertificateFactory {
     private final CertificateRepository certificates;
     private final AssetDirectory assets;
     private final CertificationPolicyRegistry policies;
-    private final GlobalCertificatePolicy globalPolicy;
     private final CertificateIssuer issuer;
     private final IdGenerator ids;
     private final Clock clock;
 
     public CertificateFactory(InspectionQuery inspections, FindingQuery findings,
             CertificateRepository certificates, AssetDirectory assets,
-            CertificationPolicyRegistry policies, GlobalCertificatePolicy globalPolicy,
+            CertificationPolicyRegistry policies,
             IdGenerator ids, Clock clock) {
         this.inspections = inspections;
         this.findings = findings;
         this.certificates = certificates;
         this.assets = assets;
         this.policies = policies;
-        this.globalPolicy = globalPolicy;
         this.issuer = new CertificateIssuer();
         this.ids = ids;
         this.clock = clock;
@@ -139,15 +134,6 @@ public final class CertificateFactory {
         Inspection inspection = inspections.require(inspectionId);
         requireDeclaredSubsystem(inspection, subsystem);
         return renewWithin(inspection, CertificateScope.of(subsystem));
-    }
-
-    public GlobalCertificateDerivation deriveGlobal(InspectionId inspectionId) {
-        Inspection inspection = inspections.require(inspectionId);
-        List<Certificate> partials = certificates.findByBackingInspection(inspectionId).stream()
-                .filter(certificate -> certificate.scope().coveredSubsystem().isPresent())
-                .toList();
-        return globalPolicy.deriveFrom(
-                new GlobalDerivationContext(inspection, partials, clock.now()));
     }
 
     private IssuanceDecision issueWithin(Inspection inspection, CertificateScope scope) {

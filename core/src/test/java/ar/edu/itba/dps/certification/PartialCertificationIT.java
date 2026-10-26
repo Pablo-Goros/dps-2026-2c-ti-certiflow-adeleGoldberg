@@ -11,19 +11,23 @@ import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.CertificationPlan;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
+import ar.edu.itba.dps.certification.domain.certification.policy.*;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.report.CertificateReport;
 import ar.edu.itba.dps.certification.domain.schema.Section;
-import ar.edu.itba.dps.certification.domain.shared.DomainException;
-import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.OptionAnswer;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
+import ar.edu.itba.dps.certification.support.TestPolicies;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Period;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +35,8 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static ar.edu.itba.dps.certification.support.Decisions.alreadyIssuedCertificate;
 import static ar.edu.itba.dps.certification.support.Decisions.blockers;
@@ -80,6 +86,44 @@ class PartialCertificationIT {
         assertThat(global.coveredSubsystems()).containsExactly(ELECTRICAL, PRESSURE);
         assertThat(global.derivedFrom()).containsExactly(electrical.id(), pressure.id());
         assertThat(global.assetId()).isEqualTo(asset.id());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void staggeredRenewalsKeepTheAssetGloballyCertifiedAcrossInspectionsAndSchemaVersions(boolean conditional) {
+        if (conditional) {
+            var reference = TestPolicies.reference();
+            system.policies.register(TestPolicies.REFERENCE, new ConfiguredJurisdictionCertificationPolicy(
+                    new CertificationPolicySnapshot(new CertificationPolicyRef(TestPolicies.REFERENCE, "reference", 2),
+                            reference.blockingSeverities(), true, Period.ofMonths(12), Period.ofMonths(6), reference.restrictions())));
+        }
+        InspectionId first = inspectAndClose(conditional ? "untidy" : "clean", "clean", true);
+        system.findings.findByInspection(first).forEach(finding -> system.planAsResponsible(finding.id(), "repair",
+                PartyId.of("executor"), system.clock.today().plusDays(400)));
+        Certificate electrical = issuedCertificate(system.issueCertificate.issuePartial(first, ELECTRICAL));
+        system.clock.advanceDays(30);
+        Certificate pressure = issuedCertificate(system.issueCertificate.issuePartial(first, PRESSURE));
+        system.clock.advance(Duration.between(system.clock.now(), electrical.validity().expiresAt().plus(Duration.ofDays(5))));
+
+        var schema = system.schemas.findByApplicableAssetType(AssetType.FACILITY).orElseThrow();
+        system.openDraft.open(schema.id());
+        system.publishSchemaVersion.publish(schema.id());
+        InspectionId second = inspectAndClose("clean", "clean", true);
+        Certificate renewed = issuedCertificate(system.renewCertificate.renewPartial(second, ELECTRICAL));
+        assertThat(renewed.inForceAt(system.clock.now())).isTrue();
+        assertThat(pressure.inForceAt(system.clock.now())).isTrue();
+
+        var global = system.deriveGlobalCertificate.deriveFor(asset.id()).derivedCertificate().orElseThrow();
+        assertThat(global.derivedFrom()).containsExactly(renewed.id(), pressure.id());
+        assertThat(global.validity().issuedAt()).isEqualTo(renewed.validity().issuedAt());
+        assertThat(global.validity().expiresAt()).isEqualTo(pressure.validity().expiresAt());
+        assertThat(global.provenance()).extracting(p -> p.backingInspectionId()).containsExactly(second, first);
+        assertThat(global.provenance()).extracting(p -> p.schemaVersionId().number()).containsExactly(2, 1);
+        assertThat(system.deriveGlobalCertificate.deriveFor(first).derivedCertificate()).contains(global);
+        assertThat(system.deriveGlobalCertificate.deriveFor(second).derivedCertificate()).contains(global);
+
+        system.clock.advance(Duration.between(system.clock.now(), pressure.validity().expiresAt()));
+        assertThat(system.deriveGlobalCertificate.deriveFor(asset.id()).derivedCertificate()).isEmpty();
     }
 
     @Test

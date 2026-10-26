@@ -12,7 +12,6 @@ import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
 import ar.edu.itba.dps.certification.domain.certification.CertificateMode;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
-import ar.edu.itba.dps.certification.domain.certification.derivation.AllSubsystemsMustBeInForce;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlocker;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.certification.policy.JurisdictionCertificationPolicy;
@@ -45,7 +44,7 @@ class CertificateFactoryTest {
     private final PolicyFacts facts = new PolicyFacts(CriterionResult.APPROVED, null);
     private final JurisdictionCertificationPolicy policy = TestPolicies.profile("REFERENCE", 1, Set.of(), true, 12, 6);
     private final CertificateFactory factory = new CertificateFactory(inspections, findings, certificates, assets,
-            policies, new AllSubsystemsMustBeInForce(), ids, clock);
+            policies, ids, clock);
     @BeforeEach void setup() {
         when(inspections.require(facts.inspection.id())).thenReturn(facts.inspection);
         when(assets.jurisdictionOf(facts.inspection.assetId())).thenReturn(TestPolicies.REFERENCE);

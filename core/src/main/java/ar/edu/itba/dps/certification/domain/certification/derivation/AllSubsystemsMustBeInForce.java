@@ -23,8 +23,7 @@ public final class AllSubsystemsMustBeInForce implements GlobalCertificatePolicy
         if (subsystems.isEmpty()) {
             return GlobalCertificateDerivation.notDerivable(List.of(
                     "asset " + context.assetId() + " declares no part, so it is certified as a "
-                            + "whole by the certificate issued for inspection "
-                            + context.inspectionId() + " rather than by a derived one"));
+                            + "whole rather than by a derived certificate"));
         }
 
         Map<Subsystem, Certificate> bySubsystem = context.partialsBySubsystem();
@@ -40,8 +39,6 @@ public final class AllSubsystemsMustBeInForce implements GlobalCertificatePolicy
         List<Certificate> backing = subsystems.stream().map(bySubsystem::get).toList();
         return GlobalCertificateDerivation.derived(new GlobalCertificate(
                 context.assetId(),
-                context.inspectionId(),
-                context.schemaVersionId(),
                 commonValidityOf(backing),
                 new LinkedHashSet<>(subsystems),
                 backing.stream().map(Certificate::id).toList(),
@@ -49,7 +46,7 @@ public final class AllSubsystemsMustBeInForce implements GlobalCertificatePolicy
                         ? CertificateMode.CONDITIONAL
                         : CertificateMode.REGULAR,
                 backing.stream().map(c -> new GlobalCertificate.PartialProvenance(c.id(),
-                        c.scope().coveredSubsystem().orElseThrow(), c.policy(), c.mode())).toList()));
+                        c.scope().coveredSubsystem().orElseThrow(), c.backingInspectionId(), c.schemaVersionId(), c.policy(), c.mode())).toList()));
     }
 
     private Optional<String> whyItCannotBackAGlobal(Map<Subsystem, Certificate> bySubsystem,

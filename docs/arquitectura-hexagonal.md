@@ -119,6 +119,17 @@ la inspección. `CertificateFactory` reúne los hechos mediante puertos y resuel
 activa; no determina una vigencia arbitraria. El adaptador HTTP proyecta la decisión a
 `AssessmentResponse`, sin serializar los hechos internos de la evaluación.
 
+`DeriveGlobalCertificate` coordina por separado la proyección global actual por activo:
+consulta el snapshot y el último parcial de cada subsistema y entrega esos hechos a
+`GlobalCertificatePolicy`. La fábrica de emisión ya no depende de esa política. Cada
+parcial conserva su inspección y versión de esquema, aunque sean distintas de las de los
+otros parciales. La proyección no necesita persistencia ni sincronización propias.
+
+`InspectionSchema` controla el calendario de publicaciones y el retiro de versiones futuras.
+`WithdrawScheduledSchemaVersion` obtiene actor e instante por puertos, invoca esa regla y
+guarda el agregado y el hecho auditado; `SchemaController` delimita su transacción. Los
+retiros se conservan en el documento del agregado sin modificar las versiones publicadas.
+
 ## Proteccion arquitectonica
 
 Se agrego `ArchitectureBoundaryTest`, una prueba de frontera que verifica:

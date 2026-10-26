@@ -85,12 +85,12 @@ class DerivationEdgeTest {
     @Test
     @DisplayName("a global certificate covers at least one part and names what backs it")
     void aGlobalCertificateNeedsBacking() {
-        assertThatThrownBy(() -> new GlobalCertificate(ASSET, INSPECTION, VERSION,
+        assertThatThrownBy(() -> new GlobalCertificate(ASSET,
                 new ValidityPeriod(AT, IN_A_YEAR), Set.of(), List.of(CertificateId.of("c1")), CertificateMode.REGULAR, provenance(CertificateId.of("c1"))))
                 .isInstanceOf(InvalidArgumentException.class)
                 .hasMessageContaining("covered subsystems");
 
-        assertThatThrownBy(() -> new GlobalCertificate(ASSET, INSPECTION, VERSION,
+        assertThatThrownBy(() -> new GlobalCertificate(ASSET,
                 new ValidityPeriod(AT, IN_A_YEAR), Set.of(ELECTRICAL), List.of(), CertificateMode.REGULAR, provenance()))
                 .isInstanceOf(InvalidArgumentException.class)
                 .hasMessageContaining("derived from");
@@ -99,7 +99,7 @@ class DerivationEdgeTest {
     @Test
     @DisplayName("a global certificate rests on exactly one certificate per part")
     void oneCertificatePerPart() {
-        assertThatThrownBy(() -> new GlobalCertificate(ASSET, INSPECTION, VERSION,
+        assertThatThrownBy(() -> new GlobalCertificate(ASSET,
                 new ValidityPeriod(AT, IN_A_YEAR), Set.of(ELECTRICAL, PRESSURE),
                 List.of(CertificateId.of("c1")), CertificateMode.REGULAR, provenance(CertificateId.of("c1"))))
                 .isInstanceOf(DomainException.class)
@@ -107,15 +107,15 @@ class DerivationEdgeTest {
     }
 
     @Test
-    @DisplayName("the context refuses a certificate backed by another inspection")
+    @DisplayName("the context refuses a certificate for another asset")
     void theContextRefusesAForeignCertificate() {
         Certificate foreign = CertificationScenarios.issue(CertificateId.of("c1"),
-                CertificationScenarios.approvedInspection(InspectionId.of("another"), ASSET, VERSION,
+                CertificationScenarios.approvedInspection(InspectionId.of("another"), AssetId.of("another-asset"), VERSION,
                         Set.of(ELECTRICAL, PRESSURE), AT), CertificateScope.of(ELECTRICAL), TestPolicies.reference(), AT, null);
 
-        assertThatThrownBy(() -> new GlobalDerivationContext(startedInspection(), List.of(foreign), AT))
+        assertThatThrownBy(() -> new GlobalDerivationContext(startedInspection().assetSnapshot().orElseThrow(), List.of(foreign), AT))
                 .isInstanceOf(DomainException.class)
-                .hasMessageContaining("backed by the inspection being derived");
+                .hasMessageContaining("match the asset and jurisdiction");
     }
 
     @Test
@@ -125,7 +125,7 @@ class DerivationEdgeTest {
                 CertificationScenarios.approvedInspection(INSPECTION, ASSET, VERSION, Set.of(), AT),
                 CertificateScope.global(), TestPolicies.reference(), AT, null);
 
-        assertThatThrownBy(() -> new GlobalDerivationContext(startedInspection(), List.of(global), AT))
+        assertThatThrownBy(() -> new GlobalDerivationContext(startedInspection().assetSnapshot().orElseThrow(), List.of(global), AT))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("partial certificates only");
     }
@@ -137,7 +137,7 @@ class DerivationEdgeTest {
         Certificate duplicate = partial(ELECTRICAL, "c2");
 
         assertThatThrownBy(() ->
-                new GlobalDerivationContext(startedInspection(), List.of(first, duplicate), AT))
+                new GlobalDerivationContext(startedInspection().assetSnapshot().orElseThrow(), List.of(first, duplicate), AT))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("cannot cover the same subsystem");
     }
@@ -145,7 +145,7 @@ class DerivationEdgeTest {
     @Test
     @DisplayName("the index holds one entry per part and is unmodifiable")
     void theIndexIsOneEntryPerPart() {
-        var context = new GlobalDerivationContext(startedInspection(),
+        var context = new GlobalDerivationContext(startedInspection().assetSnapshot().orElseThrow(),
                 List.of(partial(ELECTRICAL, "c1"), partial(PRESSURE, "c2")), AT);
 
         Map<Subsystem, Certificate> indexed = context.partialsBySubsystem();
@@ -161,9 +161,9 @@ class DerivationEdgeTest {
         Inspection inspection = startedInspection();
         assertThatThrownBy(() -> new GlobalDerivationContext(null, List.of(), AT))
                 .isInstanceOf(InvalidArgumentException.class);
-        assertThatThrownBy(() -> new GlobalDerivationContext(inspection, null, AT))
+        assertThatThrownBy(() -> new GlobalDerivationContext(inspection.assetSnapshot().orElseThrow(), null, AT))
                 .isInstanceOf(InvalidArgumentException.class);
-        assertThatThrownBy(() -> new GlobalDerivationContext(inspection, List.of(), null))
+        assertThatThrownBy(() -> new GlobalDerivationContext(inspection.assetSnapshot().orElseThrow(), List.of(), null))
                 .isInstanceOf(InvalidArgumentException.class);
     }
 
@@ -178,10 +178,10 @@ class DerivationEdgeTest {
     @Test
     @DisplayName("a derived global certificate describes how many parts it rests on")
     void aDerivedGlobalDescribesItsParts() {
-        GlobalCertificate one = new GlobalCertificate(ASSET, INSPECTION, VERSION,
+        GlobalCertificate one = new GlobalCertificate(ASSET,
                 new ValidityPeriod(AT, IN_A_YEAR), Set.of(ELECTRICAL),
                 List.of(CertificateId.of("c1")), CertificateMode.REGULAR, provenance(CertificateId.of("c1")));
-        GlobalCertificate two = new GlobalCertificate(ASSET, INSPECTION, VERSION,
+        GlobalCertificate two = new GlobalCertificate(ASSET,
                 new ValidityPeriod(AT, IN_A_YEAR), Set.of(ELECTRICAL, PRESSURE),
                 List.of(CertificateId.of("c1"), CertificateId.of("c2")), CertificateMode.REGULAR, provenance(CertificateId.of("c1"), CertificateId.of("c2")));
 
@@ -193,7 +193,7 @@ class DerivationEdgeTest {
     private List<GlobalCertificate.PartialProvenance> provenance(CertificateId... ids) {
         return java.util.stream.IntStream.range(0, ids.length).mapToObj(i ->
                 new GlobalCertificate.PartialProvenance(ids[i], i == 0 ? ELECTRICAL : PRESSURE,
-                        TestPolicies.reference(),
+                        INSPECTION, VERSION, TestPolicies.reference(),
                         CertificateMode.REGULAR)).toList();
     }
 

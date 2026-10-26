@@ -96,6 +96,7 @@ export interface Schema {
   draft: { sections: Section[] } | null
   versions: SchemaVersion[]
   effectiveVersion: number | null
+  withdrawals: { number: number; withdrawnAt: string; reason: string }[]
 }
 
 export interface Answer {
@@ -230,6 +231,20 @@ export interface Assessment {
   mode?: string | null
   [field: string]: unknown
 }
+
+export type GlobalDerivation =
+  | { type: 'NotDerivable'; reasons: string[] }
+  | { type: 'Derived'; certificate: {
+      assetId: string
+      validity: { issuedAt: string; expiresAt: string }
+      mode: 'REGULAR' | 'CONDITIONAL'
+      provenance: {
+        certificateId: string; subsystem: string; backingInspectionId: string
+        schemaVersionId: { schemaId: string; number: number }
+        policy: { reference: { jurisdiction: string; policyId: string; revision: number } }
+        mode: 'REGULAR' | 'CONDITIONAL'
+      }[]
+    } }
 
 export interface OutboxEntry {
   seq: number

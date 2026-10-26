@@ -36,7 +36,7 @@ el razonamiento y las consecuencias de cada una.
 | D22 | El activo declara qué partes tiene | `Asset.subsystems`, `AssetSnapshot.subsystems`, `Inspection.certifiableSubsystems()` | No todo activo de un tipo tiene todas las partes del tipo | Asumir que todos los activos de un tipo son homogéneos | La derivación global exige solo los subsistemas del activo; los criterios de una parte ausente quedan evaluados pero no bloquean |
 | D23 | Criterio no aplicable, no un cuarto resultado | `Criterion.appliesToAssetHaving()`, `CriterionRecord.applicable`, `Inspection.start/close`, `ActCriterionLine.applicable` | Que los criterios de una parte ausente no generen hallazgos | Un cuarto `CriterionResult` NOT_APPLICABLE, o no crear el registro | RF5 conserva tres resultados; el registro se conserva y el acta declara que no aplicó, en lugar de dejar un hueco |
 | D24 | El modo de certificación es un tipo sellado, no un booleano | `CertificationPlan`, `InspectionSummary.certificationPlan()` | Que el llamador no tenga que leer «sin subsistemas» como «certificalo entero» | Un `boolean certifiedAsAWhole()` con `if/else`, o exponer el conjunto crudo | La regla vive en una sola fábrica y el `switch` del llamador es exhaustivo; hay un tipo más |
-| D25 | Vigencia temporal diferida (`effectiveFrom`) | `SchemaVersion`, `InspectionSchema`, `PublishSchemaVersion` | Permitir preparar y publicar versiones normativas antes de su entrada en vigencia operativa | Activar la versión mediante un proceso batch/cron o cronograma externo | Las inspecciones iniciadas antes de la fecha futura siguen usando la versión anterior de forma automática |
+| D25 | Vigencia temporal diferida y retiro explícito | `SchemaVersion`, `InspectionSchema`, `PublishSchemaVersion`, `WithdrawScheduledSchemaVersion` | Programar varias versiones con fechas estrictamente crecientes entre las no retiradas y permitir correcciones urgentes tras retirar las futuras que las bloquean | Reemplazar silenciosamente una versión con igual fecha, o impedir todo retiro | El retiro exige motivo, queda auditado y conserva la publicación; una versión vigente nunca se retira |
 | D26 | Consulta temporal de esquemas (`effectiveVersionAt`) | `SchemaCatalog`, `PublishedSchemaCatalog`, `InspectionSchema` | Resolver cuál era/será la versión válida en cualquier punto de la línea de tiempo sin mutar el historial | Filtrar solo la última versión ordenada por número | Permite simular y auditar qué reglas aplicaban o aplicarán en una fecha pasada o futura determinada |
 | D27 | Outbox transaccional | `DomainEventPublisher` ← `OutboxEventPublisher`, `JdbcEventOutbox`, `OutboxDispatcher`, `MaintenanceJobs` | Que un cambio y su evento se confirmen juntos y que un manejador caído no deshaga la petición | Publicación síncrona dentro de la transacción (la primera versión), o un broker externo | Consistencia eventual y una tabla más; los eventos agotados quedan `DEAD` y se revisan a mano (sección 15) |
 | D28 | Puerto de transacciones y excepción de conflicto propia | `application.shared.port.Transactions` ← `JdbcTransactions`; `application.shared.ConflictException` | Que la API exija atomicidad por petición y traduzca conflictos a 409 sin conocer JDBC | Que los controladores dependan de `JdbcTransactions` y de las excepciones de infraestructura, o anotar el núcleo con `@Transactional` | La transacción sigue abriéndola el controlador (los casos de uso son clases concretas, no decorables), pero detrás de un puerto (sección 18) |
@@ -118,7 +118,7 @@ lo declara `AssetType`.
 
 **Decisiones adoptadas.** Cada tipo de activo tiene un único esquema aplicable; un esquema puede servir a varios tipos y activos. Cada inspección corresponde a un activo y un inspector, y comprende el esquema completo. Compartir esquema no comparte respuestas ni evidencias.
 
-Se distinguen asignación e inicio: la primera fija activo, inspector y fecha prevista; el segundo selecciona automáticamente la última versión publicada del esquema aplicable. Los borradores no participan y no se permite iniciar sin una versión publicada.
+Se distinguen asignación e inicio: la primera fija activo, inspector y fecha prevista; el segundo selecciona automáticamente la versión no retirada que está vigente en ese instante para el esquema aplicable. Los borradores y las versiones todavía futuras no participan; no se permite iniciar sin una versión vigente.
 
 `SchemaApplicability` concentra la exclusividad de un esquema por tipo al crear y ampliar esquemas. El servicio expone operaciones públicas de creación, alta, baja y transferencia; los mutadores reales de aplicabilidad quedan encapsulados en `InspectionSchema` con visibilidad de paquete. Quitar un tipo inexistente o repetir una incorporación se rechaza sin auditoría. Para retirar una cobertura se exige transferirla a otro esquema con versión publicada; `ChangeSchemaApplicability.transferTo` guarda y audita ambas raíces. La raíz de origen debe conservar al menos un tipo. La persistencia futura debe ejecutar la transferencia y la validación de exclusividad en una transacción.
 
@@ -224,6 +224,13 @@ más débil. Se recalcula en cada consulta, por lo que no puede contradecir a su
 reconciliar nada cuando uno se suspende, se reactiva o vence. Se descartó persistirlo como un
 `Certificate` de alcance `Global`: quedaba uniforme con el resto, pero obligaba a sincronizarlo y un
 global desincronizado afirma algo que sus parciales contradicen.
+
+La consulta es **por activo**: `DeriveGlobalCertificate` obtiene el snapshot actual y el último
+certificado de cada subsistema mediante `findLatestForAsset`. No exige que esos parciales
+procedan de una misma inspección o versión de esquema. Si el último está suspendido, vencido
+o fuera de su ventana, no se busca un anterior como reemplazo. El global conserva la procedencia
+individual de certificado, inspección, versión de esquema, política y modalidad. La derivación
+ya no pertenece a `CertificateFactory`, que se ocupa exclusivamente de emisión y renovación.
 
 La derivación exige las partes **del activo**, no las que la versión evalúa. Son dos preguntas
 distintas: qué parciales se pueden emitir es la intersección de ambas, pero si el activo está entero
@@ -402,7 +409,9 @@ del registro. Los compromisos del informe usan la resolución de la revisión ac
 un parcial lo es. `PartialProvenance` expone certificado, subsistema, snapshot y modalidad
 por parcial: dos parciales pueden tener revisiones diferentes. `AllSubsystemsMustBeInForce`
 mantiene la intersección de vigencias y rechaza derivar cuando falta un parcial vigente.
-`GlobalDerivationContext` valida procedencia de activo, inspección, esquema y jurisdicción.
+`GlobalDerivationContext` valida activo y jurisdicción comunes, subsistemas presentes y un
+único parcial por subsistema. Permite inspecciones y versiones de esquema diferentes: ambas
+se informan en cada `PartialProvenance`, sin atribuir una inspección o esquema únicos al global.
 
 **Reconciliación histórica.** `CertificationReactions` reúne inspección, hallazgos y
 un instante actual y delega en `CertificateLifecycle.reconcile`. El servicio puro usa
@@ -695,18 +704,31 @@ parciales vigentes (D17 a D24).
 
 **API y front (Entrega 2).**
 - *API:* `POST /inspections/{id}/certificates` con `{"subsystem": "..."}` emite un parcial y sin cuerpo uno global;
-  `GET /inspections/{id}/eligibility?subsystem=` y `GET /inspections/{id}/global-derivation`
+  `GET /inspections/{id}/eligibility?subsystem=` y `GET /assets/{id}/global-derivation`.
+  `GET /inspections/{id}/global-derivation` se conserva como acceso al estado actual de su activo
   (`CertificateController`, `docs/API.md`).
 - *Persistencia:* el alcance es parte del documento y de la columna indexada `scope_key`; el índice único
   `certificate(backing_inspection_id, scope_key)` impide dos certificados vivos del mismo alcance aun con
   peticiones simultáneas (sección 13).
-- *Front:* la pantalla de la inspección muestra elegibilidad y emisión por subsistema, y la derivación del global.
+- *Front:* la inspección muestra elegibilidad y emisión por subsistema. Tanto la inspección como el activo
+  muestran la derivación actual y los enlaces a los certificados e inspecciones que la respaldan.
 - *Pruebas:* `PartialCertificationIT` (núcleo), `RepositoryParityIT` y `JdbcLifecycleIT` (persistencia),
   `CertificationApiIT` (API: parcial, global derivado, bloqueo, repetición idempotente) y `ConcurrencyApiIT`
   (varias emisiones simultáneas para la misma inspección: queda un solo certificado).
 
 **Refactorizaciones.** El alcance viaja en los hechos y no en la política: la política de emisión no se tocó (D19).
 Los criterios de un subsistema ausente se evalúan pero no generan hallazgos (D23).
+
+**Corrección de la devolución F1.** `DeriveGlobalCertificate` coordina directamente `AssetDirectory`,
+`CertificateRepository`, reloj y política de derivación; solo usa `InspectionQuery` para los accesos
+compatibles por inspección. `CertificateFactory` perdió esa responsabilidad y su dependencia de
+`GlobalCertificatePolicy`. Se modificaron `GlobalDerivationContext`, `AllSubsystemsMustBeInForce`,
+`GlobalCertificate` y su `PartialProvenance`, además de los puntos de composición y el controlador.
+Se agregó el componente `GlobalCertification.tsx`, compartido por activo e inspección. No se
+agregaron reglas de emisión. `PartialCertificationIT` verifica renovaciones escalonadas entre
+inspecciones y esquemas diferentes, tanto con plazos de 12 meses como con un condicional de 6
+meses y un regular de 12. `StaggeredGlobalCertificationIT` verifica la selección tras recargar
+desde H2; `CertificationApiIT` comprueba la consulta por activo y la procedencia HTTP.
 
 **Deuda deliberada.** El global no tiene identidad ni auditoría propias (D20); no se puede pedir "el certificado
 global" por id. Dos parciales pueden haberse emitido con revisiones de política distintas; el global lo informa
@@ -716,6 +738,20 @@ global" por id. Dos parciales pueden haberse emitido con revisiones de política
 
 **Qué hace.** Una versión puede publicarse con una fecha de vigencia futura; hasta entonces sigue rigiendo la
 anterior. El sistema responde qué versión estaba (o estará) vigente en una fecha dada (D25 y D26).
+
+**Publicar cuando hay versiones programadas.** Puede haber varias versiones futuras, con fechas
+estrictamente crecientes entre las publicaciones no retiradas. Dos versiones no retiradas no
+pueden compartir fecha; publicar con la misma fecha rechaza la operación y conserva el borrador.
+Una corrección urgente requiere retirar explícitamente todas las versiones futuras que bloqueen
+la fecha elegida. El retiro exige un motivo, conserva contenido, número y publicación originales
+y agrega un `VersionWithdrawal` a la raíz. No se permite retirar versiones que ya entraron en
+vigencia, ni siquiera en su instante exacto de activación. No hay activación por cron.
+
+Una versión retirada nunca entra en vigencia; la consulta temporal la omite y sigue respondiendo
+la versión que realmente rigió. Las inspecciones iniciadas conservan su versión congelada.
+Los números no se reutilizan. Un borrador nuevo copia la última versión no retirada; un borrador
+ya abierto no se modifica al retirar. Tras el retiro puede publicarse la corrección desde ahora y
+volver a programar el contenido revisado en una publicación nueva, incluso para la fecha liberada.
 
 **Núcleo (Entrega 1).**
 - *Agregadas/modificadas:* `SchemaVersion.effectiveFrom`, `InspectionSchema.effectiveVersionAt`,
@@ -733,6 +769,25 @@ anterior. El sistema responde qué versión estaba (o estará) vigente en una fe
 - *Pruebas:* `FutureEffectiveSchemaIT` (núcleo), `SchemaApiIT` (publicación programada) y `SchemaVersionAtDateApiIT`
   (antes de la primera versión, justo en el límite, entre versiones, futuro, formato inválido, esquema inexistente),
   más `BrowseUseCasesTest` en el núcleo.
+
+**Corrección de la devolución F2.** Se agregó `WithdrawScheduledSchemaVersion` como caso de uso,
+el registro anidado `InspectionSchema.VersionWithdrawal` y `SCHEMA_VERSION_WITHDRAWN` con motivo
+obligatorio. Se modificaron `InspectionSchema` (calendario y retiro), `SchemaApplicability`
+(ignora publicaciones retiradas al comprobar cobertura), la composición, `SchemaController`,
+`SchemaDtos` y `SchemaDetail.tsx`. La API expone `POST /schemas/{id}/versions/{number}/withdraw`
+con `reason`, y el front muestra las versiones retiradas, su motivo y el formulario de retiro.
+La operación usa `ActorProvider` y guarda retiro y auditoría en la misma transacción. Los documentos
+anteriores siguen siendo legibles: `StateCodec` inicializa colecciones ausentes como vacías.
+No cambia el contenido inmutable de `SchemaVersion` ni requiere modificar el esquema SQL.
+`ScheduledVersionWithdrawalTest`, `ScheduledVersionPersistenceIT` y `ScheduledVersionWithdrawalApiIT`
+verifican fechas iguales, corrección urgente, historial, persistencia y auditoría.
+
+**Verificación de las correcciones F1/F2 (26/10/2026).** `mvn --batch-mode --no-transfer-progress verify`
+completó los tres módulos con `BUILD SUCCESS`: 384 pruebas del núcleo, 59 de infraestructura y
+114 de aplicación/API, sin fallos, errores ni omitidas. También pasaron las 22 pruebas de Vitest,
+la comprobación de TypeScript, el build de Vite y el empaquetado. El registro de ejecución está
+en `target/entrega-2-build.log`; los reportes individuales están en `*/target/surefire-reports`
+y `*/target/failsafe-reports`.
 
 **Refactorizaciones.** Corregir `PublishSchemaVersion` para leer el reloj una vez (sección 14). La consulta por fecha
 se resolvió en un caso de uso de consulta y no en el controlador, para que la regla de borde viva en la aplicación.

@@ -5,19 +5,19 @@ import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
-import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
-import ar.edu.itba.dps.certification.domain.schema.SchemaDraft;
-import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
-import ar.edu.itba.dps.certification.domain.schema.Section;
-import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceRequirement;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceType;
+import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.rule.EvaluationRule;
 import ar.edu.itba.dps.certification.domain.schema.rule.MappedOptionsRule;
 import ar.edu.itba.dps.certification.domain.schema.rule.NumericBand;
 import ar.edu.itba.dps.certification.domain.schema.rule.NumericRangeRule;
 import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
 import ar.edu.itba.dps.certification.domain.schema.rule.YesNoRule;
+import ar.edu.itba.dps.certification.domain.schema.SchemaDraft;
+import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
+import ar.edu.itba.dps.certification.domain.schema.Section;
+import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
@@ -174,12 +174,13 @@ public final class SchemaDtos {
         }
     }
 
-    /**
-     * {@code draft} is null when no draft is open; {@code effectiveVersion} is the number of the
-     * version in force right now (a future-dated version is listed but not yet effective).
-     */
+    public record WithdrawalDto(int number, Instant withdrawnAt, String reason) { }
+
+    public record WithdrawRequest(String reason) { }
+
+    /** Published versions remain visible after withdrawal; effectiveVersion ignores withdrawn ones. */
     public record SchemaResponse(String id, String name, List<AssetType> assetTypes, DraftDto draft,
-            List<VersionDto> versions, Integer effectiveVersion) {
+            List<VersionDto> versions, Integer effectiveVersion, List<WithdrawalDto> withdrawals) {
 
         public static SchemaResponse of(InspectionSchema schema, Instant now) {
             return new SchemaResponse(
@@ -188,7 +189,8 @@ public final class SchemaDtos {
                     schema.applicableAssetTypes().stream().sorted().toList(),
                     schema.draft().map(DraftDto::of).orElse(null),
                     schema.publishedVersions().stream().map(VersionDto::of).toList(),
-                    schema.effectiveVersionAt(now).map(version -> version.number()).orElse(null));
+                    schema.effectiveVersionAt(now).map(version -> version.number()).orElse(null),
+                    schema.withdrawals().stream().map(w -> new WithdrawalDto(w.versionId().number(), w.withdrawnAt(), w.reason())).toList());
         }
     }
 

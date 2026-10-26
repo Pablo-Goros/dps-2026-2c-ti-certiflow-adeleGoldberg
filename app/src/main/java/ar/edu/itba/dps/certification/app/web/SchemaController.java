@@ -7,6 +7,7 @@ import ar.edu.itba.dps.certification.app.web.dto.SchemaDtos.SchemaResponse;
 import ar.edu.itba.dps.certification.app.web.dto.SchemaDtos.SectionDto;
 import ar.edu.itba.dps.certification.app.web.dto.SchemaDtos.TransferRequest;
 import ar.edu.itba.dps.certification.app.web.dto.SchemaDtos.VersionDto;
+import ar.edu.itba.dps.certification.app.web.dto.SchemaDtos.WithdrawRequest;
 import ar.edu.itba.dps.certification.application.schema.usecase.BrowseSchemas;
 import ar.edu.itba.dps.certification.application.schema.usecase.ChangeSchemaApplicability;
 import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
@@ -14,6 +15,7 @@ import ar.edu.itba.dps.certification.application.schema.usecase.DiscardDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.PublishSchemaVersion;
+import ar.edu.itba.dps.certification.application.schema.usecase.WithdrawScheduledSchemaVersion;
 import ar.edu.itba.dps.certification.application.shared.port.Clock;
 import ar.edu.itba.dps.certification.application.shared.port.Transactions;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
@@ -21,6 +23,12 @@ import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.PublicationResult;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
+
+import java.net.URI;
+import java.time.format.DateTimeParseException;
+import java.time.Instant;
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,11 +38,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.net.URI;
-import java.time.Instant;
-import java.time.format.DateTimeParseException;
-import java.util.List;
 
 /** Inspection schemas (F2): drafts, versions with a future effective date, and which asset types they cover. */
 @RestController
@@ -46,13 +49,14 @@ class SchemaController {
     private final EditDraft editDraft;
     private final DiscardDraft discardDraft;
     private final PublishSchemaVersion publishSchema;
+    private final WithdrawScheduledSchemaVersion withdrawVersion;
     private final ChangeSchemaApplicability applicability;
     private final BrowseSchemas schemas;
     private final Clock clock;
     private final Transactions transactions;
 
     SchemaController(CreateSchema createSchema, OpenDraft openDraft, EditDraft editDraft,
-            DiscardDraft discardDraft, PublishSchemaVersion publishSchema,
+            DiscardDraft discardDraft, PublishSchemaVersion publishSchema, WithdrawScheduledSchemaVersion withdrawVersion,
             ChangeSchemaApplicability applicability, BrowseSchemas schemas, Clock clock,
             Transactions transactions) {
         this.createSchema = createSchema;
@@ -60,6 +64,7 @@ class SchemaController {
         this.editDraft = editDraft;
         this.discardDraft = discardDraft;
         this.publishSchema = publishSchema;
+        this.withdrawVersion = withdrawVersion;
         this.applicability = applicability;
         this.schemas = schemas;
         this.clock = clock;
@@ -149,6 +154,13 @@ class SchemaController {
         VersionDto version = VersionDto.of(result.publishedVersion());
         return ResponseEntity.created(URI.create("/api/schemas/" + id + "/versions/" + version.number()))
                 .body(version);
+    }
+
+    @PostMapping("/{id}/versions/{number}/withdraw")
+    SchemaResponse withdraw(@PathVariable("id") String id, @PathVariable("number") int number,
+            @RequestBody WithdrawRequest request) {
+        existing(id);
+        return view(transactions.execute(() -> withdrawVersion.withdraw(SchemaId.of(id), number, request.reason())));
     }
 
     @PostMapping("/{id}/applicability")

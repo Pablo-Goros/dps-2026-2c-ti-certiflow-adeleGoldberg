@@ -5,8 +5,8 @@ import ar.edu.itba.dps.certification.application.schema.usecase.ChangeSchemaAppl
 import ar.edu.itba.dps.certification.application.shared.usecase.PublishPendingDomainEvents;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
-import ar.edu.itba.dps.certification.domain.audit.AuditEntry;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
+import ar.edu.itba.dps.certification.domain.audit.AuditEntry;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
@@ -16,10 +16,10 @@ import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
-import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
 import ar.edu.itba.dps.certification.domain.finding.action.ExecutionReport;
 import ar.edu.itba.dps.certification.domain.finding.action.Verification;
+import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.inspection.CriterionResultRevised;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
@@ -30,12 +30,12 @@ import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.SchemaDraft;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
+import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
+import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
-import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
-import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
 
@@ -255,7 +255,7 @@ class ReviewCorrectionsIT {
     void theReferenceProfilePreservesMandatoryIssuanceRules() {
         InspectionId id = close("30");
         var factory = new CertificateFactory(system.inspections, system.findingQuery, system.certificates,
-                system.assetDirectory, system.policies, system.globalPolicy, system.ids,
+                system.assetDirectory, system.policies, system.ids,
                 system.clock);
         assertThat(factory.issue(id)).isInstanceOf(IssuanceDecision.Blocked.class);
     }

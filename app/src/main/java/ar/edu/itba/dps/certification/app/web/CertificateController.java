@@ -104,6 +104,11 @@ class CertificateController {
         return Plain.of(derivation.deriveFor(InspectionId.of(id)));
     }
 
+    @GetMapping("/assets/{id}/global-derivation")
+    Object globalDerivationForAsset(@PathVariable("id") String id) {
+        return Plain.of(derivation.deriveFor(AssetId.of(id)));
+    }
+
     @GetMapping("/certificates")
     List<Map<String, Object>> list(
             @RequestParam(name = "assetId", required = false) String assetId,

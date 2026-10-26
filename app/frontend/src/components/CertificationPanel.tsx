@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { api, ApiError, query } from '../lib/api'
 import { useLoad } from '../lib/hooks'
 import { label, humanize } from '../lib/labels'
-import type { Assessment, Certificate } from '../lib/types'
+import type { Assessment, Certificate, GlobalDerivation } from '../lib/types'
 import { Blockers } from './Blockers'
+import { GlobalDerivationView } from './GlobalCertification'
 import { Badge, Card, CertificateBadge, ErrorLine, Loading, Notice, useAction, useToast } from './ui'
 
 interface Target {
@@ -21,10 +22,10 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
   const issued = useLoad(() => api.get<Certificate[]>('/certificates' + query({ inspectionId })), [inspectionId])
   const assetCertificates = useLoad(() => api.get<Certificate[]>('/certificates' + query({ assetId })), [assetId])
   const derivation = useLoad(
-    () => (subsystems.length ? api.get<{ type: string; reasons?: string[] }>(`/inspections/${inspectionId}/global-derivation`) : Promise.resolve(null)),
-    [inspectionId, subsystems.length],
+    () => (subsystems.length ? api.get<GlobalDerivation>(`/assets/${assetId}/global-derivation`) : Promise.resolve(null)),
+    [assetId, subsystems.length],
   )
-  const targets: Target[] = [...subsystems.map((subsystem) => ({ subsystem })), { subsystem: null }]
+  const targets: Target[] = subsystems.length ? subsystems.map((subsystem) => ({ subsystem })) : [{ subsystem: null }]
   const reloadAll = () => {
     issued.reload()
     assetCertificates.reload()
@@ -35,7 +36,7 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
     <Card title="Certificación">
       {subsystems.length > 0 && (
         <p className="muted">
-          Cada subsistema se certifica por separado. El certificado global se puede emitir cuando todos los parciales están en regla.
+          Cada subsistema se certifica por separado. El certificado global se deriva cuando todos los parciales están en regla.
         </p>
       )}
       {issued.loading && !issued.data ? <Loading /> : (
@@ -56,14 +57,7 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
       )}
       {derivation.data && (
         <div style={{ marginTop: 14 }}>
-          {derivation.data.type === 'Derived' ? (
-            <Notice kind="ok">Los certificados parciales vigentes componen un certificado global.</Notice>
-          ) : (
-            <Notice kind="info">
-              Todavía no se puede componer un global a partir de los parciales{derivation.data.reasons?.length ? ':' : '.'}
-              {derivation.data.reasons && <ul>{derivation.data.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
-            </Notice>
-          )}
+          <GlobalDerivationView result={derivation.data} />
         </div>
       )}
     </Card>
