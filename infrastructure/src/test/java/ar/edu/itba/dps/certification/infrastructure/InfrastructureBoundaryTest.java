@@ -1,11 +1,11 @@
 package ar.edu.itba.dps.certification.infrastructure;
 
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,6 +32,7 @@ class InfrastructureBoundaryTest {
     private static List<String> violationsIn(Path file) {
         List<String> forbidden = List.of(
                 "import " + ROOT_PACKAGE + ".app.",
+                "import " + ROOT_PACKAGE + ".application.",
                 "import org.springframework.",
                 "import jakarta.servlet.");
         try {

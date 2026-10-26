@@ -1,12 +1,6 @@
 package ar.edu.itba.dps.certification.application.certification;
 
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
-import ar.edu.itba.dps.certification.application.certification.port.CertificationPolicyRegistry;
-import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
 import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
@@ -16,11 +10,17 @@ import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlock
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.certification.policy.JurisdictionCertificationPolicy;
 import ar.edu.itba.dps.certification.domain.certification.policy.PolicyResolutionException;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificateRepository;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificationPolicyRegistry;
 import ar.edu.itba.dps.certification.domain.certification.ValidityPeriod;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingQuery;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
 import ar.edu.itba.dps.certification.support.CertificationScenarios;
 import ar.edu.itba.dps.certification.support.PolicyFacts;
 import ar.edu.itba.dps.certification.support.TestPolicies;
@@ -50,6 +50,7 @@ class CertificateFactoryTest {
         when(assets.jurisdictionOf(facts.inspection.assetId())).thenReturn(TestPolicies.REFERENCE);
         when(policies.resolve(TestPolicies.REFERENCE)).thenReturn(policy);
         when(clock.now()).thenReturn(PolicyFacts.AT);
+        when(clock.today(any())).thenAnswer(call -> ((java.time.Instant) call.getArgument(0)).atZone(ZoneOffset.UTC).toLocalDate());
         when(ids.newIdentifier()).thenReturn("certificate");
     }
     @Test void eligibilityAndIssuanceSharePolicyTimeAndMode() {

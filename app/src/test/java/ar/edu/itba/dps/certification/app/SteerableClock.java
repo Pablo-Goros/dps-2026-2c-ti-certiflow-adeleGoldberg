@@ -1,14 +1,15 @@
 package ar.edu.itba.dps.certification.app;
 
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 
 /** Real time plus an offset the test can move forward; it replaces the application clock when imported. */
 final class SteerableClock implements Clock {
@@ -40,7 +41,7 @@ final class SteerableClock implements Clock {
     }
 
     @Override
-    public LocalDate today() {
-        return LocalDate.ofInstant(now(), zone);
+    public LocalDate today(Instant at) {
+        return LocalDate.ofInstant(at, zone);
     }
 }

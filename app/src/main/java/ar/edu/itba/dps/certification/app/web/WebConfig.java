@@ -1,7 +1,8 @@
 package ar.edu.itba.dps.certification.app.web;
 
 import ar.edu.itba.dps.certification.app.config.RequestActor;
-import ar.edu.itba.dps.certification.application.catalogue.usecase.BrowseParties;
+import ar.edu.itba.dps.certification.domain.catalogue.port.inbound.BrowseParties;
+
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;

@@ -6,22 +6,23 @@ import ar.edu.itba.dps.certification.application.finding.usecase.PlanCorrectiveA
 import ar.edu.itba.dps.certification.application.finding.usecase.ReportCorrectiveActionExecution;
 import ar.edu.itba.dps.certification.application.finding.usecase.VerifyCorrectiveAction;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
-import ar.edu.itba.dps.certification.domain.finding.Finding;
-import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionStatus;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionExpired;
+import ar.edu.itba.dps.certification.domain.finding.Finding;
+import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
-import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.schema.rule.RuleOutcome;
+import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.FixedActor;
 import ar.edu.itba.dps.certification.support.InMemoryAuditTrail;
 import ar.edu.itba.dps.certification.support.InMemoryFindingRepository;
@@ -68,11 +69,25 @@ class CorrectiveActionLifecycleTest {
         InMemoryInspectionRepository inspections = new InMemoryInspectionRepository();
         inspections.save(new Inspection(INSPECTION, AssetId.of("asset-1"), INSPECTOR,
                 LocalDate.parse("2026-03-01")));
-        plan = new PlanCorrectiveAction(findings, audit, clock, actors, events);
-        reportExecution = new ReportCorrectiveActionExecution(findings, clock, audit, actors);
-        verify = new VerifyCorrectiveAction(findings, clock, events, audit, actors);
-        expire = new ExpireOverdueCorrectiveActions(findings, clock, events, audit);
+        var parties = new ar.edu.itba.dps.certification.support.InMemoryCatalogue().parties;
+        parties.save(new ar.edu.itba.dps.certification.domain.catalogue.Party(EXECUTOR, "Executor",
+                ar.edu.itba.dps.certification.domain.catalogue.PartyKind.PERSON));
+        parties.save(new ar.edu.itba.dps.certification.domain.catalogue.Party(INSPECTOR, "Inspector",
+                ar.edu.itba.dps.certification.domain.catalogue.PartyKind.PERSON));
+        plan = new PlanCorrectiveAction(findings, parties, audit, clock, actors, events, DirectTransactions.INSTANCE);
+        reportExecution = new ReportCorrectiveActionExecution(findings, clock, audit, actors, DirectTransactions.INSTANCE);
+        verify = new VerifyCorrectiveAction(findings, clock, events, audit, actors, DirectTransactions.INSTANCE);
+        expire = new ExpireOverdueCorrectiveActions(findings, clock, events, audit, DirectTransactions.INSTANCE);
         findingId = givenAFinding();
+    }
+
+    @Test
+    void anUnknownExecutorDoesNotFreezeAnUnexecutablePlan() {
+        assertThatThrownBy(() -> planAsResponsible(findingId, "Repair", PartyId.of("missing"), DUE_DATE))
+                .isInstanceOf(DomainException.class).hasMessageContaining("not registered");
+        assertThat(findings.require(findingId).correctiveAction().awaitingPlan()).isTrue();
+        planAsResponsible(findingId, "Repair", EXECUTOR, DUE_DATE);
+        assertThat(findings.require(findingId).correctiveAction().plan().orElseThrow().executor()).isEqualTo(EXECUTOR);
     }
 
     @Test
@@ -274,7 +289,7 @@ class CorrectiveActionLifecycleTest {
 
         assertThatThrownBy(() -> finding.revise(CriterionResult.OBSERVED, List.of(),
                 Severity.LOW, List.of("file://new.jpg"), RectificationId.of("rect-1"),
-                "reading corrected", clock.now(), CorrectiveActionId.of("action-2")))
+                "reading corrected", clock.now(), (clock.now()).atZone(java.time.ZoneOffset.UTC).toLocalDate(), CorrectiveActionId.of("action-2")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("reasons");
 
@@ -297,7 +312,7 @@ class CorrectiveActionLifecycleTest {
                 List.of(new EvaluationReason.RuleVerdict(
                         RuleOutcome.rejected("TEMP_HIGH", Severity.CRITICAL, "too hot"))),
                 Severity.CRITICAL, List.of("file://new.jpg"), RectificationId.of("rect-1"),
-                "reading corrected", clock.now(), CorrectiveActionId.of("action-2")))
+                "reading corrected", clock.now(), (clock.now()).atZone(java.time.ZoneOffset.UTC).toLocalDate(), CorrectiveActionId.of("action-2")))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("voids the obligation");
 
@@ -320,7 +335,7 @@ class CorrectiveActionLifecycleTest {
                 List.of(new EvaluationReason.RuleVerdict(
                         RuleOutcome.observed("TEMP_WARM", Severity.LOW, "still warm"))),
                 Severity.LOW, List.of("file://new.jpg"), RectificationId.of("rect-1"),
-                "reading corrected", clock.now(), null))
+                "reading corrected", clock.now(), (clock.now()).atZone(java.time.ZoneOffset.UTC).toLocalDate(), null))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("replacement corrective action id");
 
@@ -360,7 +375,7 @@ class CorrectiveActionLifecycleTest {
                 Severity.CRITICAL,
                 List.of(),
                 CorrectiveActionId.of("action-1"),
-                clock.now());
+                clock.now(), (clock.now()).atZone(java.time.ZoneOffset.UTC).toLocalDate());
         findings.save(finding);
         return finding.id();
     }

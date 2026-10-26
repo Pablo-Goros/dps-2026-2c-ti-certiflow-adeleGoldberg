@@ -52,7 +52,7 @@ class JurisdictionCertificationPolicyTest {
                 "verified", PolicyFacts.INSPECTOR, PolicyFacts.AT), PolicyFacts.today());
         assertThat(policy.assess(facts.context(), PolicyFacts.AT).mode()).contains(CertificateMode.REGULAR);
         facts.finding.revise(CriterionResult.OBSERVED, facts.finding.reasons(), Severity.HIGH, List.of(),
-                RectificationId.of("rect"), "recurring", PolicyFacts.AT, CorrectiveActionId.of("new-action"));
+                RectificationId.of("rect"), "recurring", PolicyFacts.AT, (PolicyFacts.AT).atZone(java.time.ZoneOffset.UTC).toLocalDate(), CorrectiveActionId.of("new-action"));
         assertThat(policy.assess(facts.context(), PolicyFacts.AT).blockers()).anyMatch(IssuanceBlocker.BlockingSeverity.class::isInstance);
     }
     @Test void missingUnplannedOverdueAndProhibitedAccumulateAndDatesAreInclusive() {

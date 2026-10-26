@@ -5,15 +5,16 @@ import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
+import ar.edu.itba.dps.certification.support.FixedActor;
 import ar.edu.itba.dps.certification.support.InMemoryAuditTrail;
 import ar.edu.itba.dps.certification.support.InMemorySchemaRepository;
-import ar.edu.itba.dps.certification.support.FixedActor;
 import ar.edu.itba.dps.certification.support.TestClock;
+
+import java.util.Set;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -31,7 +32,7 @@ class ChangeSchemaApplicabilityEdgeTest {
                 Set.of(AssetType.LABORATORY), Set.of());
         schemas.save(schema);
         ChangeSchemaApplicability change = new ChangeSchemaApplicability(schemas,
-                new SchemaApplicability(), audit);
+                new SchemaApplicability(), audit, TestClock.at("2026-03-01T10:00:00Z"), DirectTransactions.INSTANCE);
 
         InspectionSchema updated = change.applyTo(schema.id(), AssetType.FACTORY);
 
@@ -48,7 +49,7 @@ class ChangeSchemaApplicabilityEdgeTest {
                 Set.of(AssetType.LABORATORY), Set.of());
         schemas.save(schema);
         SchemaApplicability applicability = mock(SchemaApplicability.class);
-        ChangeSchemaApplicability change = new ChangeSchemaApplicability(schemas, applicability, audit);
+        ChangeSchemaApplicability change = new ChangeSchemaApplicability(schemas, applicability, audit, TestClock.at("2026-03-01T10:00:00Z"), DirectTransactions.INSTANCE);
 
         InspectionSchema updated = change.stopApplyingTo(schema.id(), AssetType.LABORATORY);
 

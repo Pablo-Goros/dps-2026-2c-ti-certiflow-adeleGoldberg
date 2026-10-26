@@ -11,7 +11,7 @@ el razonamiento y las consecuencias de cada una.
 
 | ID | Patrón o principio aplicado | Dónde se aplica | Por qué se aplica | Alternativa descartada | Consecuencia |
 |---|---|---|---|---|---|
-| D1 | Arquitectura hexagonal / inversión de dependencias | Interfaces `application/**/port`, casos de uso y adaptadores de `adapter` y `src/test` | Aislar el negocio de persistencia, web, reloj e identidad | JPA, framework web o repositorios concretos dentro del dominio | Hay más interfaces y una composition root explícita; los adaptadores en memoria no dan durabilidad ni transacciones |
+| D1 | Arquitectura hexagonal según el esquema de la materia | Puertos de salida `domain/**/port`, entradas `domain/**/port/inbound`, implementaciones `application/**/usecase` y adaptadores externos | El dominio define todos los contratos; aplicación implementa los casos de uso sin depender de frameworks | Puertos definidos por aplicación y controllers acoplados a implementaciones concretas | Los controllers dependen de interfaces de dominio; configuración compone implementaciones y adaptadores |
 | D2 | Agregados y encapsulamiento de DDD | `Asset`, `InspectionSchema`, `Inspection`, `Finding`, `Certificate` | Concentrar invariantes y separar ciclos de vida | Modelo anémico con setters o un agregado único | Las operaciones pasan por métodos de negocio y la coordinación requiere casos de uso |
 | D3 | Value Object e identidad explícita | `AssetId`, `InspectionId`, `SchemaVersionId`, `CriterionId`, `ValidityPeriod`, `CorrectionPlan` | Evitar mezclar identificadores y validar conceptos del dominio | `String`, `Date` y `Map` sin semántica | Más tipos pequeños y conversiones explícitas, con errores inválidos detectados antes |
 | D4 | Repository y Query Port | `*Repository`, `*Query`, `AssetDirectory`, `SchemaCatalog` | Separar comandos, consultas y almacenamiento | Acceso directo a colecciones o dependencias de infraestructura | Se puede cambiar el adaptador; la consistencia transaccional queda fuera de esta entrega |
@@ -39,7 +39,7 @@ el razonamiento y las consecuencias de cada una.
 | D25 | Vigencia temporal diferida y retiro explícito | `SchemaVersion`, `InspectionSchema`, `PublishSchemaVersion`, `WithdrawScheduledSchemaVersion` | Programar varias versiones con fechas estrictamente crecientes entre las no retiradas y permitir correcciones urgentes tras retirar las futuras que las bloquean | Reemplazar silenciosamente una versión con igual fecha, o impedir todo retiro | El retiro exige motivo, queda auditado y conserva la publicación; una versión vigente nunca se retira |
 | D26 | Consulta temporal de esquemas (`effectiveVersionAt`) | `SchemaCatalog`, `PublishedSchemaCatalog`, `InspectionSchema` | Resolver cuál era/será la versión válida en cualquier punto de la línea de tiempo sin mutar el historial | Filtrar solo la última versión ordenada por número | Permite simular y auditar qué reglas aplicaban o aplicarán en una fecha pasada o futura determinada |
 | D27 | Outbox transaccional | `DomainEventPublisher` ← `OutboxEventPublisher`, `JdbcEventOutbox`, `OutboxDispatcher`, `MaintenanceJobs` | Que un cambio y su evento se confirmen juntos y que un manejador caído no deshaga la petición | Publicación síncrona dentro de la transacción (la primera versión), o un broker externo | Consistencia eventual y una tabla más; los eventos agotados quedan `DEAD` y se revisan a mano (sección 15) |
-| D28 | Puerto de transacciones y excepción de conflicto propia | `application.shared.port.Transactions` ← `JdbcTransactions`; `application.shared.ConflictException` | Que la API exija atomicidad por petición y traduzca conflictos a 409 sin conocer JDBC | Que los controladores dependan de `JdbcTransactions` y de las excepciones de infraestructura, o anotar el núcleo con `@Transactional` | La transacción sigue abriéndola el controlador (los casos de uso son clases concretas, no decorables), pero detrás de un puerto (sección 18) |
+| D28 | Transacción propiedad del caso de uso | `domain.shared.port.Transactions` ← `JdbcTransactions`; `domain.shared.ConflictException` | Cada caso de uso es atómico al invocarlo desde cualquier adaptador y la API traduce conflictos a 409 sin conocer JDBC | Abrir la transacción desde controllers/jobs o anotar el núcleo con `@Transactional` | Las implementaciones reciben `Transactions` por constructor; sus operaciones públicas abren la unidad y las llamadas anidadas se unen a ella |
 | D29 | Casos de uso de consulta (lado de lectura) | `BrowseParties`, `BrowseSchemas`, `BrowseInspections`, `BrowseFindings`, `BrowseCertificates`, `BrowseAuditTrail` | Que los adaptadores de entrada lean solo a través de la capa de aplicación y que las consultas con regla (versión vigente en una fecha, filtros combinados) vivan fuera del controlador | Inyectar repositorios en los controladores | Seis clases pequeñas; una prueba de arquitectura impide que la web vuelva a importar repositorios (sección 18) |
 | D30 | Notificación como puerto de salida | `NotificationSender` ← `LogNotificationSender`, `WebhookNotificationSender`; `NotifyCorrectiveActionExpiry` | Integrar un canal externo sin que el núcleo conozca HTTP, y sin que su caída afecte a los certificados | Llamar al webhook desde el caso de uso, o hacer fallar el evento si el canal falla | Entrega «al mejor esfuerzo»: una notificación puede perderse si el canal está caído (sección 18) |
 | D31 | El rango numérico clasifica, no filtra | `NumericRangeRule` (`rangeMinimum`, `rangeMaximum`, `bands`, `outOfRange`), `Inspection.recordAnswer` | Que el inspector pueda registrar lo que midió, incluso fuera de la escala, y que el sistema decida qué significa | Tratar la medición fuera del rango como respuesta inadmisible: en la primera versión 1200 se registraba y 1201 se rechazaba con un error | La regla declara un resultado más, que no puede ser aprobatorio, y el formato persistido cambió; a cambio una inspección nunca queda sin poder expresar lo que se midió (sección 19) |
@@ -73,13 +73,13 @@ porque no aportan valor en el alcance actual:
 
 ## 1. Separación entre dominio y aplicación
 
-Se aplica **inversión de dependencias mediante puertos y adaptadores**. Las entidades, reglas y políticas de `domain` contienen el comportamiento del negocio. Los casos de uso de `application` coordinan repositorios, auditoría y eventos a través de interfaces recibidas por constructor. En las pruebas, `FullSystem` compone el sistema con adaptadores en memoria.
+Se aplica **inversión de dependencias mediante puertos y adaptadores**, con los puertos en el dominio según el esquema de la materia. Las entidades, reglas y políticas de `domain` contienen el comportamiento del negocio. `domain/**/port` define los puertos de salida y `domain/**/port/inbound` las interfaces de entrada. Los casos de uso de `application` implementan esas entradas, coordinan los puertos y abren su propia transacción con `Transactions`, recibido por constructor. Los controllers y jobs consumen las interfaces; solo la composición conoce sus implementaciones. En las pruebas, `FullSystem` usa adaptadores en memoria y `DirectTransactions`, explícitamente sin rollback de base.
 
 Esta separación permite demostrar el dominio sin elegir una base de datos o un framework de aplicación. Los contratos `Clock`, `IdGenerator` y `ActorProvider` permiten controlar tiempo, identificadores y autoría en los tests.
 
 Se descartó acoplar las entidades a JPA o a un framework web porque introduciría infraestructura ajena al objetivo de esta entrega. Tampoco se usan Singleton ni Service Locator para obtener servicios: ocultarían dependencias y dificultarían aislar escenarios.
 
-La consecuencia es una composición más explícita y un mayor número de interfaces. Los adaptadores en memoria no ofrecen durabilidad, aislamiento ni transacciones; esas garantías deberán definirse al incorporar persistencia.
+La consecuencia es una composición más explícita y un mayor número de interfaces. Los adaptadores en memoria de pruebas no ofrecen durabilidad ni rollback; en producción esas garantías las implementa JDBC mediante el puerto de transacciones, que recibe cada caso de uso.
 
 ## 2. Entidades, objetos de valor y responsabilidades
 
@@ -91,7 +91,7 @@ Se emplea un **modelo de dominio con operaciones de negocio** en `Asset`, `Inspe
 
 Esta organización concentra invariantes y diferencia el incumplimiento histórico de su reparación. Se descartaron tanto un modelo anémico con setters como un agregado único que contuviera todo el sistema: el primero dispersaría validaciones y el segundo mezclaría ciclos de vida independientes.
 
-Las decisiones que cruzan agregados quedan en servicios de dominio cuando no necesitan puertos, y en aplicación cuando deben consultar repositorios, queries, reloj, identidad o auditoría. Para que el encapsulamiento del agregado no dependa de la disciplina de quien escribe el próximo caso de uso, el **límite del paquete coincide con el límite del agregado**: `CriterionRecord` reside junto a `Inspection` y sus operaciones de escritura son de paquete, de modo que desde afuera solo es alcanzable su superficie de lectura. Antes eran públicas y una inspección cerrada podía modificarse sin rectificación; ningún caso de uso las necesitaba.
+Las reglas puras quedan en servicios de dominio; la coordinación de repositorios, queries, reloj, identidad y auditoría queda en aplicación. Esto distingue responsabilidades de implementación: las interfaces de todos esos puertos pertenecen al dominio. Para que el encapsulamiento del agregado no dependa de la disciplina de quien escribe el próximo caso de uso, el **límite del paquete coincide con el límite del agregado**: `CriterionRecord` reside junto a `Inspection` y sus operaciones de escritura son de paquete, de modo que desde afuera solo es alcanzable su superficie de lectura. Antes eran públicas y una inspección cerrada podía modificarse sin rectificación; ningún caso de uso las necesitaba.
 
 `CorrectiveAction` recibió el mismo tratamiento y reside junto a `Finding`, con sus cinco operaciones de escritura de paquete y las delegaciones que los casos de uso necesitan en el hallazgo; los objetos de valor siguen en `finding.action`, porque los construyen los llamadores. Ahí el motivo era más fuerte que el encapsulamiento: desde que el hallazgo registra contra qué resultado se verificó su corrección, verificar o anular directamente sobre la acción la cerraba sin actualizar ese registro, y el hallazgo quedaba bloqueando la certificación para siempre sin señal de error.
 
@@ -176,7 +176,7 @@ aplicabilidad es un dato del registro.
 
 Confirmar el plan corresponde al responsable del hallazgo, como establece RF8: `Finding.planCorrection` recibe a quien planifica y rechaza a cualquier otra parte. Del mismo modo, `Inspection` exige que inicio, carga, corrección previa al cierre, cierre y rectificación los realice el inspector asignado; la regla vive en la raíz y no en los casos de uso, por lo que una llamada directa al agregado tampoco la saltea. La asignación y la reasignación exigen que el inspector sea una persona registrada (`Party.asInspector`): una organización o un identificador inexistente dejaban una inspección que nadie podía ejecutar.
 
-Una acción dispone de 30 días corridos desde su creación para planificarse, usando la fecha UTC del hecho. Este valor es una decisión de implementación para cerrar el hueco identificado por el informe, no un plazo impuesto por la consigna. Antes de confirmar el plan se compara su fecha límite con `Clock.today()`: puede ser hoy, nunca anterior. La fecha límite es inclusiva. Una planificación tardía conserva el incumplimiento del plazo de planificación, incluso si todavía no se ejecutó el barrido, y este emite el evento de vencimiento una sola vez. Los informes incluyen tanto el plazo de planificación como el plazo de corrección confirmado.
+Una acción dispone de 30 días corridos desde su creación para planificarse, usando la fecha de negocio `Clock.today(at)` en la zona configurada (Buenos Aires por defecto). Aplicación captura el instante `at` y entrega esa fecha explícita a `Finding`, también al crear acciones de reemplazo por una rectificación. El dominio no convierte fechas a UTC. Este plazo es una decisión de implementación, no una exigencia de la consigna. Planificación, verificación, evaluación y barrido calculan la fecha de negocio con el mismo contrato y el instante capturado para la operación. La fecha límite es inclusiva: puede ser hoy, nunca anterior; vence al día siguiente en el calendario de negocio. Una planificación tardía conserva el incumplimiento, y el barrido emite el vencimiento una sola vez.
 
 Cumplir el plazo exige verificación satisfactoria y cierre antes del vencimiento. Una acción vencida admite ejecución y verificación tardías, pero conserva el incumplimiento del plazo incluso después de cerrarse. El plan se modela como datos de la acción, sin exigir un documento independiente.
 
@@ -380,7 +380,7 @@ bloqueos y modalidad posible. `EvaluateIssuanceEligibility.assess` evalúa siemp
 **solicitud nueva**, con la política activa; la procedencia de un certificado existente
 se consulta en el certificado o en su informe. Los métodos `blockersFor` delegan a esa
 evaluación. Emisión y renovación usan los mismos hechos y reglas, un único instante y
-su fecha UTC. La emisión vuelve a evaluar; una consulta previa no reserva el resultado.
+su fecha de negocio obtenida con `Clock.today(at)`. La emisión vuelve a evaluar; una consulta previa no reserva el resultado.
 Una severidad bloqueante impide certificar tanto `OBSERVED` como `REJECTED`; un pendiente
 permitido y planificado puede producir un condicional únicamente si el perfil lo permite.
 Sin pendientes se emite regular. `BlockingSeverity` y `ConditionalNotAllowed` son motivos
@@ -443,10 +443,10 @@ principalmente son defensas ante referencias/snapshots nulos o incoherentes devu
 por estrategias personalizadas, combinaciones inválidas de valores de salida y algunos
 mensajes de bloqueos que los tests comprueban por tipo/datos. No se impone cobertura
 100% global: se priorizan decisiones de negocio y efectos observables; las garantías
-de persistencia y concurrencia continúan requiriendo las pruebas reales pendientes.
+de persistencia y concurrencia se verifican con los escenarios de integración descritos en las secciones 13, 15 y 18.
 
 **Estado de la integración.** Al cerrar la Entrega 1 el núcleo F2/F3 no estaba integrado a una
-aplicación. La Entrega 2 resolvió: adaptadores persistentes con transacción por petición (sección 13), REST con
+aplicación. La Entrega 2 resolvió: adaptadores persistentes con transacción por caso de uso (sección 13), REST con
 contrato de errores (14), outbox y tareas programadas (15), front end (16) y pruebas reales de repositorio y API
 (17 y 18). Siguen pendientes, y se declaran en lugar de ocultarse con defaults de producción: la migración de datos
 anteriores a un cambio de formato (`FORMAT_VERSION` existe, la migración no), la administración dinámica o la
@@ -458,9 +458,10 @@ fuera del repositorio.
 
 **Qué se agregó.** Un módulo Maven nuevo, `certification-infrastructure`, que depende del núcleo
 y nunca al revés. Implementa los siete puertos de repositorio y la auditoría sobre H2 con JDBC
-plano y migraciones Flyway (`V1__create_persistence_schema.sql`). El núcleo no se modificó; sólo
-publica su carpeta de pruebas `support` como `test-jar` para reutilizar `FullSystem` y los
-adaptadores en memoria.
+plano y migraciones Flyway (`V1__create_persistence_schema.sql`). La persistencia permanece fuera
+del núcleo de producción. `core/pom.xml` publica su carpeta de pruebas `support` como `test-jar`
+para reutilizar `FullSystem` y los adaptadores en memoria. Las correcciones posteriores de puertos,
+transacciones y calendario de negocio se describen en la sección 18.4.
 
 **Clases agregadas** (paquete `infrastructure.persistence`):
 `JdbcPersistence` (fábrica y migración), `codec.StateCodec` y `codec.Json` (serialización),
@@ -545,14 +546,14 @@ todos los casos de uso), `PersistenceConfig`, `PolicyConfig` (perfiles de F3), `
 `NotFoundException`, `PublicationRefusedException`; DTOs en `web.dto`.
 
 **Decisiones.**
-- *El controlador no tiene reglas.* Abre una transacción, llama a un caso de uso y convierte el
+- *El controlador no tiene reglas.* Invoca un puerto de entrada y convierte el
   resultado. Toda validación de negocio sigue en el núcleo; el controlador sólo traduce.
-- *Una transacción por petición* (`JdbcTransactions.execute`): si algo falla se deshace todo,
+- *Una transacción por caso de uso* (`Transactions.execute`, implementado por JDBC): si algo falla se deshace todo,
   incluida la auditoría de esa operación.
 - *Errores en un solo lugar* (`ApiExceptionHandler`): 400/401/404/409/422/500 con un cuerpo estable; los errores 4xx del propio framework (ruta inexistente, método no permitido) conservan su estado (sección 18).
   Alternativa descartada: crear una jerarquía de excepciones HTTP en el dominio, que lo acoplaría a la web.
-- *404 antes de operar.* Los controladores comprueban la existencia con un caso de uso de consulta (`Browse*`, sección 18); el núcleo
-  responde con `DomainException`, que se mapea a 422 y no distingue "no existe" de "regla violada".
+- *404 antes de operar.* Los controladores comprueban la existencia con un caso de uso de consulta (`Browse*`, sección 18) y traducen
+  la ausencia a `NotFoundException`/404. Las violaciones de reglas de negocio se mapean a 422.
 - *Una emisión bloqueada no es un error de formato:* se responde 422 con el análisis completo de
   bloqueos, que es lo que el front necesita mostrar.
 - *Los reportes del núcleo son registros inmutables;* `Plain` los convierte en JSON legible (los
@@ -664,15 +665,15 @@ entrega la página y sus recursos). **Modificados:** `app/pom.xml` (plugin del f
 
 **Refactorizaciones.** Ninguna en el núcleo ni en la API.
 
-**Pruebas.** Vitest (20): cliente HTTP, conversión de formularios de reglas (regla de opciones, tramos numéricos,
+**Pruebas.** Vitest (24): cliente HTTP, conversión de formularios de reglas (regla de opciones, tramos numéricos,
 secciones), formatos y etiquetas. `FrontendIT` (3): la página, sus scripts y la API conviven. Además se recorrió el
 flujo completo en un navegador real contra una imitación del contrato (esa imitación no se incluye en el repositorio).
 
 **Deuda técnica deliberada.**
 - *Sin pruebas de componentes ni de extremo a extremo versionadas;* la interfaz se probó a mano y con un recorrido
   automatizado que no forma parte del repositorio.
-- *La interfaz no cubre* la rectificación de inspecciones, la reasignación de inspector, la transferencia de
-  aplicabilidad entre esquemas ni la consulta de versiones por número (están en la API).
+- *La interfaz no cubre* la rectificación de inspecciones, la reasignación de inspector ni la consulta de
+  versiones por número (están en la API).
 - *Textos de dominio en inglés:* los nombres de subsistemas y características, y los mensajes de error y de motivos
   que arma el núcleo, se muestran como llegan; un diccionario (`labels.ts`) traduce los conocidos y el resto se
   muestra legible pero sin traducir. Internacionalizar bien exige que la API devuelva códigos en lugar de frases.
@@ -783,8 +784,8 @@ No cambia el contenido inmutable de `SchemaVersion` ni requiere modificar el esq
 verifican fechas iguales, corrección urgente, historial, persistencia y auditoría.
 
 **Verificación de las correcciones F1/F2 (26/10/2026).** `mvn --batch-mode --no-transfer-progress verify`
-completó los tres módulos con `BUILD SUCCESS`: 384 pruebas del núcleo, 59 de infraestructura y
-114 de aplicación/API, sin fallos, errores ni omitidas. También pasaron las 22 pruebas de Vitest,
+completó los tres módulos con `BUILD SUCCESS`: 399 pruebas del núcleo, 63 de infraestructura y
+121 de aplicación/API, sin fallos, errores ni omitidas. También pasaron las 24 pruebas de Vitest,
 la comprobación de TypeScript, el build de Vite y el empaquetado. El registro de ejecución está
 en `target/entrega-2-build.log`; los reportes individuales están en `*/target/surefire-reports`
 y `*/target/failsafe-reports`.
@@ -847,7 +848,7 @@ prueba. Las correcciones están hechas; lo que no se corrigió figura como deuda
 
 | Hallazgo | Corrección |
 |---|---|
-| Los controladores dependían de `JdbcTransactions` y de excepciones de `infrastructure` (la capa web conocía JDBC) | Puerto `application.shared.port.Transactions` (implementado por `JdbcTransactions`) y `application.shared.ConflictException`, de la que heredan `DuplicateKeyException` y `StaleAggregateException`. El manejador de errores traduce `ConflictException` a 409 (D28) |
+| Los controladores dependían de `JdbcTransactions` y de excepciones de `infrastructure` (la capa web conocía JDBC) | Puerto `domain.shared.port.Transactions` (implementado por `JdbcTransactions`) y `domain.shared.ConflictException`, de la que heredan `DuplicateKeyException` y `StaleAggregateException`. El manejador de errores traduce `ConflictException` a 409 (D28) |
 | Los controladores leían repositorios directamente | Casos de uso de consulta `BrowseParties`, `BrowseSchemas`, `BrowseInspections`, `BrowseFindings`, `BrowseCertificates` y `BrowseAuditTrail` (D29) |
 | Faltaba una integración externa (el enunciado pide «integraciones») | Puerto `NotificationSender` con dos adaptadores y el caso de uso `NotifyCorrectiveActionExpiry` (18.2, D30) |
 | Los procesos de fondo (vencimientos, outbox) sólo se probaban a mano o por separado | `ProcessesApiIT` los prueba por su efecto observable en la API, con un reloj controlable (`SteerableClock`) |
@@ -883,15 +884,48 @@ webhook real) y `ProcessesApiIT` (suspensión más aviso; canal caído no bloque
 
 ### 18.3. Decisiones
 
-- *La transacción sigue abriéndola el controlador.* Los casos de uso son clases concretas y no se pueden decorar sin
-  cambiar el núcleo; se dejó la apertura en el borde pero detrás de un puerto. Alternativa descartada: anotar el
-  núcleo con `@Transactional` (lo acoplaría a Spring).
-- *Los controladores sólo usan casos de uso.* Pueden importar `Transactions` y `Clock`, nada más del lado de los
-  puertos de salida; lo exige `AppBoundaryTest`.
+- *La transacción la abre cada caso de uso.* Las operaciones públicas de las implementaciones reciben `Transactions`
+  y ejecutan dentro de la unidad sus lecturas, cambios, auditoría y encolado de eventos. Una llamada directa al
+  puerto de entrada tiene las mismas garantías que una petición HTTP. Las llamadas anidadas se unen a la unidad.
+  No se usan anotaciones de Spring en el núcleo ni una transacción externa obligatoria.
+- *Los controllers y jobs dependen de contratos de dominio.* Los controllers consumen interfaces de entrada,
+  reloj y contratos de consulta de referencia/operación; no importan implementaciones de aplicación ni repositorios
+  y no abren transacciones. Las pruebas de arquitectura lo comprueban. `MaintenanceService` coordina barridos
+  independientes y entregas del outbox; cada barrido es atómico, el lote administrativo completo no lo es.
 - *La notificación corre dentro de la transacción del manejador del outbox,* porque ahí se conoce el hecho. Es
   simple pero implica la deuda descripta abajo.
 
 ### 18.4. Pruebas
+
+**Corrección de arquitectura y calendario (26/10/2026).** Se movieron los contratos de salida
+y sus valores a `domain`; también `Notification`, su excepción y `ConflictException`, para que
+ningún contrato ni adaptador JDBC dependa de aplicación. Se agregaron 43 interfaces de entrada
+en `domain/**/port/inbound`; las implementaciones existentes las implementan y requieren
+`Transactions` por constructor, sin constructores productivos que omitan esa dependencia.
+Todos sus métodos públicos abren la unidad de trabajo, incluidas consultas y sobrecargas.
+
+Los controllers consumen únicamente interfaces de dominio. `MaintenanceService` implementa
+`RunMaintenance` y coordina los casos de barrido; `MaintenanceJobs` quedó como adaptador de
+planificación. Cada barrido confirma su propia unidad antes de despachar eventos: el lote
+administrativo no se presenta como una operación atómica que pudiera revertir avisos ya enviados.
+La transacción de entrega/reclamo de un evento sigue siendo responsabilidad del outbox.
+
+`Clock.today(at)` reemplaza la mezcla entre inicio del plazo en UTC y comparación local. El
+instante capturado y su fecha de negocio se usan juntos al crear hallazgos, reemplazar acciones,
+planificar, verificar, evaluar y barrer vencimientos. `Finding` recibe `createdOn`/`revisedOn`
+explícitos. La aritmética UTC de vigencias de certificados continúa como regla independiente.
+
+`UseCaseTransactionTest` comprueba entrada directa por interfaz; `UseCaseAtomicityIT` usa H2
+real y provoca una falla de auditoría para verificar rollback sin un controller ni una
+transacción externa. `ScheduledVersionPersistenceIT` también invoca el retiro directamente.
+`BusinessCalendarIT` reproduce cierres a las 10:00 y 22:30 de un mismo día de Buenos Aires,
+con igual plazo y vencimiento conjunto; `SystemClockTest` verifica el adaptador real.
+Las pruebas de arquitectura ahora exigen puertos en dominio e interfaces en los controllers.
+
+La verificación completa `mvn --batch-mode --no-transfer-progress verify` terminó con
+`BUILD SUCCESS`: 399 pruebas del núcleo, 63 de infraestructura y 121 de aplicación/API,
+sin fallos, errores ni omitidas; también pasaron las 24 pruebas del frontend, TypeScript,
+Vite y el empaquetado. Registro: `target/architecture-build.log`.
 
 | Tipo | Dónde | Qué cubre |
 |---|---|---|
@@ -903,8 +937,8 @@ webhook real) y `ProcessesApiIT` (suspensión más aviso; canal caído no bloque
 | Arquitectura | `ArchitectureBoundaryTest` (núcleo), `InfrastructureBoundaryTest`, `AppBoundaryTest` | El núcleo no importa Spring, JDBC, Jackson ni otros módulos; sólo `config` conoce `infrastructure`; la web no importa repositorios |
 | Front end | Vitest (cliente HTTP, conversión de formularios, formatos) y `FrontendIT` | Ver sección 16 |
 
-No se incluye un conteo de pruebas en este documento porque se desactualiza con cada cambio; el informe de
-`mvn verify` (Surefire, Failsafe y JaCoCo) es la fuente.
+Los conteos incluidos en las verificaciones fechadas describen esa ejecución; el informe de
+`mvn verify` (Surefire, Failsafe y JaCoCo) es la fuente del estado actual.
 
 **Integración continua.** El flujo de GitHub Actions ejecuta `mvn verify` con JDK 25, que corre unitarias,
 integración y las pruebas del front. Para que un PR con tests rotos no pueda integrarse hay que activar en GitHub la
@@ -913,8 +947,6 @@ no pudo verificarse desde el código.
 
 ### 18.5. Deuda técnica deliberada
 
-- *Transacción en el controlador* (18.3): un caso de uso no es atómico por sí mismo; si otro adaptador de entrada
-  (una cola, una consola) lo invocara, tendría que abrir la transacción.
 - *Notificaciones al mejor esfuerzo, sin garantía de entrega:* se puede perder un aviso si el canal está caído, y
   duplicarse si el envío tuvo éxito pero la transacción posterior no se confirma. No hay reintento propio.
 - *HTTP dentro de una transacción de base:* mientras el webhook responde (hasta el tiempo de espera) la conexión
@@ -976,9 +1008,9 @@ registra (200), y al cerrar el criterio queda rechazado con severidad crítica. 
 
 **Deuda técnica deliberada.**
 - *El formato persistido cambió:* un esquema guardado por una versión anterior no tiene `outOfRange` y
-  no se puede reconstruir (es la deuda de formato de la sección 13, que ahora se materializó). Como la
-  base es de desarrollo, la salida es borrar `data/` y volver a cargar; una migración de documentos
-  sigue sin implementarse.
+  no se puede reconstruir (es la deuda de formato de la sección 13, que ahora se materializó). No hay
+  migración automática: los datos que deban conservarse necesitan una migración explícita de documentos
+  y una decisión sobre la regla faltante. Recrear una base descartable de desarrollo no migra los datos.
 - *El rango no se valida contra el instrumento:* nada impide declarar 0 a 1200 y medir un millón. Un
   error de tipeo entra como rechazo crítico y se corrige por rectificación, que queda auditada.
 - *La API exige `outOfRange`* en lugar de asumir un valor por omisión, para no esconder con un default
@@ -1001,3 +1033,21 @@ atado el contrato a un idioma.
 
 **Deuda técnica deliberada.** Sigue en pie la de la sección 16: los textos que arma el núcleo (motivos,
 descripciones de resultados) viajan en inglés y se muestran como llegan, porque son datos y no códigos.
+
+
+## 20. Auditoría posterior a las correcciones
+
+La [auditoría del 26 de octubre](docs/auditoria-integral.md) registra defectos adicionales,
+regresiones, recorridos ejecutados, deuda confirmada y límites de la revisión. La planilla
+por archivo distingue lectura completa de revisión focalizada y controles estáticos.
+
+La aplicabilidad se decide con el instante de la operación: se exige cobertura de los
+subsistemas tanto en la versión vigente como en todas las futuras no retiradas. Las
+versiones históricas sustituidas no bloquean el cambio. Una transferencia requiere que
+el destino tenga una versión ya vigente; no basta con una publicación programada.
+El servicio de dominio recibe el instante; el caso de uso lo obtiene de `Clock` y
+guarda/audita origen y destino dentro de su transacción.
+
+La interfaz recupera una identidad recordada inexistente volviendo a cargar el directorio
+sin esa identidad y recargando las consultas al cambiar el actor. Esto no incorpora
+autenticación: la limitación de `X-Actor-Id` sigue vigente.

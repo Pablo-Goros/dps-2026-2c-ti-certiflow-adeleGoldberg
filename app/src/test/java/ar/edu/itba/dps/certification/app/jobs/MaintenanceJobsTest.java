@@ -1,19 +1,18 @@
 package ar.edu.itba.dps.certification.app.jobs;
 
-import ar.edu.itba.dps.certification.app.ops.OutboxOperations;
 import ar.edu.itba.dps.certification.application.certification.usecase.ExpireDueCertificates;
 import ar.edu.itba.dps.certification.application.finding.usecase.ExpireOverdueCorrectiveActions;
-import ar.edu.itba.dps.certification.application.shared.port.Transactions;
 import ar.edu.itba.dps.certification.application.shared.usecase.PublishPendingDomainEvents;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.InOrder;
+import ar.edu.itba.dps.certification.domain.shared.port.OutboxOperations;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -28,26 +27,13 @@ import static org.mockito.Mockito.when;
 /** The orchestration of the sweeps, with the use cases and the outbox replaced by mocks. */
 class MaintenanceJobsTest {
 
-    /** Runs the work at once, as a transaction that always commits would. */
-    private static final class Immediate implements Transactions {
-        @Override
-        public <T> T execute(Supplier<T> work) {
-            return work.get();
-        }
-
-        @Override
-        public void execute(Runnable work) {
-            work.run();
-        }
-    }
-
     private final ExpireDueCertificates expireCertificates = mock(ExpireDueCertificates.class);
     private final ExpireOverdueCorrectiveActions expireActions = mock(ExpireOverdueCorrectiveActions.class);
     private final PublishPendingDomainEvents republish = mock(PublishPendingDomainEvents.class);
     private final OutboxOperations outbox = mock(OutboxOperations.class);
 
     private MaintenanceJobs jobs(boolean enabled) {
-        return new MaintenanceJobs(new Immediate(), expireCertificates, expireActions, republish, outbox, enabled);
+        return new MaintenanceJobs(new ar.edu.itba.dps.certification.application.shared.MaintenanceService(expireCertificates, expireActions, republish, outbox), outbox, enabled);
     }
 
     @BeforeEach
@@ -76,7 +62,7 @@ class MaintenanceJobsTest {
 
         var result = jobs(true).runAll();
 
-        assertThat(result).isEqualTo(new MaintenanceJobs.Result(3, 2, 9));
+        assertThat(result).isEqualTo(new ar.edu.itba.dps.certification.domain.shared.port.inbound.RunMaintenance.Result(3, 2, 9));
     }
 
     @Test

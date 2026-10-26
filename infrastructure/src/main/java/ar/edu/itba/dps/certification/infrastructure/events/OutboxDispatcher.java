@@ -1,12 +1,12 @@
 package ar.edu.itba.dps.certification.infrastructure.events;
 
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventHandler;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
+import ar.edu.itba.dps.certification.domain.shared.port.DomainEventHandler;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcEventOutbox;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;
 
-import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.List;
 
 /**
  * Delivers pending outbox events to the handlers.
@@ -47,25 +47,28 @@ public final class OutboxDispatcher {
         }
         try {
             int delivered = 0;
-            int deliveredInPass;
-            do {
-                deliveredInPass = 0;
-                for (JdbcEventOutbox.Pending row : pendingSafely()) {
+            long afterSeq = 0;
+            while (true) {
+                List<JdbcEventOutbox.Pending> rows = pendingSafely(afterSeq);
+                if (rows.isEmpty()) {
+                    break;
+                }
+                for (JdbcEventOutbox.Pending row : rows) {
+                    afterSeq = row.seq();
                     if (deliver(row)) {
-                        deliveredInPass++;
+                        delivered++;
                     }
                 }
-                delivered += deliveredInPass;
-            } while (deliveredInPass > 0);
+            }
             return delivered;
         } finally {
             busy.unlock();
         }
     }
 
-    private List<JdbcEventOutbox.Pending> pendingSafely() {
+    private List<JdbcEventOutbox.Pending> pendingSafely(long afterSeq) {
         try {
-            return outbox.pending(BATCH);
+            return outbox.pendingAfter(afterSeq, BATCH);
         } catch (RuntimeException e) {
             LOG.log(System.Logger.Level.ERROR, "could not read the event outbox", e);
             return List.of();

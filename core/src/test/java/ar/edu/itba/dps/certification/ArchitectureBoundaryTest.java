@@ -1,11 +1,11 @@
 package ar.edu.itba.dps.certification;
 
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -50,15 +50,22 @@ final class ArchitectureBoundaryTest {
     }
 
     @Test
-    void domainDoesNotDeclarePorts() throws IOException {
-        Path domain = MAIN_SOURCES.resolve(Path.of("ar", "edu", "itba", "dps", "certification", "domain"));
-        try (var files = Files.walk(domain)) {
-            var violations = files
-                    .filter(Files::isRegularFile)
-                    .filter(file -> file.toString().endsWith(".java"))
-                    .filter(ArchitectureBoundaryTest::declaresDomainPortPackage)
-                    .toList();
-            assertThat(violations).isEmpty();
+    void portsBelongToTheDomainAndEveryApplicationUseCaseImplementsItsInputPort() throws Exception {
+        Path application = MAIN_SOURCES.resolve(Path.of("ar", "edu", "itba", "dps", "certification", "application"));
+        try (var files = Files.walk(application)) {
+            for (Path file : files.filter(p -> p.toString().endsWith(".java")).toList()) {
+                assertThat(file.getParent().getFileName().toString()).isNotEqualTo("port");
+                if (!file.getParent().getFileName().toString().equals("usecase")) continue;
+                String name = file.getFileName().toString().replace(".java", "");
+                String feature = file.getParent().getParent().getFileName().toString();
+                Class<?> input = Class.forName(ROOT_PACKAGE + ".domain." + feature + ".port.inbound." + name);
+                Class<?> implementation = Class.forName(ROOT_PACKAGE + ".application." + feature + ".usecase." + name);
+                assertThat(input.isInterface()).isTrue();
+                assertThat(input.isAssignableFrom(implementation)).isTrue();
+                assertThat(implementation.getConstructors()).allSatisfy(constructor ->
+                        assertThat(constructor.getParameterTypes()).contains(
+                                ar.edu.itba.dps.certification.domain.shared.port.Transactions.class));
+            }
         }
     }
 
@@ -85,13 +92,4 @@ final class ArchitectureBoundaryTest {
         }
     }
 
-    private static boolean declaresDomainPortPackage(Path file) {
-        try {
-            String source = Files.readString(file);
-            return source.contains("package " + ROOT_PACKAGE + ".domain.")
-                    && source.contains(".port;");
-        } catch (IOException e) {
-            throw new IllegalStateException("cannot read " + file, e);
-        }
-    }
 }

@@ -5,9 +5,9 @@ import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.ResponsiblePartyRef;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.FindingId;
-import ar.edu.itba.dps.certification.domain.finding.action.CorrectiveActionId;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
@@ -53,7 +53,7 @@ class CertificationContextTest {
         var facts = new PolicyFacts(CriterionResult.OBSERVED, Severity.LOW);
         var foreign = new Finding(FindingId.of("foreign"), InspectionId.of("other"), facts.finding.criterionId(), facts.finding.assetId(),
                 PolicyFacts.OWNER, PolicyFacts.INSPECTOR, facts.finding.result(), facts.finding.reasons(), facts.finding.severity(),
-                List.of(), CorrectiveActionId.of("foreign-action"), PolicyFacts.AT);
+                List.of(), CorrectiveActionId.of("foreign-action"), PolicyFacts.AT, (PolicyFacts.AT).atZone(java.time.ZoneOffset.UTC).toLocalDate());
         assertThatThrownBy(() -> facts.context(PolicyFacts.today(), List.of(foreign))).hasMessageContaining("backing inspection");
     }
 }

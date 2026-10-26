@@ -1,31 +1,36 @@
 package ar.edu.itba.dps.certification.application.report.usecase;
 
+import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
 import ar.edu.itba.dps.certification.domain.finding.CorrectiveAction;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
-import ar.edu.itba.dps.certification.domain.finding.action.CorrectionPlan;
-import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingQuery;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.report.FindingsSummary;
 import ar.edu.itba.dps.certification.domain.schema.evidence.EvidenceShortfall;
+import ar.edu.itba.dps.certification.domain.shared.port.Transactions;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.util.List;
 import java.util.Optional;
 
-public final class GenerateFindingsSummary {
+public final class GenerateFindingsSummary implements ar.edu.itba.dps.certification.domain.report.port.inbound.GenerateFindingsSummary {
+    private final Transactions transactions;
 
     private final FindingQuery findings;
 
-    public GenerateFindingsSummary(FindingQuery findings) {
+    public GenerateFindingsSummary(FindingQuery findings, Transactions transactions) {
+        this.transactions = transactions;
         this.findings = findings;
     }
 
     public FindingsSummary generate(InspectionId inspectionId) {
-        Validate.required(inspectionId, "inspection id");
-        return new FindingsSummary(inspectionId, findings.findingsOf(inspectionId).stream()
-                .map(this::lineOf)
-                .toList());
+        return transactions.execute(() -> {
+            Validate.required(inspectionId, "inspection id");
+            return new FindingsSummary(inspectionId, findings.findingsOf(inspectionId).stream()
+                    .map(this::lineOf)
+                    .toList());
+        });
     }
 
     private FindingsSummary.FindingLine lineOf(Finding finding) {

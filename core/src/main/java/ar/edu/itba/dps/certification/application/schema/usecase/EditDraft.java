@@ -5,38 +5,45 @@ import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.schema.SchemaDraft;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.schema.Section;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.shared.FieldChange;
+import ar.edu.itba.dps.certification.domain.shared.port.Transactions;
 
 import java.util.stream.Collectors;
 
-public final class EditDraft {
+public final class EditDraft implements ar.edu.itba.dps.certification.domain.schema.port.inbound.EditDraft {
+    private final Transactions transactions;
 
     private final SchemaRepository schemas;
     private final AuditRecorder audit;
 
-    public EditDraft(SchemaRepository schemas, AuditRecorder audit) {
+    public EditDraft(SchemaRepository schemas, AuditRecorder audit, Transactions transactions) {
+        this.transactions = transactions;
         this.schemas = schemas;
         this.audit = audit;
     }
 
     public SchemaDraft addSection(SchemaId schemaId, Section section) {
-        InspectionSchema schema = schemas.require(schemaId);
-        SchemaDraft draft = schema.requireDraft();
-        schema.addSection(section);
-        return audited(schema, draft,
-                FieldChange.of("section." + section.name(), null, describe(section)));
+        return transactions.execute(() -> {
+            InspectionSchema schema = schemas.require(schemaId);
+            SchemaDraft draft = schema.requireDraft();
+            schema.addSection(section);
+            return audited(schema, draft,
+                    FieldChange.of("section." + section.name(), null, describe(section)));
+        });
     }
 
     public SchemaDraft removeSection(SchemaId schemaId, String sectionName) {
-        InspectionSchema schema = schemas.require(schemaId);
-        SchemaDraft draft = schema.requireDraft();
-        Section removed = schema.removeSection(sectionName);
-        return audited(schema, draft, FieldChange.of("section." + removed.name(),
-                describe(removed), null));
+        return transactions.execute(() -> {
+            InspectionSchema schema = schemas.require(schemaId);
+            SchemaDraft draft = schema.requireDraft();
+            Section removed = schema.removeSection(sectionName);
+            return audited(schema, draft, FieldChange.of("section." + removed.name(),
+                    describe(removed), null));
+        });
     }
 
     private String describe(Section section) {

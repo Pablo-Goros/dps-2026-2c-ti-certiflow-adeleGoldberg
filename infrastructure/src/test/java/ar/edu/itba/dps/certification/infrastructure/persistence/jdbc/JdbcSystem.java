@@ -4,7 +4,6 @@ import ar.edu.itba.dps.certification.adapter.catalogue.CatalogueAssetDirectory;
 import ar.edu.itba.dps.certification.adapter.finding.RepositoryFindingQuery;
 import ar.edu.itba.dps.certification.adapter.schema.PublishedSchemaCatalog;
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
 import ar.edu.itba.dps.certification.application.certification.CertificateFactory;
@@ -21,15 +20,16 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.CloseInspect
 import ar.edu.itba.dps.certification.application.inspection.usecase.RecordAnswer;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
 import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.PublishSchemaVersion;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
@@ -85,26 +85,26 @@ final class JdbcSystem {
                 persistence.certificates(), assetDirectory, TestPolicies.registry(),
                 ids, clock);
 
-        registerParty = new RegisterParty(persistence.parties(), ids, audit);
-        registerAsset = new RegisterAsset(persistence.assets(), persistence.parties(), ids, audit);
-        createSchema = new CreateSchema(persistence.schemas(), applicability, ids, audit);
-        openDraft = new OpenDraft(persistence.schemas(), audit);
-        editDraft = new EditDraft(persistence.schemas(), audit);
-        publishSchemaVersion = new PublishSchemaVersion(persistence.schemas(), clock, audit);
+        registerParty = new RegisterParty(persistence.parties(), ids, audit, persistence.transactions());
+        registerAsset = new RegisterAsset(persistence.assets(), persistence.parties(), ids, audit, persistence.transactions());
+        createSchema = new CreateSchema(persistence.schemas(), applicability, ids, audit, persistence.transactions());
+        openDraft = new OpenDraft(persistence.schemas(), audit, persistence.transactions());
+        editDraft = new EditDraft(persistence.schemas(), audit, persistence.transactions());
+        publishSchemaVersion = new PublishSchemaVersion(persistence.schemas(), clock, audit, persistence.transactions());
         assignInspection = new AssignInspection(persistence.inspections(), assetDirectory,
-                persistence.parties(), ids, audit);
+                persistence.parties(), ids, audit, persistence.transactions());
         startInspection = new StartInspection(persistence.inspections(), assetDirectory, schemaCatalog,
-                clock, audit, actors);
-        recordAnswer = new RecordAnswer(persistence.inspections(), audit, actors);
-        attachEvidence = new AttachEvidence(persistence.inspections(), ids, clock, audit, actors);
+                clock, audit, actors, persistence.transactions());
+        recordAnswer = new RecordAnswer(persistence.inspections(), audit, actors, persistence.transactions());
+        attachEvidence = new AttachEvidence(persistence.inspections(), ids, clock, audit, actors, persistence.transactions());
         closeInspection = new CloseInspection(persistence.inspections(), assetDirectory, findingService,
-                clock, audit, actors);
+                clock, audit, actors, persistence.transactions());
         rectifyClosedInspection = new RectifyClosedInspection(persistence.inspections(), findingService,
-                new RectificationConsequences(findingService, assetDirectory), events, ids, clock, audit, actors);
-        planCorrectiveAction = new PlanCorrectiveAction(persistence.findings(), audit, clock, actors, events);
-        reportExecution = new ReportCorrectiveActionExecution(persistence.findings(), clock, audit, actors);
-        verifyCorrectiveAction = new VerifyCorrectiveAction(persistence.findings(), clock, events, audit, actors);
-        issueCertificate = new IssueCertificate(certificateFactory, persistence.certificates(), audit);
+                new RectificationConsequences(findingService, assetDirectory), events, ids, clock, audit, actors, persistence.transactions());
+        planCorrectiveAction = new PlanCorrectiveAction(persistence.findings(), persistence.parties(), audit, clock, actors, events, persistence.transactions());
+        reportExecution = new ReportCorrectiveActionExecution(persistence.findings(), clock, audit, actors, persistence.transactions());
+        verifyCorrectiveAction = new VerifyCorrectiveAction(persistence.findings(), clock, events, audit, actors, persistence.transactions());
+        issueCertificate = new IssueCertificate(certificateFactory, persistence.certificates(), audit, persistence.transactions());
         events.register(new CertificationReactions(persistence.certificates(), persistence.inspections(),
                 new CertificateLifecycle(), audit, findingQuery, clock));
     }

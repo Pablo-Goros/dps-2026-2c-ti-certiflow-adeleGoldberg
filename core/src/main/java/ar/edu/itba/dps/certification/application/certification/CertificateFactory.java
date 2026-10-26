@@ -1,12 +1,6 @@
 package ar.edu.itba.dps.certification.application.certification;
 
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
-import ar.edu.itba.dps.certification.application.certification.port.CertificationPolicyRegistry;
-import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.Certificate;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
@@ -18,13 +12,18 @@ import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceBlock
 import ar.edu.itba.dps.certification.domain.certification.issuance.IssuanceDecision;
 import ar.edu.itba.dps.certification.domain.certification.policy.JurisdictionCertificationPolicy;
 import ar.edu.itba.dps.certification.domain.certification.policy.PolicyResolutionException;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificateRepository;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificationPolicyRegistry;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingQuery;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -191,7 +190,7 @@ public final class CertificateFactory {
                 .filter(certificate -> !certificate.backingInspectionId().equals(inspection.id()))
                 .map(Certificate::id);
         return new CertificationContext(inspection, findings.findingsOf(inspection.id()),
-                at.atZone(ZoneOffset.UTC).toLocalDate(), scope,
+                clock.today(at), scope,
                 laterClosedInspectionOf(inspection), liveCertificate);
     }
 

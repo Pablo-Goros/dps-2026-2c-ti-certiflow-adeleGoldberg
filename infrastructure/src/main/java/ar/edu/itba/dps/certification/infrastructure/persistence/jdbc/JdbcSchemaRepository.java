@@ -1,8 +1,8 @@
 package ar.edu.itba.dps.certification.infrastructure.persistence.jdbc;
 
-import ar.edu.itba.dps.certification.application.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaRepository;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.infrastructure.persistence.codec.StateCodec;
 

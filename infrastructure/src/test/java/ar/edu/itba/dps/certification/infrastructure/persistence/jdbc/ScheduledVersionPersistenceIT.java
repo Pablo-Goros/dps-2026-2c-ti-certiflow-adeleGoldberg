@@ -50,8 +50,8 @@ class ScheduledVersionPersistenceIT {
         db.schemas().save(schema);
         clock.advanceDays(1);
         var usecase = new WithdrawScheduledSchemaVersion(db.schemas(), clock,
-                new AuditRecorder(db.auditTrail(), actor, clock), actor);
-        db.transactions().execute(() -> usecase.withdraw(schema.id(), 2, "Wrong threshold"));
+                new AuditRecorder(db.auditTrail(), actor, clock), actor, db.transactions());
+        usecase.withdraw(schema.id(), 2, "Wrong threshold");
 
         var reopened = JdbcPersistence.open(source);
         var loaded = reopened.schemas().require(schema.id());

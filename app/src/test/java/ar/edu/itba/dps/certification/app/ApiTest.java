@@ -3,6 +3,7 @@ package ar.edu.itba.dps.certification.app;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 
 /**
  * Base of the API tests: the whole application on a random port over an in-memory H2 database
@@ -13,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
         properties = {
             "spring.datasource.url=jdbc:h2:mem:certiflow-api;DB_CLOSE_DELAY=-1"
         })
+@TestPropertySource(properties = "certiflow.jobs.enabled=false")
 abstract class ApiTest {
 
     @Value("${local.server.port}")

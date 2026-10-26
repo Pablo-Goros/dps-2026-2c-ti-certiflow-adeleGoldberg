@@ -5,18 +5,20 @@ import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditDetail;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
+import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionRepository;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionRepository;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
-import ar.edu.itba.dps.certification.application.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.shared.port.IdGenerator;
+import ar.edu.itba.dps.certification.domain.shared.port.Transactions;
 
 import java.time.LocalDate;
 
-public final class AssignInspection {
+public final class AssignInspection implements ar.edu.itba.dps.certification.domain.inspection.port.inbound.AssignInspection {
+    private final Transactions transactions;
 
     private final InspectionRepository inspections;
     private final AssetDirectory assets;
@@ -25,7 +27,8 @@ public final class AssignInspection {
     private final AuditRecorder audit;
 
     public AssignInspection(InspectionRepository inspections, AssetDirectory assets, PartyRepository parties,
-            IdGenerator ids, AuditRecorder audit) {
+            IdGenerator ids, AuditRecorder audit, Transactions transactions) {
+        this.transactions = transactions;
         this.inspections = inspections;
         this.assets = assets;
         this.parties = parties;
@@ -34,19 +37,21 @@ public final class AssignInspection {
     }
 
     public Inspection assign(AssetId assetId, PartyId inspector, LocalDate expectedDate) {
-        assets.assetTypeOf(assetId);
-        PartyId assignedInspector = parties.require(inspector).asInspector();
-        inspections.findNonClosedByAsset(assetId).ifPresent(open -> {
-            throw new DomainException("asset " + assetId + " already has inspection " + open.id()
-                    + " in progress");
+        return transactions.execute(() -> {
+            assets.assetTypeOf(assetId);
+            PartyId assignedInspector = parties.require(inspector).asInspector();
+            inspections.findNonClosedByAsset(assetId).ifPresent(open -> {
+                throw new DomainException("asset " + assetId + " already has inspection " + open.id()
+                        + " in progress");
+            });
+            Inspection inspection =
+                    new Inspection(new InspectionId(ids.newIdentifier()), assetId, assignedInspector, expectedDate);
+            inspections.save(inspection);
+            audit.record(AuditedElementRef.inspection(inspection.id().value()),
+                    AuditAction.INSPECTION_ASSIGNED,
+                    AuditDetail.created("inspection of asset " + assetId + " assigned to " + inspector
+                            + ", expected " + expectedDate));
+            return inspection;
         });
-        Inspection inspection =
-                new Inspection(new InspectionId(ids.newIdentifier()), assetId, assignedInspector, expectedDate);
-        inspections.save(inspection);
-        audit.record(AuditedElementRef.inspection(inspection.id().value()),
-                AuditAction.INSPECTION_ASSIGNED,
-                AuditDetail.created("inspection of asset " + assetId + " assigned to " + inspector
-                        + ", expected " + expectedDate));
-        return inspection;
     }
 }

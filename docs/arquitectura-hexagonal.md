@@ -1,163 +1,131 @@
 # Arquitectura hexagonal
 
-Este proyecto queda organizado como una arquitectura hexagonal pura: el dominio no conoce detalles externos, la capa de aplicacion define los casos de uso y los puertos, y los adaptadores quedan fuera del nucleo.
+El proyecto sigue el esquema de la materia: el dominio define los contratos de entrada
+y salida; aplicación implementa los casos de uso; los adaptadores conectan HTTP,
+persistencia, tiempo, identidad y servicios externos. El núcleo no depende de Spring,
+JDBC, Jackson ni de los módulos externos.
 
-## Capas
+## Dominio y puertos
 
-### Dominio
+Ubicación: `core/src/main/java/ar/edu/itba/dps/certification/domain`.
 
-Ubicacion: `core/src/main/java/ar/edu/itba/dps/certification/domain`
+Las raíces `Inspection`, `Finding`, `InspectionSchema` y `Certificate` protegen sus
+invariantes. Los evaluadores y políticas conservan las reglas del negocio. En los
+paquetes `domain.<área>.port` están los puertos de salida, por ejemplo:
 
-Contiene el modelo de negocio y las reglas propias de certificacion: activos, inspecciones, hallazgos, esquemas, certificados, reglas de evaluacion, eventos de dominio y objetos de valor. No declara puertos ni importa clases de `application` o `adapter`.
+- `catalogue.port.AssetRepository`, `PartyRepository` y `AssetDirectory`.
+- `inspection.port.InspectionRepository`, `InspectionQuery` y `FindingRegistry`.
+- `schema.port.SchemaRepository` y `SchemaCatalog`.
+- `certification.port.CertificateRepository` y `CertificationPolicyRegistry`.
+- `finding.port.FindingRepository`, `FindingQuery` y `audit.port.AuditTrail`.
+- `shared.port.Clock`, `ActorProvider`, `IdGenerator`, `Transactions` y los contratos de eventos.
+- `notification.port.NotificationSender`; su mensaje y excepción pertenecen al dominio.
 
-Ejemplos:
+Los contratos de entrada están en `domain.<área>.port.inbound`. Cada caso de uso de
+negocio tiene una interfaz: `IssueCertificate`, `StartInspection`, `CloseInspection`,
+`WithdrawScheduledSchemaVersion`, las consultas `Browse*` y los demás. Sus firmas usan
+tipos del dominio y del JDK, sin referencias a implementaciones de aplicación.
 
-- `domain.inspection.Inspection` concentra el ciclo de vida de una inspeccion.
-- `domain.schema.SchemaApplicability` valida reglas de aplicabilidad usando datos recibidos desde la aplicacion, sin consultar repositorios.
-- `domain.certification.Certificate` expone operaciones de negocio explicitas como emitir, suspender, resolver suspensiones y expirar.
+El dominio define las interfaces, pero los agregados no consultan repositorios ni
+obtienen por sí mismos usuario o reloj. Reciben los hechos y valores necesarios para
+evaluar sus reglas. `InspectionSummary` y `NonConformity` son valores de los contratos,
+no DTO de Spring o de JDBC.
 
-### Aplicacion
+## Aplicación
 
-Ubicacion: `core/src/main/java/ar/edu/itba/dps/certification/application`
+Ubicación: `core/src/main/java/ar/edu/itba/dps/certification/application`.
 
-Contiene los casos de uso y los puertos que necesita el sistema para hablar con el exterior. Esta capa orquesta entidades de dominio, aplica transacciones logicas y delega persistencia, reloj, identidad, auditoria y publicacion de eventos a interfaces.
+Las clases de `application.<área>.usecase` implementan las interfaces de entrada y
+reciben por constructor sus dependencias, incluida `Transactions`. Sus operaciones
+públicas abren la unidad de trabajo antes de cargar, modificar, guardar y auditar.
+No requieren que el llamador sea un controller ni use anotaciones de Spring.
 
-Ejemplos de casos de uso:
+Los servicios internos coordinan hechos, sin reemplazar las reglas de las raíces:
 
-- `application.inspection.usecase.StartInspection`
-- `application.certification.usecase.IssueCertificate`
-- `application.schema.usecase.CreateSchema`
-- `application.finding.usecase.PlanCorrectiveAction`
+- `CertificateFactory`: reúne inspecciones, hallazgos y política activa para emitir o renovar.
+- `CertificationReactions`: carga hechos y delega cumplimiento a `CertificateLifecycle`.
+- `RectificationConsequences`: coordina las consecuencias auditables sobre hallazgos.
+- `FindingService`: implementa `FindingRegistry` y crea o revisa hallazgos.
+- `MaintenanceService`: implementa `RunMaintenance` y coordina barridos y entregas
+  independientes; la unidad atómica es cada barrido, no todo el lote administrativo.
 
-Ejemplos de puertos secundarios:
+La emisión exige una `CertificationAssessment` creada por evaluación y compatible con
+los hechos actuales. El constructor de `Certificate` exige esa prueba y calcula su
+vigencia desde la política evaluada. `DeriveGlobalCertificate` consulta por activo los
+últimos parciales y delega a `GlobalCertificatePolicy`; admite inspecciones y esquemas
+diferentes e informa la procedencia individual.
 
-- `application.catalogue.port.AssetRepository`
-- `application.inspection.port.InspectionRepository`
-- `application.schema.port.SchemaRepository`
-- `application.certification.port.CertificationPolicyRegistry`
-- `application.audit.port.AuditTrail`
-- `application.shared.port.Clock`
-- `application.shared.port.IdGenerator`
+`InspectionSchema` controla fechas estrictamente crecientes entre publicaciones no
+retiradas y el retiro con motivo de una versión todavía futura. El caso de uso guarda
+el retiro y su auditoría dentro de la misma unidad de trabajo.
 
-Tambien viven en aplicacion los servicios que coordinan varios puertos:
+## Adaptadores y composición
 
-- `application.certification.CertificateFactory`
-- `application.certification.CertificationReactions`
-- `application.inspection.RectificationConsequences`
+- `core/adapter` contiene adaptadores de catálogo, queries y políticas que implementan
+  interfaces del dominio.
+- `infrastructure` implementa repositorios, auditoría, transacciones JDBC, outbox y
+  notificaciones. No importa `application`, `app` ni frameworks web.
+- `app/web` consume interfaces de dominio y convierte solicitudes y respuestas mediante
+  DTO. No conoce implementaciones de aplicación, repositorios ni transacciones.
+- `app/jobs` es el adaptador programado: llama a `RunMaintenance` y a operaciones de
+  entrega. No abre unidades de trabajo de negocio.
+- `app/config` compone las implementaciones de aplicación con los adaptadores concretos.
+  Este es el lugar que conoce a ambas capas.
 
-Esas clases no pertenecen al dominio porque consultan repositorios, queries u otros puertos. Su responsabilidad es coordinar informacion externa y luego invocar reglas del dominio.
-
-Los servicios de dominio puros siguen en `domain` cuando no necesitan puertos. Por ejemplo,
-`domain.certification.CertificateLifecycle` decide suspensiones y reactivaciones sobre un
-`Certificate` ya cargado, mientras que `CertificationReactions` se ocupa de buscarlo,
-guardarlo y auditar el cambio.
-
-### Adaptadores
-
-Ubicacion: `core/src/main/java/ar/edu/itba/dps/certification/adapter`
-
-Contiene implementaciones concretas de puertos. Estos componentes pueden depender de aplicacion y dominio, porque estan fuera del hexagono y conectan detalles con el nucleo.
-
-Adaptadores actuales:
-
-- `adapter.catalogue.CatalogueAssetDirectory`: implementa `AssetDirectory` usando `AssetRepository`.
-- `adapter.finding.RepositoryFindingQuery`: implementa `FindingQuery` usando `FindingRepository`.
-- `adapter.schema.PublishedSchemaCatalog`: implementa `SchemaCatalog` usando `SchemaRepository`.
-- `adapter.certification.RegisteredCertificationPolicies`: implementa `CertificationPolicyRegistry` mediante un registro explícito versionado.
-
-Los adaptadores en memoria usados por tests viven en `core/src/test/java/.../support` y cumplen el mismo rol externo para escenarios de integracion.
-
-## Regla de dependencias
-
-La direccion de dependencias es siempre hacia adentro:
+Las dependencias de compilación apuntan a los contratos:
 
 ```text
-adapter -> application -> domain
+web / jobs        -> domain (interfaces)
+application       -> domain
+adapter / JDBC    -> domain
+config            -> application + domain + infrastructure
 ```
 
-Reglas aplicadas:
+## Transacciones
 
-- `domain` no importa `application`.
-- `domain` no importa `adapter`.
-- `domain` no declara paquetes `.port`.
-- `application` puede importar `domain`.
-- `application` declara puertos y casos de uso.
-- `application` no importa `adapter`.
-- `adapter` puede importar `application` y `domain` para implementar puertos.
+`domain.shared.port.Transactions` define la unidad de trabajo; `JdbcTransactions` la
+implementa. Los 43 casos de uso de negocio tienen una dependencia explícita de ese
+puerto y ejecutan sus operaciones dentro de él. Una llamada directa por la interfaz
+tiene la misma atomicidad que la llamada HTTP. Las llamadas anidadas se unen a la
+unidad en curso; no confirman por separado.
 
-Con esto, el dominio se puede probar y evolucionar sin persistencia, frameworks, reloj real, usuario autenticado ni mecanismo concreto de eventos.
+El cambio de agregados, auditoría y encolado de eventos se confirman juntos. Si falla
+alguno, la unidad revierte. La entrega del outbox mantiene su propia transacción de
+infraestructura para reclamar y confirmar cada evento; eso no sustituye la transacción
+del caso de uso. Los avisos externos conservan su semántica de mejor esfuerzo.
 
-## Puertos de entrada y salida
+Los tests unitarios en memoria usan `DirectTransactions` de forma explícita; no simula
+rollback JDBC. Las pruebas de integración usan `JdbcTransactions` y una base H2 real.
+`UseCaseAtomicityIT` comprueba que, sin una transacción abierta por el llamador, una
+auditoría fallida revierta el guardado y una llamada posterior pueda confirmar normalmente.
 
-Los puertos de entrada son los casos de uso publicos de aplicacion. Cada caso representa una intencion del usuario o del sistema, por ejemplo registrar un activo, iniciar una inspeccion, cerrar una inspeccion, emitir un certificado o planificar una accion correctiva.
+## Fecha de negocio
 
-Los puertos de salida son interfaces en `application.*.port`. Permiten que la aplicacion pida capacidades externas sin conocer la implementacion:
+`Clock.today(Instant at)` convierte un instante a la fecha de la zona configurada;
+`today()` delega en `today(now())`. El adaptador productivo usa Buenos Aires por defecto.
+Los instantes de los hechos siguen siendo `Instant`; no se confunden con fechas límite.
 
-- Persistencia: repositorios de activos, partes, inspecciones, hallazgos, esquemas y certificados.
-- Consultas: queries como `InspectionQuery`, `FindingQuery` y catalogos publicados.
-- Tiempo e identidad: `Clock`, `ActorProvider`, `IdGenerator`.
-- Auditoria y eventos: `AuditTrail`, `DomainEventPublisher`, `DomainEventHandler`.
+`FindingService` entrega a `Finding` la fecha de negocio al crearlo y al crear acciones
+de reemplazo. Planificación, verificación, evaluación y barrido usan el mismo contrato
+y el instante capturado para la operación. No se deriva el comienzo del plazo desde
+UTC para después compararlo con una fecha local. La aritmética de vigencia de
+certificados en UTC es una regla separada de sus políticas, no el calendario del plazo
+de planificación.
 
-## Independencia del dominio
+`BusinessCalendarIT` verifica cierres a las 10:00 y 22:30 de un mismo 5 de marzo en
+Buenos Aires: ambos tienen plazo hasta el 4 de abril inclusive y vencen juntos el
+5 de abril. `SystemClockTest` comprueba la conversión del adaptador real cuando UTC
+ya cambió de día.
 
-Antes, algunos servicios del dominio dependian de repositorios o puertos. Eso hacia que el dominio conociera detalles de obtencion de datos. La arquitectura final evita ese acoplamiento:
+## Protección arquitectónica
 
-- `SchemaApplicability` ya no recibe `SchemaRepository`; la aplicacion consulta el repositorio y le pasa al dominio el estado necesario.
-- `CertificateFactory` se movio a `application.certification` porque coordina inspecciones, hallazgos, certificados, reloj e IDs.
-- `CertificateLifecycle` quedo en `domain.certification` como servicio puro: no conoce repositorios y solo decide el cambio sobre un certificado recibido.
-- `CertificationReactions` quedo en `application.certification` porque busca certificados por puerto, delega en el dominio, guarda el resultado y audita.
-- `RectificationConsequences` se movio a `application.inspection` porque coordina inspecciones, hallazgos y catalogo de activos.
+- `ArchitectureBoundaryTest`: dominio independiente; puertos en dominio; cada caso de
+  uso implementa su entrada y requiere `Transactions` por constructor.
+- `AppBoundaryTest`: dependencias de los controllers únicamente hacia interfaces del
+  dominio, ausencia de apertura de transacciones en web/jobs y conocimiento de JDBC
+  limitado a configuración.
+- `InfrastructureBoundaryTest`: adaptadores sin dependencias de aplicación o web.
+- `UseCaseTransactionTest`: repositorio y auditoría se invocan dentro de la unidad
+  incluso al entrar directamente por el puerto.
 
-El dominio conserva las reglas: solo dejo de conocer como se recupera o persiste la informacion.
-
-La emisión también está protegida dentro del dominio: `CertificationAssessment` solo se
-construye evaluando hechos y una definición inmutable de política; su constructor es privado.
-`Certificate` exige esa prueba incluso en su constructor de paquete, rechaza evaluaciones
-bloqueadas u obsoletas y calcula su modalidad y vigencia desde la decisión. Para renovar
-recibe el certificado anterior y comprueba activo, alcance, vencimiento y posterioridad de
-la inspección. `CertificateFactory` reúne los hechos mediante puertos y resuelve la política
-activa; no determina una vigencia arbitraria. El adaptador HTTP proyecta la decisión a
-`AssessmentResponse`, sin serializar los hechos internos de la evaluación.
-
-`DeriveGlobalCertificate` coordina por separado la proyección global actual por activo:
-consulta el snapshot y el último parcial de cada subsistema y entrega esos hechos a
-`GlobalCertificatePolicy`. La fábrica de emisión ya no depende de esa política. Cada
-parcial conserva su inspección y versión de esquema, aunque sean distintas de las de los
-otros parciales. La proyección no necesita persistencia ni sincronización propias.
-
-`InspectionSchema` controla el calendario de publicaciones y el retiro de versiones futuras.
-`WithdrawScheduledSchemaVersion` obtiene actor e instante por puertos, invoca esa regla y
-guarda el agregado y el hecho auditado; `SchemaController` delimita su transacción. Los
-retiros se conservan en el documento del agregado sin modificar las versiones publicadas.
-
-## Proteccion arquitectonica
-
-Se agrego `ArchitectureBoundaryTest`, una prueba de frontera que verifica:
-
-- que `domain` no importe `application` ni `adapter`;
-- que `application` no importe `adapter`;
-- que no existan paquetes de puertos dentro de `domain`.
-
-Esto evita que futuros cambios vuelvan a degradar la arquitectura a una variante pseudo hexagonal.
-
-
-## Políticas jurisdiccionales (F3)
-
-`CertificateFactory` consulta la jurisdicción con `AssetDirectory` y resuelve el perfil
-actual con `CertificationPolicyRegistry`. Construye hechos por alcance y un instante UTC,
-y delega la evaluación pura a `JurisdictionCertificationPolicy`. El adaptador de registro
-no se importa desde aplicación ni dominio; agregar una jurisdicción consiste en registrar
-un perfil en la composición existente.
-
-El dominio conserva `CertificationPolicySnapshot`, `CertificationPolicyRef`,
-`CertificationAssessment` y `CertificateMode`. Un certificado contiene la definición
-inmutable usada al emitirse. Elegibilidad evalúa solicitudes nuevas; reintentos e informes
-leen la metadata histórica del certificado. `CertificationReactions` consulta los hechos
-actuales y los pasa a `CertificateLifecycle.reconcile`, que usa el snapshot histórico sin
-consultar el registro ni aplicar restricciones de emisión inicial. También se reconcilia
-al planificar una acción correctiva; su evento se conserva pendiente hasta publicarse.
-
-Los perfiles de referencia y de ejemplo se registran explícitamente en los fixtures.
-Una jurisdicción desconocida produce un error de resolución, sin política predeterminada.
-El registro actual no sustituye la futura persistencia de revisiones, certificados y
-sus decisiones auditadas, ni ofrece atomicidad o unicidad concurrente.
+Las pruebas de negocio, repositorios, API y frontend completan estas comprobaciones.

@@ -1,22 +1,28 @@
 package ar.edu.itba.dps.certification.app.web;
 
-import ar.edu.itba.dps.certification.app.config.JurisdictionCatalog;
 import ar.edu.itba.dps.certification.app.web.dto.AssetRequest;
 import ar.edu.itba.dps.certification.app.web.dto.AssetResponse;
 import ar.edu.itba.dps.certification.app.web.dto.LocationRequest;
 import ar.edu.itba.dps.certification.app.web.dto.ResponsibleRequest;
-import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetResponsible;
-import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
-import ar.edu.itba.dps.certification.application.catalogue.usecase.RelocateAsset;
-import ar.edu.itba.dps.certification.application.catalogue.usecase.SearchAssets;
-import ar.edu.itba.dps.certification.application.shared.port.Transactions;
 import ar.edu.itba.dps.certification.domain.catalogue.Asset;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
+import ar.edu.itba.dps.certification.domain.catalogue.port.inbound.ChangeAssetResponsible;
+import ar.edu.itba.dps.certification.domain.catalogue.port.inbound.RegisterAsset;
+import ar.edu.itba.dps.certification.domain.catalogue.port.inbound.RelocateAsset;
+import ar.edu.itba.dps.certification.domain.catalogue.port.inbound.SearchAssets;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
+import ar.edu.itba.dps.certification.domain.certification.port.JurisdictionCatalog;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+
+import java.net.URI;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,12 +33,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 @RestController
 @RequestMapping("/api/assets")
 class AssetController {
@@ -41,17 +41,15 @@ class AssetController {
     private final RelocateAsset relocateAsset;
     private final ChangeAssetResponsible changeResponsible;
     private final SearchAssets searchAssets;
-    private final Transactions transactions;
     private final JurisdictionCatalog jurisdictions;
 
     AssetController(RegisterAsset registerAsset, RelocateAsset relocateAsset,
             ChangeAssetResponsible changeResponsible, SearchAssets searchAssets,
-            Transactions transactions, JurisdictionCatalog jurisdictions) {
+            JurisdictionCatalog jurisdictions) {
         this.registerAsset = registerAsset;
         this.relocateAsset = relocateAsset;
         this.changeResponsible = changeResponsible;
         this.searchAssets = searchAssets;
-        this.transactions = transactions;
         this.jurisdictions = jurisdictions;
     }
 
@@ -61,19 +59,19 @@ class AssetController {
             throw new InvalidArgumentException("unknown jurisdiction '" + request.jurisdiction()
                     + "'; known ones: " + jurisdictions.names());
         }
-        Asset asset = transactions.execute(() -> {
-            var responsible = new PartyId(request.responsibleId());
-            var jurisdiction = JurisdictionId.of(request.jurisdiction());
-            Map<String, String> characteristics = request.characteristics();
-            if (request.subsystems() == null) {
-                return registerAsset.register(request.name(), request.assetType(), responsible,
-                        request.location(), characteristics, jurisdiction);
-            }
+        var responsible = new PartyId(request.responsibleId());
+        var jurisdiction = JurisdictionId.of(request.jurisdiction());
+        Map<String, String> characteristics = request.characteristics();
+        Asset asset;
+        if (request.subsystems() == null) {
+            asset = registerAsset.register(request.name(), request.assetType(), responsible,
+                    request.location(), characteristics, jurisdiction);
+        } else {
             Set<Subsystem> subsystems = new LinkedHashSet<>();
             request.subsystems().forEach(name -> subsystems.add(Subsystem.of(name)));
-            return registerAsset.register(request.name(), request.assetType(), responsible,
+            asset = registerAsset.register(request.name(), request.assetType(), responsible,
                     request.location(), characteristics, subsystems, jurisdiction);
-        });
+        }
         return ResponseEntity.created(URI.create("/api/assets/" + asset.id().value()))
                 .body(AssetResponse.of(asset));
     }
@@ -107,15 +105,13 @@ class AssetController {
     @PutMapping("/{id}/location")
     AssetResponse relocate(@PathVariable("id") String id, @RequestBody LocationRequest request) {
         requireExisting(id);
-        return AssetResponse.of(transactions.execute(
-                () -> relocateAsset.relocate(new AssetId(id), request.location())));
+        return AssetResponse.of(relocateAsset.relocate(new AssetId(id), request.location()));
     }
 
     @PutMapping("/{id}/responsible")
     AssetResponse changeResponsible(@PathVariable("id") String id, @RequestBody ResponsibleRequest request) {
         requireExisting(id);
-        return AssetResponse.of(transactions.execute(
-                () -> changeResponsible.change(new AssetId(id), new PartyId(request.responsibleId()))));
+        return AssetResponse.of(changeResponsible.change(new AssetId(id), new PartyId(request.responsibleId())));
     }
 
     private void requireExisting(String id) {

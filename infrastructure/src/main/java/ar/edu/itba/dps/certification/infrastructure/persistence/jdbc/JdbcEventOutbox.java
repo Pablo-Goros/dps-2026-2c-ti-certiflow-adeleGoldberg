@@ -49,9 +49,15 @@ public final class JdbcEventOutbox {
 
     /** Oldest pending rows first. */
     public List<Pending> pending(int limit) {
+        return pendingAfter(0, limit);
+    }
+
+    /** Oldest pending rows after a cursor, allowing a dispatcher to progress past failures. */
+    public List<Pending> pendingAfter(long seq, int limit) {
         return db.query("SELECT seq, event_type, attempts, doc FROM domain_event_outbox "
-                        + "WHERE status = 'PENDING' ORDER BY seq FETCH FIRST " + Math.max(1, limit) + " ROWS ONLY",
-                row -> new Pending(row.getLong(1), row.getString(2), row.getInt(3), row.getString(4), codec));
+                        + "WHERE status = 'PENDING' AND seq > ? ORDER BY seq FETCH FIRST "
+                        + Math.max(1, limit) + " ROWS ONLY",
+                row -> new Pending(row.getLong(1), row.getString(2), row.getInt(3), row.getString(4), codec), seq);
     }
 
     /**
@@ -66,7 +72,8 @@ public final class JdbcEventOutbox {
     public void recordFailure(long seq, String error, int maxAttempts) {
         String shortened = error == null ? "" : error.substring(0, Math.min(error.length(), 900));
         db.update("UPDATE domain_event_outbox SET attempts = attempts + 1, last_error = ?, "
-                        + "status = CASE WHEN attempts + 1 >= ? THEN 'DEAD' ELSE 'PENDING' END WHERE seq = ?",
+                        + "status = CASE WHEN attempts + 1 >= ? THEN 'DEAD' ELSE 'PENDING' END "
+                        + "WHERE seq = ? AND status = 'PENDING'",
                 shortened, maxAttempts, seq);
     }
 

@@ -184,7 +184,7 @@ public final class InspectionDtos {
 
         public List<Correction> toDomain() {
             Validate.required(corrections, "corrections");
-            return corrections.stream().map(CorrectionDto::toDomain).toList();
+            return corrections.stream().map(correction -> Validate.required(correction, "correction").toDomain()).toList();
         }
     }
 }

@@ -1,10 +1,16 @@
 package ar.edu.itba.dps.certification.app;
 
+import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionPlanned;
+import ar.edu.itba.dps.certification.domain.notification.Notification;
+import ar.edu.itba.dps.certification.domain.notification.NotificationFailedException;
+import ar.edu.itba.dps.certification.domain.notification.port.NotificationSender;
+import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
+import ar.edu.itba.dps.certification.domain.shared.port.DomainEventHandler;
+
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,12 +21,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
-import ar.edu.itba.dps.certification.application.notification.Notification;
-import ar.edu.itba.dps.certification.application.notification.NotificationFailedException;
-import ar.edu.itba.dps.certification.application.notification.port.NotificationSender;
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventHandler;
-import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionPlanned;
-import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The background processes judged by their effect, over HTTP: time is moved with a steerable

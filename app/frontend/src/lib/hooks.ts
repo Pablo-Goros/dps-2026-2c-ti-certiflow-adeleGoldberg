@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { describeError } from './api'
+import { useParties } from '../components/Party'
 
 export interface Loaded<T> {
   data: T | undefined
@@ -10,6 +11,7 @@ export interface Loaded<T> {
 
 /** Loads something when the page opens (and whenever `deps` change); `reload` asks again. */
 export function useLoad<T>(load: () => Promise<T>, deps: unknown[]): Loaded<T> {
+  const { actorId } = useParties()
   const [data, setData] = useState<T>()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -34,7 +36,8 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[]): Loaded<T> {
       .finally(() => {
         if (mine === latest.current) setLoading(false)
       })
-  }, [loader, tick])
+    return () => { ++latest.current }
+  }, [loader, tick, actorId])
 
   return { data, error, loading, reload: () => setTick((n) => n + 1) }
 }

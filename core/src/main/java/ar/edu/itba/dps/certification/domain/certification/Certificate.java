@@ -36,7 +36,7 @@ public final class Certificate {
         Validate.ensure(inspection.status().closed(), "the backing inspection must be closed");
         this.scope = assessment.scope();
         Validate.ensure(scope.coveredSubsystem().map(inspection.certifiableSubsystems()::contains)
-                .orElseGet(() -> inspection.certifiableSubsystems().isEmpty()),
+                .orElseGet(() -> inspection.assetSnapshot().orElseThrow().subsystems().isEmpty()),
                 "assessment scope must be certified by the inspection");
         this.policy = assessment.policy();
         inspection.assetSnapshot().ifPresent(asset -> Validate.ensure(

@@ -1,21 +1,21 @@
 package ar.edu.itba.dps.certification.infrastructure.persistence.jdbc;
 
-import ar.edu.itba.dps.certification.application.shared.port.Transactions;
+import ar.edu.itba.dps.certification.domain.shared.port.Transactions;
 import ar.edu.itba.dps.certification.infrastructure.persistence.DuplicateKeyException;
 import ar.edu.itba.dps.certification.infrastructure.persistence.PersistenceException;
-
 import javax.sql.DataSource;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.function.Supplier;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 /**
  * Transaction boundary and the only place that talks JDBC.

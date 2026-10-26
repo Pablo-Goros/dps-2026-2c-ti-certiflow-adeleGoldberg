@@ -105,7 +105,7 @@ const dictionary: Record<string, string> = {
 
 export function label(code: string | null | undefined): string {
   if (!code) return '—'
-  return dictionary[code] ?? humanize(code)
+  return Object.hasOwn(dictionary, code) ? dictionary[code] : humanize(code)
 }
 
 /** SOME_CODE or someCode -> "Some code". */
@@ -130,7 +130,7 @@ const blockerText: Record<string, string> = {
 }
 
 export function blockerLabel(type: string): string {
-  return blockerText[type] ?? humanize(type)
+  return Object.hasOwn(blockerText, type) ? blockerText[type] : humanize(type)
 }
 
 
@@ -146,5 +146,5 @@ const eventText: Record<string, string> = {
 /** Takes either the full name (ar.edu...CorrectiveActionExpired) or just the last part. */
 export function eventLabel(eventType: string): string {
   const name = eventType.split('.').at(-1) ?? eventType
-  return eventText[name] ?? humanize(name)
+  return Object.hasOwn(eventText, name) ? eventText[name] : humanize(name)
 }

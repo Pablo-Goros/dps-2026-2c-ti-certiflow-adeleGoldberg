@@ -1,6 +1,6 @@
 package ar.edu.itba.dps.certification.app.config;
 
-import ar.edu.itba.dps.certification.app.ops.OutboxOperations;
+import ar.edu.itba.dps.certification.domain.shared.port.OutboxOperations;
 import ar.edu.itba.dps.certification.infrastructure.events.OutboxDispatcher;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcEventOutbox;
 import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcTransactions;

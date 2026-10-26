@@ -1,7 +1,7 @@
 package ar.edu.itba.dps.certification.infrastructure.persistence.jdbc;
 
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
+import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.infrastructure.persistence.codec.StateCodec;
 

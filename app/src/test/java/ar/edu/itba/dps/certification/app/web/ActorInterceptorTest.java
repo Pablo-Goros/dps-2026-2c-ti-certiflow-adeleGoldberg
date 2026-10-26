@@ -3,21 +3,23 @@ package ar.edu.itba.dps.certification.app.web;
 import ar.edu.itba.dps.certification.app.config.ActorHeader;
 import ar.edu.itba.dps.certification.app.config.AuthenticationRequiredException;
 import ar.edu.itba.dps.certification.app.config.RequestActor;
-import ar.edu.itba.dps.certification.application.catalogue.port.PartyRepository;
+import ar.edu.itba.dps.certification.app.support.DirectTransactions;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.BrowseParties;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.PartyKind;
+import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,7 +56,7 @@ class ActorInterceptorTest {
     void registeredParties() {
         var register = new Register();
         register.save(new Party(PartyId.of("p-1"), "Ana", PartyKind.PERSON));
-        interceptor = new ActorInterceptor(new BrowseParties(register), actors);
+        interceptor = new ActorInterceptor(new BrowseParties(register, DirectTransactions.INSTANCE), actors);
     }
 
     @AfterEach

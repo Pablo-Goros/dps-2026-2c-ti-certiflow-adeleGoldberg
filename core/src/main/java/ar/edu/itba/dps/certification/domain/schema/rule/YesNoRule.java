@@ -44,7 +44,7 @@ public final class YesNoRule implements EvaluationRule {
 
     @Override
     public Set<RuleOutcome> declaredOutcomes() {
-        return Set.of(whenAffirmative, whenNegative);
+        return Set.copyOf(List.of(whenAffirmative, whenNegative));
     }
 
     @Override

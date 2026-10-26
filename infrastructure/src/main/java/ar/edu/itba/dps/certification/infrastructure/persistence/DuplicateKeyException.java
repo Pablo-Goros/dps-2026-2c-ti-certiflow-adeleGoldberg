@@ -1,6 +1,6 @@
 package ar.edu.itba.dps.certification.infrastructure.persistence;
 
-import ar.edu.itba.dps.certification.application.shared.ConflictException;
+import ar.edu.itba.dps.certification.domain.shared.ConflictException;
 
 import java.sql.SQLException;
 

@@ -12,6 +12,29 @@ import static org.assertj.core.api.Assertions.assertThat;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "spring.datasource.url=jdbc:h2:mem:certiflow-errors-it;DB_CLOSE_DELAY=-1")
 class ErrorContractApiIT extends ApiTest {
+    @Test
+    void derivingTheGlobalOfAnUnknownAssetIs404() {
+        var reply = api.get("/api/assets/does-not-exist/global-derivation");
+        assertThat(reply.status()).isEqualTo(404);
+    }
+
+    @Test
+    void missingSchemaTypesAre400InsteadOfAnInternalError() {
+        var reply = api.post("/api/schemas", Map.of("name", "Incomplete"), null);
+        assertThat(reply.status()).as(reply.body()).isEqualTo(400);
+    }
+
+    @Test
+    void aNullCriterionIs400AndDoesNotChangeTheDraft() {
+        String schema = api.post("/api/schemas", Map.of("name", "Malformed input",
+                "assetTypes", java.util.List.of("EQUIPMENT")), null).text("id");
+        api.post("/api/schemas/" + schema + "/draft", Map.of(), null);
+        var reply = api.post("/api/schemas/" + schema + "/draft/sections",
+                Map.of("name", "Safety", "order", 1, "criteria", java.util.Arrays.asList((Object) null)), null);
+        assertThat(reply.status()).as(reply.body()).isEqualTo(400);
+        assertThat(api.get("/api/schemas/" + schema).body()).contains("\"sections\":[]");
+    }
+
 
     @Test
     void anUnknownRouteIs404NotAServerError() {

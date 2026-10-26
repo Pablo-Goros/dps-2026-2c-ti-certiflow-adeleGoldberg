@@ -33,6 +33,7 @@ public final class Validate {
         if (values.isEmpty()) {
             throw new InvalidArgumentException(name + " must contain at least one element");
         }
+        values.forEach(value -> required(value, name + " entry"));
         return List.copyOf(values);
     }
 

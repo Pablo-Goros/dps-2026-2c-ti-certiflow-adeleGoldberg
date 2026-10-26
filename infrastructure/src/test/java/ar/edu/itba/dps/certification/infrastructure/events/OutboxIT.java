@@ -1,6 +1,5 @@
 package ar.edu.itba.dps.certification.infrastructure.events;
 
-import ar.edu.itba.dps.certification.application.shared.port.DomainEventHandler;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.PartyKind;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionPlanned;
@@ -8,19 +7,21 @@ import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.domain.shared.port.DomainEventHandler;
+import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcEventOutbox;
 import ar.edu.itba.dps.certification.infrastructure.persistence.JdbcPersistence;
 import ar.edu.itba.dps.certification.infrastructure.persistence.TestDatabase;
-import ar.edu.itba.dps.certification.infrastructure.persistence.jdbc.JdbcEventOutbox;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -176,5 +177,37 @@ class OutboxIT {
 
         assertThat(deliveries.get()).isEqualTo(20);
         assertThat(entries("DONE")).hasSize(20);
+    }
+
+    @Test
+    void aFailedBatchDoesNotStarveLaterEventsOrRetryFailuresInTheSamePass() {
+        for (int i = 0; i < 51; i++) {
+            String criterion = i < 50 ? "BAD" + i : "GOOD";
+            persistence.transactions().execute(() -> persistence.eventOutbox().enqueue(event(criterion)));
+        }
+        OutboxDispatcher selective = new OutboxDispatcher(persistence.transactions(), persistence.eventOutbox(),
+                List.of(each -> {
+                    if (((CorrectiveActionPlanned) each).criterionId().value().startsWith("BAD")) {
+                        throw new IllegalStateException("bad event");
+                    }
+                    handled.add(each);
+                }), 3);
+
+        assertThat(selective.dispatchPending()).isEqualTo(1);
+        assertThat(entries("PENDING")).hasSize(50).allMatch(row -> row.attempts() == 1);
+        assertThat(entries("DONE")).hasSize(1);
+        assertThat(handled).hasSize(1);
+    }
+
+    @Test
+    void aLateFailureCannotResurrectAnEventAlreadyClaimedAsDone() {
+        persistence.transactions().execute(() -> persistence.eventOutbox().enqueue(event("RACE")));
+        long seq = persistence.eventOutbox().pending(1).get(0).seq();
+        persistence.transactions().execute(() -> assertThat(persistence.eventOutbox().claim(seq)).isTrue());
+
+        persistence.transactions().execute(() -> persistence.eventOutbox().recordFailure(seq, "late failure", 3));
+
+        assertThat(entries("DONE")).singleElement().satisfies(row -> assertThat(row.attempts()).isZero());
+        assertThat(entries("PENDING")).isEmpty();
     }
 }

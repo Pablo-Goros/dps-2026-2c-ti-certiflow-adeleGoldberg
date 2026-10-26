@@ -16,9 +16,10 @@ import ar.edu.itba.dps.certification.domain.inspection.InspectionStatus;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
 import ar.edu.itba.dps.certification.domain.schema.Section;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
-import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.answer.Measurement;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
 
@@ -62,11 +63,11 @@ class BrowseUseCasesTest {
         system.publishSchemaVersion.publish(schema.id());
         firstVersionInForce = system.clock.now();
 
-        parties = new BrowseParties(system.catalogue.parties);
-        schemas = new BrowseSchemas(system.schemas);
-        inspections = new BrowseInspections(system.inspections, system.schemaCatalog);
-        findings = new BrowseFindings(system.findings);
-        certificates = new BrowseCertificates(system.certificates);
+        parties = new BrowseParties(system.catalogue.parties, DirectTransactions.INSTANCE);
+        schemas = new BrowseSchemas(system.schemas, DirectTransactions.INSTANCE);
+        inspections = new BrowseInspections(system.inspections, system.schemaCatalog, DirectTransactions.INSTANCE);
+        findings = new BrowseFindings(system.findings, DirectTransactions.INSTANCE);
+        certificates = new BrowseCertificates(system.certificates, DirectTransactions.INSTANCE);
     }
 
     private Asset laboratory() {

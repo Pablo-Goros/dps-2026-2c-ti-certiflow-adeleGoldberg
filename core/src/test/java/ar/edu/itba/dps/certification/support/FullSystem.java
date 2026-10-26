@@ -5,7 +5,6 @@ import ar.edu.itba.dps.certification.adapter.certification.RegisteredCertificati
 import ar.edu.itba.dps.certification.adapter.finding.RepositoryFindingQuery;
 import ar.edu.itba.dps.certification.adapter.schema.PublishedSchemaCatalog;
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.ChangeAssetResponsible;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterAsset;
 import ar.edu.itba.dps.certification.application.catalogue.usecase.RegisterParty;
@@ -36,7 +35,6 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveNote;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateInspectionAct;
-import ar.edu.itba.dps.certification.application.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
 import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
 import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
@@ -46,6 +44,7 @@ import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.catalogue.PartyKind;
+import ar.edu.itba.dps.certification.domain.catalogue.port.AssetDirectory;
 import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
 import ar.edu.itba.dps.certification.domain.certification.derivation.AllSubsystemsMustBeInForce;
 import ar.edu.itba.dps.certification.domain.certification.derivation.GlobalCertificatePolicy;
@@ -53,6 +52,7 @@ import ar.edu.itba.dps.certification.domain.evaluation.CriterionEvaluator;
 import ar.edu.itba.dps.certification.domain.finding.Finding;
 import ar.edu.itba.dps.certification.domain.finding.FindingId;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.SchemaCatalog;
 import ar.edu.itba.dps.certification.domain.schema.SchemaApplicability;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.Section;
@@ -84,45 +84,45 @@ public final class FullSystem {
             new FindingService(findings, ids, clock, audit);
     public final SchemaApplicability schemaApplicability =
             new SchemaApplicability();
-    public final RegisterParty registerParty = new RegisterParty(catalogue.parties, ids, audit);
-    public final RegisterAsset registerAsset = new RegisterAsset(catalogue.assets, catalogue.parties, ids, audit);
-    public final RelocateAsset relocateAsset = new RelocateAsset(catalogue.assets, audit);
+    public final RegisterParty registerParty = new RegisterParty(catalogue.parties, ids, audit, DirectTransactions.INSTANCE);
+    public final RegisterAsset registerAsset = new RegisterAsset(catalogue.assets, catalogue.parties, ids, audit, DirectTransactions.INSTANCE);
+    public final RelocateAsset relocateAsset = new RelocateAsset(catalogue.assets, audit, DirectTransactions.INSTANCE);
     public final ChangeAssetResponsible changeAssetResponsible =
-            new ChangeAssetResponsible(catalogue.assets, catalogue.parties, audit);
+            new ChangeAssetResponsible(catalogue.assets, catalogue.parties, audit, DirectTransactions.INSTANCE);
 
-    public final CreateSchema createSchema = new CreateSchema(schemas, schemaApplicability, ids, audit);
-    public final OpenDraft openDraft = new OpenDraft(schemas, audit);
-    public final EditDraft editDraft = new EditDraft(schemas, audit);
+    public final CreateSchema createSchema = new CreateSchema(schemas, schemaApplicability, ids, audit, DirectTransactions.INSTANCE);
+    public final OpenDraft openDraft = new OpenDraft(schemas, audit, DirectTransactions.INSTANCE);
+    public final EditDraft editDraft = new EditDraft(schemas, audit, DirectTransactions.INSTANCE);
     public final PublishSchemaVersion publishSchemaVersion =
-            new PublishSchemaVersion(schemas, clock, audit);
+            new PublishSchemaVersion(schemas, clock, audit, DirectTransactions.INSTANCE);
 
     public final AssignInspection assignInspection =
-            new AssignInspection(inspections, assetDirectory, catalogue.parties, ids, audit);
+            new AssignInspection(inspections, assetDirectory, catalogue.parties, ids, audit, DirectTransactions.INSTANCE);
     public final StartInspection startInspection =
-            new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit, actors);
-    public final RecordAnswer recordAnswer = new RecordAnswer(inspections, audit, actors);
-    public final RecordNote recordNote = new RecordNote(inspections, ids, clock, audit, actors);
-    public final CorrectNote correctNote = new CorrectNote(inspections, audit, actors);
-    public final RemoveNote removeNote = new RemoveNote(inspections, audit, actors);
-    public final RemoveAnswer removeAnswer = new RemoveAnswer(inspections, audit, actors);
-    public final RemoveEvidence removeEvidence = new RemoveEvidence(inspections, audit, actors);
+            new StartInspection(inspections, assetDirectory, schemaCatalog, clock, audit, actors, DirectTransactions.INSTANCE);
+    public final RecordAnswer recordAnswer = new RecordAnswer(inspections, audit, actors, DirectTransactions.INSTANCE);
+    public final RecordNote recordNote = new RecordNote(inspections, ids, clock, audit, actors, DirectTransactions.INSTANCE);
+    public final CorrectNote correctNote = new CorrectNote(inspections, audit, actors, DirectTransactions.INSTANCE);
+    public final RemoveNote removeNote = new RemoveNote(inspections, audit, actors, DirectTransactions.INSTANCE);
+    public final RemoveAnswer removeAnswer = new RemoveAnswer(inspections, audit, actors, DirectTransactions.INSTANCE);
+    public final RemoveEvidence removeEvidence = new RemoveEvidence(inspections, audit, actors, DirectTransactions.INSTANCE);
     public final AttachEvidence attachEvidence =
-            new AttachEvidence(inspections, ids, clock, audit, actors);
+            new AttachEvidence(inspections, ids, clock, audit, actors, DirectTransactions.INSTANCE);
     public final CloseInspection closeInspection = new CloseInspection(inspections,
-            assetDirectory, findingService, clock, audit, actors);
+            assetDirectory, findingService, clock, audit, actors, DirectTransactions.INSTANCE);
     public final RectifyClosedInspection rectifyClosedInspection =
             new RectifyClosedInspection(inspections, findingService,
                     new RectificationConsequences(findingService, assetDirectory),
-                    events, ids, clock, audit, actors);
+                    events, ids, clock, audit, actors, DirectTransactions.INSTANCE);
 
     public final PlanCorrectiveAction planCorrectiveAction =
-            new PlanCorrectiveAction(findings, audit, clock, actors, events);
+            new PlanCorrectiveAction(findings, catalogue.parties, audit, clock, actors, events, DirectTransactions.INSTANCE);
     public final ReportCorrectiveActionExecution reportExecution =
-            new ReportCorrectiveActionExecution(findings, clock, audit, actors);
+            new ReportCorrectiveActionExecution(findings, clock, audit, actors, DirectTransactions.INSTANCE);
     public final VerifyCorrectiveAction verifyCorrectiveAction =
-            new VerifyCorrectiveAction(findings, clock, events, audit, actors);
+            new VerifyCorrectiveAction(findings, clock, events, audit, actors, DirectTransactions.INSTANCE);
     public final ExpireOverdueCorrectiveActions expireActions =
-            new ExpireOverdueCorrectiveActions(findings, clock, events, audit);
+            new ExpireOverdueCorrectiveActions(findings, clock, events, audit, DirectTransactions.INSTANCE);
 
     public final RegisteredCertificationPolicies policies = TestPolicies.registry();
     public final GlobalCertificatePolicy globalPolicy =
@@ -130,23 +130,25 @@ public final class FullSystem {
     public final CertificateFactory certificateFactory =
             new CertificateFactory(inspections, findingQuery,
                     certificates, assetDirectory, policies, ids, clock);
-    public final IssueCertificate issueCertificate = new IssueCertificate(certificateFactory, certificates, audit);
+    public final IssueCertificate issueCertificate = new IssueCertificate(certificateFactory, certificates, audit, DirectTransactions.INSTANCE);
     public final RenewCertificate renewCertificate =
-            new RenewCertificate(certificateFactory, certificates, audit);
+            new RenewCertificate(certificateFactory, certificates, audit, DirectTransactions.INSTANCE);
     public final ExpireDueCertificates expireCertificates =
-            new ExpireDueCertificates(certificates, clock, audit);
+            new ExpireDueCertificates(certificates, clock, audit, DirectTransactions.INSTANCE);
     public final EvaluateIssuanceEligibility evaluateEligibility =
-            new EvaluateIssuanceEligibility(certificateFactory);
+            new EvaluateIssuanceEligibility(certificateFactory, DirectTransactions.INSTANCE);
     public final DeriveGlobalCertificate deriveGlobalCertificate =
-            new DeriveGlobalCertificate(assetDirectory, certificates, inspections, globalPolicy, clock);
+            new DeriveGlobalCertificate(assetDirectory, certificates, inspections, globalPolicy, clock, DirectTransactions.INSTANCE);
     public final GenerateInspectionAct generateInspectionAct =
             new GenerateInspectionAct(
-                    inspections, schemaCatalog);
+                    inspections, schemaCatalog, DirectTransactions.INSTANCE);
     public final GenerateCertificateReport generateCertificateReport =
             new GenerateCertificateReport(
-                    certificates, inspections, findingQuery);
+                    certificates, inspections, findingQuery, DirectTransactions.INSTANCE);
 
     public FullSystem() {
+        catalogue.parties.save(new Party(PartyId.of("executor"), "Executor",
+                ar.edu.itba.dps.certification.domain.catalogue.PartyKind.PERSON));
         events.register(new CertificationReactions(certificates, inspections,
                 new CertificateLifecycle(), audit, findingQuery, clock));
     }

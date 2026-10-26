@@ -49,7 +49,7 @@ class StaggeredGlobalCertificationIT {
 
         var reopened = JdbcPersistence.open(source);
         var derive = new DeriveGlobalCertificate(new CatalogueAssetDirectory(reopened.assets(), clock),
-                reopened.certificates(), reopened.inspections(), new AllSubsystemsMustBeInForce(), clock);
+                reopened.certificates(), reopened.inspections(), new AllSubsystemsMustBeInForce(), clock, reopened.transactions());
         var global = derive.deriveFor(asset.id()).derivedCertificate().orElseThrow();
         assertThat(global.derivedFrom()).containsExactly(renewed.id(), pressure.id());
         assertThat(global.provenance()).extracting(p -> p.backingInspectionId()).containsExactly(second.id(), first.id());

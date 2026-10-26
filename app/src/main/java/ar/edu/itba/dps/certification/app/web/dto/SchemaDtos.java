@@ -107,7 +107,7 @@ public final class SchemaDtos {
                     Validate.required(bands, "bands");
                     Validate.required(outOfRange, "outcome for a measurement outside the range");
                     yield new NumericRangeRule(unit, minimum, maximum,
-                            bands.stream().map(Band::toDomain).toList(), outOfRange.toDomain());
+                            bands.stream().map(band -> Validate.required(band, "numeric band").toDomain()).toList(), outOfRange.toDomain());
                 }
                 default -> throw new InvalidArgumentException(
                         "rule type must be YES_NO, OPTIONS or NUMERIC_RANGE, not " + type);
@@ -139,7 +139,7 @@ public final class SchemaDtos {
         Criterion toDomain() {
             Validate.required(rule, "criterion rule");
             List<EvidenceRequirement> requirements = evidence == null ? List.of()
-                    : evidence.stream().map(Evidence::toDomain).toList();
+                    : evidence.stream().map(item -> Validate.required(item, "evidence requirement").toDomain()).toList();
             return new Criterion(CriterionId.of(id), rule.toDomain(), requirements,
                     java.util.Optional.ofNullable(subsystem).map(Subsystem::of));
         }
@@ -154,7 +154,8 @@ public final class SchemaDtos {
 
         public Section toDomain() {
             Validate.required(criteria, "criteria");
-            return new Section(name, order, criteria.stream().map(CriterionDto::toDomain).toList());
+            return new Section(name, order, criteria.stream()
+                    .map(criterion -> Validate.required(criterion, "criterion").toDomain()).toList());
         }
     }
 

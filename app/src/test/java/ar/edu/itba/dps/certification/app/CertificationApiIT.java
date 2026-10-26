@@ -128,14 +128,21 @@ class CertificationApiIT extends ApiTest {
 
     @Test
     void everyEventOfTheRequestsIsDeliveredThroughTheOutbox() {
-        closedInspection("hazardous", "clean", "clean");
+        int deliveredBefore = api.get("/api/admin/outbox?status=DONE").jsonListOrEmpty().size();
+        var inspected = closedInspection("hazardous", "clean", "clean");
+        String findingId = (String) api.get("/api/findings?inspectionId=" + inspected.inspectionId())
+                .jsonList().getFirst().get("id");
+        var planned = api.post("/api/findings/" + findingId + "/plan", Map.of("work", "repair",
+                "executorId", person("Outbox executor"),
+                "dueDate", LocalDate.now(ZoneOffset.UTC).plusDays(10).toString()), inspected.owner());
+        assertThat(planned.status()).as(planned.body()).isEqualTo(200);
         api.post("/api/admin/jobs/run", Map.of(), null);
 
         var done = api.get("/api/admin/outbox?status=DONE");
         var pending = api.get("/api/admin/outbox?status=PENDING");
         var dead = api.get("/api/admin/outbox?status=DEAD");
 
-        assertThat(done.jsonListOrEmpty()).isNotEmpty();
+        assertThat(done.jsonListOrEmpty().size()).isGreaterThan(deliveredBefore);
         assertThat(pending.jsonListOrEmpty()).isEmpty();
         assertThat(dead.jsonListOrEmpty()).isEmpty();
     }

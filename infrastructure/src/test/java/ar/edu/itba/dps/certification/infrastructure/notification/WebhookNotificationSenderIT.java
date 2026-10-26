@@ -1,11 +1,8 @@
 package ar.edu.itba.dps.certification.infrastructure.notification;
 
-import ar.edu.itba.dps.certification.application.notification.Notification;
-import ar.edu.itba.dps.certification.application.notification.NotificationFailedException;
+import ar.edu.itba.dps.certification.domain.notification.Notification;
+import ar.edu.itba.dps.certification.domain.notification.NotificationFailedException;
 import com.sun.net.httpserver.HttpServer;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -13,8 +10,12 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.List;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

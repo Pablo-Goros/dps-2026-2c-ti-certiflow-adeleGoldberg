@@ -36,6 +36,7 @@ import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
 
@@ -220,7 +221,7 @@ class ReviewCorrectionsIT {
         system.editDraft.addSection(target.id(),
                 DomainWorld.sectionCovering("Parts", 2, AssetType.FACILITY));
         assertThat(system.publishSchemaVersion.publish(target.id()).published()).isTrue();
-        var change = new ChangeSchemaApplicability(system.schemas, system.schemaApplicability, system.audit);
+        var change = new ChangeSchemaApplicability(system.schemas, system.schemaApplicability, system.audit, system.clock, DirectTransactions.INSTANCE);
         assertThatThrownBy(() -> change.applyTo(target.id(), AssetType.FACTORY)).hasMessageContaining("already covered");
         assertThatThrownBy(() -> change.stopApplyingTo(source.id(), AssetType.FACILITY)).hasMessageContaining("does not apply");
         assertThatThrownBy(() -> change.stopApplyingTo(source.id(), AssetType.FACTORY)).hasMessageContaining("without a schema");
@@ -246,7 +247,7 @@ class ReviewCorrectionsIT {
         assertThat(inspection.pendingEvents()).hasSize(1);
         failing.set(false);
         new PublishPendingDomainEvents(
-                system.inspections, system.findings, system.events).publish();
+                system.inspections, system.findings, system.events, DirectTransactions.INSTANCE).publish();
         assertThat(inspection.pendingEvents()).isEmpty();
         assertThat(system.auditTrail.withAction(AuditAction.CERTIFICATE_SUSPENDED)).hasSize(1);
     }

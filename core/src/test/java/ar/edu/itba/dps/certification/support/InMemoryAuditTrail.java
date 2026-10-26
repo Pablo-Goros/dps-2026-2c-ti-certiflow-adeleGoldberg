@@ -1,9 +1,9 @@
 package ar.edu.itba.dps.certification.support;
 
-import ar.edu.itba.dps.certification.application.audit.port.AuditTrail;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
-import ar.edu.itba.dps.certification.domain.audit.AuditEntry;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
+import ar.edu.itba.dps.certification.domain.audit.AuditEntry;
+import ar.edu.itba.dps.certification.domain.audit.port.AuditTrail;
 
 import java.util.ArrayList;
 import java.util.List;

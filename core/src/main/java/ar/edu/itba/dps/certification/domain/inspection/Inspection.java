@@ -120,8 +120,9 @@ public final class Inspection {
 
     public void reassign(PartyId newInspector, LocalDate newExpectedDate) {
         requireStatus(InspectionStatus.ASSIGNED, "reassign");
+        Validate.required(newExpectedDate, "expected date");
         this.inspector = Validate.required(newInspector, "inspector");
-        this.expectedDate = Validate.required(newExpectedDate, "expected date");
+        this.expectedDate = newExpectedDate;
     }
 
     public void start(PartyId actor, SchemaVersion version, AssetSnapshot snapshot, Instant at) {
@@ -278,7 +279,7 @@ public final class Inspection {
     private void rejectIfInapplicable(SchemaVersion version, Correction correction) {
         switch (correction) {
             case Correction.AnswerCorrection answerCorrection -> {
-                requireRecord(answerCorrection.criterionId());
+                requireApplicableRecord(answerCorrection.criterionId(), "rectified");
                 version.requireCriterion(answerCorrection.criterionId()).rule()
                         .admissibilityViolation(answerCorrection.answer())
                         .ifPresent(violation -> {
@@ -287,7 +288,7 @@ public final class Inspection {
                         });
             }
             case Correction.EvidenceReferenceCorrection evidenceCorrection ->
-                    requireRecord(evidenceCorrection.criterionId())
+                    requireApplicableRecord(evidenceCorrection.criterionId(), "rectified")
                             .requireEvidence(evidenceCorrection.evidenceId());
             case Correction.NoteCorrection noteCorrection -> requireNote(noteCorrection.noteId());
         }

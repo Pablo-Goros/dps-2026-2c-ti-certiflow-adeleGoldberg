@@ -8,21 +8,20 @@ import ar.edu.itba.dps.certification.app.web.dto.SchemaDtos.SectionDto;
 import ar.edu.itba.dps.certification.app.web.dto.SchemaDtos.TransferRequest;
 import ar.edu.itba.dps.certification.app.web.dto.SchemaDtos.VersionDto;
 import ar.edu.itba.dps.certification.app.web.dto.SchemaDtos.WithdrawRequest;
-import ar.edu.itba.dps.certification.application.schema.usecase.BrowseSchemas;
-import ar.edu.itba.dps.certification.application.schema.usecase.ChangeSchemaApplicability;
-import ar.edu.itba.dps.certification.application.schema.usecase.CreateSchema;
-import ar.edu.itba.dps.certification.application.schema.usecase.DiscardDraft;
-import ar.edu.itba.dps.certification.application.schema.usecase.EditDraft;
-import ar.edu.itba.dps.certification.application.schema.usecase.OpenDraft;
-import ar.edu.itba.dps.certification.application.schema.usecase.PublishSchemaVersion;
-import ar.edu.itba.dps.certification.application.schema.usecase.WithdrawScheduledSchemaVersion;
-import ar.edu.itba.dps.certification.application.shared.port.Clock;
-import ar.edu.itba.dps.certification.application.shared.port.Transactions;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
 import ar.edu.itba.dps.certification.domain.schema.InspectionSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.BrowseSchemas;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.ChangeSchemaApplicability;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.CreateSchema;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.DiscardDraft;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.EditDraft;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.OpenDraft;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.PublishSchemaVersion;
+import ar.edu.itba.dps.certification.domain.schema.port.inbound.WithdrawScheduledSchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.PublicationResult;
 import ar.edu.itba.dps.certification.domain.schema.SchemaId;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
+import ar.edu.itba.dps.certification.domain.shared.port.Clock;
 
 import java.net.URI;
 import java.time.format.DateTimeParseException;
@@ -53,12 +52,10 @@ class SchemaController {
     private final ChangeSchemaApplicability applicability;
     private final BrowseSchemas schemas;
     private final Clock clock;
-    private final Transactions transactions;
 
     SchemaController(CreateSchema createSchema, OpenDraft openDraft, EditDraft editDraft,
             DiscardDraft discardDraft, PublishSchemaVersion publishSchema, WithdrawScheduledSchemaVersion withdrawVersion,
-            ChangeSchemaApplicability applicability, BrowseSchemas schemas, Clock clock,
-            Transactions transactions) {
+            ChangeSchemaApplicability applicability, BrowseSchemas schemas, Clock clock) {
         this.createSchema = createSchema;
         this.openDraft = openDraft;
         this.editDraft = editDraft;
@@ -68,13 +65,11 @@ class SchemaController {
         this.applicability = applicability;
         this.schemas = schemas;
         this.clock = clock;
-        this.transactions = transactions;
     }
 
     @PostMapping
     ResponseEntity<SchemaResponse> create(@RequestBody CreateSchemaRequest request) {
-        InspectionSchema schema = transactions.execute(
-                () -> createSchema.create(request.name(), request.assetTypes()));
+        InspectionSchema schema = createSchema.create(request.name(), request.assetTypes());
         return ResponseEntity.created(URI.create("/api/schemas/" + schema.id().value()))
                 .body(view(schema));
     }
@@ -115,28 +110,28 @@ class SchemaController {
     @PostMapping("/{id}/draft")
     SchemaResponse openDraft(@PathVariable("id") String id) {
         existing(id);
-        transactions.execute(() -> openDraft.open(SchemaId.of(id)));
+        openDraft.open(SchemaId.of(id));
         return view(existing(id));
     }
 
     @DeleteMapping("/{id}/draft")
     SchemaResponse discardDraft(@PathVariable("id") String id) {
         existing(id);
-        transactions.execute(() -> discardDraft.discard(SchemaId.of(id)));
+        discardDraft.discard(SchemaId.of(id));
         return view(existing(id));
     }
 
     @PostMapping("/{id}/draft/sections")
     SchemaResponse addSection(@PathVariable("id") String id, @RequestBody SectionDto section) {
         existing(id);
-        transactions.execute(() -> editDraft.addSection(SchemaId.of(id), section.toDomain()));
+        editDraft.addSection(SchemaId.of(id), section.toDomain());
         return view(existing(id));
     }
 
     @DeleteMapping("/{id}/draft/sections/{name}")
     SchemaResponse removeSection(@PathVariable("id") String id, @PathVariable("name") String name) {
         existing(id);
-        transactions.execute(() -> editDraft.removeSection(SchemaId.of(id), name));
+        editDraft.removeSection(SchemaId.of(id), name);
         return view(existing(id));
     }
 
@@ -145,9 +140,9 @@ class SchemaController {
     ResponseEntity<VersionDto> publish(@PathVariable("id") String id,
             @RequestBody(required = false) PublishRequest request) {
         existing(id);
-        PublicationResult result = transactions.execute(() -> request == null || request.effectiveFrom() == null
+        PublicationResult result = request == null || request.effectiveFrom() == null
                 ? publishSchema.publish(SchemaId.of(id))
-                : publishSchema.publish(SchemaId.of(id), request.effectiveFrom()));
+                : publishSchema.publish(SchemaId.of(id), request.effectiveFrom());
         if (!result.published()) {
             throw new PublicationRefusedException(result.violations());
         }
@@ -160,19 +155,19 @@ class SchemaController {
     SchemaResponse withdraw(@PathVariable("id") String id, @PathVariable("number") int number,
             @RequestBody WithdrawRequest request) {
         existing(id);
-        return view(transactions.execute(() -> withdrawVersion.withdraw(SchemaId.of(id), number, request.reason())));
+        return view(withdrawVersion.withdraw(SchemaId.of(id), number, request.reason()));
     }
 
     @PostMapping("/{id}/applicability")
     SchemaResponse applyTo(@PathVariable("id") String id, @RequestBody ApplicabilityRequest request) {
         existing(id);
-        return view(transactions.execute(() -> applicability.applyTo(SchemaId.of(id), request.assetType())));
+        return view(applicability.applyTo(SchemaId.of(id), request.assetType()));
     }
 
     @DeleteMapping("/{id}/applicability/{assetType}")
     SchemaResponse stopApplyingTo(@PathVariable("id") String id, @PathVariable("assetType") AssetType assetType) {
         existing(id);
-        return view(transactions.execute(() -> applicability.stopApplyingTo(SchemaId.of(id), assetType)));
+        return view(applicability.stopApplyingTo(SchemaId.of(id), assetType));
     }
 
     /** Moves an asset type from this schema to another one atomically. */
@@ -180,8 +175,8 @@ class SchemaController {
     SchemaResponse transfer(@PathVariable("id") String id, @RequestBody TransferRequest request) {
         existing(id);
         existing(request.targetSchemaId());
-        return view(transactions.execute(() -> applicability.transferTo(SchemaId.of(id),
-                SchemaId.of(request.targetSchemaId()), request.assetType())));
+        return view(applicability.transferTo(SchemaId.of(id),
+                SchemaId.of(request.targetSchemaId()), request.assetType()));
     }
 
     private static Instant parseInstant(String text) {

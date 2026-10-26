@@ -93,7 +93,7 @@ export function toRule(form: RuleForm): Rule {
     case 'YES_NO':
       return { type: 'YES_NO', yes: cleanOutcome(form.yes), no: cleanOutcome(form.no) }
     case 'OPTIONS': {
-      const options: Record<string, Outcome> = {}
+      const options: Record<string, Outcome> = Object.create(null)
       for (const option of form.options) {
         const key = option.key.trim()
         if (!key) throw new Error('Cada opción necesita un nombre.')

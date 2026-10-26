@@ -17,7 +17,7 @@
   <name>Asset Inspection and Certification :: Hexagonal Core</name>
   <description>
     Hexagonal core for the asset inspection, authorization and certification platform.
-    Contains the business model, application use cases, application-owned ports and
+    Contains the business model, domain-owned input/output ports, application use cases and
     lightweight adapters that connect ports without adding framework dependencies.
   </description>
 

@@ -15,7 +15,6 @@ import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -55,8 +54,6 @@ public final class CertificationAssessment {
         Validate.required(context, "certification context");
         Validate.required(at, "evaluation instant");
         Validate.required(policy, "policy snapshot");
-        Validate.ensure(context.today().equals(at.atZone(ZoneOffset.UTC).toLocalDate()),
-                "assessment date must match its evaluation instant");
         context.inspection().closedAt().ifPresent(closed -> Validate.ensure(!closed.isAfter(at),
                 "issuance cannot precede closure"));
         var blockers = new LinkedHashSet<IssuanceBlocker>();

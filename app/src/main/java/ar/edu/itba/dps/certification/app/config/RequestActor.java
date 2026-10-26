@@ -1,7 +1,7 @@
 package ar.edu.itba.dps.certification.app.config;
 
-import ar.edu.itba.dps.certification.application.shared.port.ActorProvider;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
+import ar.edu.itba.dps.certification.domain.shared.port.ActorProvider;
 
 /**
  * The actor of the request being served, kept in a thread-local that the web layer sets before the

@@ -1,6 +1,9 @@
 package ar.edu.itba.dps.certification.domain.certification;
 
 import ar.edu.itba.dps.certification.domain.catalogue.AssetId;
+import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
+import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
+import ar.edu.itba.dps.certification.domain.catalogue.ResponsiblePartyRef;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.certification.issuance.*;
 import ar.edu.itba.dps.certification.domain.certification.policy.JurisdictionCertificationPolicy;
@@ -117,6 +120,29 @@ class CertificateIssuerTest {
                 CertificateScope.of(Subsystem.of("absent")),
                 Optional.empty(), Optional.empty());
         assertThatThrownBy(() -> issuer.issue(id, facts.inspection, policy.assess(context, PolicyFacts.AT), null))
+                .hasMessageContaining("scope must be certified");
+    }
+
+    @Test void anAssetWithUnevaluatedSubsystemsCannotReceiveADirectGlobalCertificate() {
+        var snapshot = new AssetSnapshot(
+                facts.inspection.assetId(), AssetType.FACTORY,
+                "Factory", Map.of(), "Here",
+                new ResponsiblePartyRef(PolicyFacts.OWNER, "Owner"),
+                PolicyFacts.AT, TestPolicies.REFERENCE);
+        var criterion = Criterion.of("GENERAL", new MappedOptionsRule(
+                Map.of("yes", RuleOutcome.approved("OK", "approved"))));
+        var version = new SchemaVersion(facts.inspection.requireFrozenSchemaVersionId(),
+                List.of(Section.of("General", 1, criterion)), PolicyFacts.AT);
+        var inspection = new Inspection(InspectionId.of("uncovered"), snapshot.assetId(),
+                PolicyFacts.INSPECTOR, PolicyFacts.today());
+        inspection.start(PolicyFacts.INSPECTOR, version, snapshot, PolicyFacts.AT);
+        inspection.recordAnswer(PolicyFacts.INSPECTOR, criterion.id(), OptionAnswer.of("yes"));
+        inspection.close(PolicyFacts.INSPECTOR, PolicyFacts.AT);
+        var context = new CertificationContext(inspection, List.of(), PolicyFacts.today(),
+                CertificateScope.global(), Optional.empty(), Optional.empty());
+        var assessment = policy.assess(context, PolicyFacts.AT);
+
+        assertThatThrownBy(() -> issuer.issue(id, inspection, assessment, null))
                 .hasMessageContaining("scope must be certified");
     }
 

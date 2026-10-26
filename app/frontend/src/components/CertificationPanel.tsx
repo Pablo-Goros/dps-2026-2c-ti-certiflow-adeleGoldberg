@@ -6,7 +6,7 @@ import { label, humanize } from '../lib/labels'
 import type { Assessment, Certificate, GlobalDerivation } from '../lib/types'
 import { Blockers } from './Blockers'
 import { GlobalDerivationView } from './GlobalCertification'
-import { Badge, Card, CertificateBadge, ErrorLine, Loading, Notice, useAction, useToast } from './ui'
+import { Badge, Card, CertificateBadge, ErrorLine, Loading, LoadError, Notice, useAction, useToast } from './ui'
 
 interface Target {
   /** null = the global certificate. */
@@ -39,7 +39,11 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
           Cada subsistema se certifica por separado. El certificado global se deriva cuando todos los parciales están en regla.
         </p>
       )}
-      {issued.loading && !issued.data ? <Loading /> : (
+      {issued.error && <LoadError message={issued.error} retry={issued.reload} />}
+      {assetCertificates.error && <LoadError message={assetCertificates.error} retry={assetCertificates.reload} />}
+      {derivation.error && <LoadError message={derivation.error} retry={derivation.reload} />}
+      {((issued.loading && !issued.data) || (assetCertificates.loading && !assetCertificates.data)) && <Loading />}
+      {issued.data && assetCertificates.data && (
         <div className="stack">
           {targets.map((target) => (
             <TargetRow
@@ -47,9 +51,9 @@ export function CertificationPanel({ inspectionId, assetId, subsystems }: {
               inspectionId={inspectionId}
               target={target}
               certificate={issued.data?.find((c) => (target.subsystem ? c.subsystem === target.subsystem : c.scope === 'GLOBAL'))}
-              previous={assetCertificates.data?.find(
+              previous={assetCertificates.data?.filter(
                 (c) => c.backingInspectionId !== inspectionId && (target.subsystem ? c.subsystem === target.subsystem : c.scope === 'GLOBAL'),
-              )}
+              ).sort((a, b) => Date.parse(b.issuedAt) - Date.parse(a.issuedAt))[0]}
               onChange={reloadAll}
             />
           ))}
@@ -122,9 +126,9 @@ function TargetRow({ inspectionId, target, certificate, previous, onChange }: {
                 Renovar
               </button>
             )}
-            <button className="primary" disabled={busy || !eligible} onClick={() => run(() => issue('certificates'))}>
+            {!previous && <button className="primary" disabled={busy || !eligible} onClick={() => run(() => issue('certificates'))}>
               Emitir certificado
-            </button>
+            </button>}
           </div>
         )}
       </header>

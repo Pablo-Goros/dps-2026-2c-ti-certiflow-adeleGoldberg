@@ -61,9 +61,18 @@ class CatalogueEdgeTest {
         assertThatThrownBy(() -> asset.assignResponsible(responsible))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("already the responsibility");
-        assertThatThrownBy(() -> asset.relocate("Building 1"))
+        assertThatThrownBy(() -> asset.relocate("  Building 1  "))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("already located");
+    }
+
+    @Test
+    void relocationNormalizesTheStoredLocationLikeTheConstructor() {
+        Asset asset = new Asset(AssetId.of("asset"), "Freezer", AssetType.EQUIPMENT, Map.of(),
+                new ResponsiblePartyRef(PartyId.of("owner"), "Owner"), "Old", JurisdictionId.of("REFERENCE"));
+        asset.relocate("  New  ");
+        assertThat(asset.location()).isEqualTo("New");
+        assertThat(asset.captureSnapshot(Instant.parse("2026-03-01T10:00:00Z")).location()).isEqualTo("New");
     }
 
     @Test

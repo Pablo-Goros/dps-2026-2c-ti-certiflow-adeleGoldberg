@@ -61,8 +61,6 @@ export function SchemaDetail() {
           {s.assetTypes.map((type: AssetType) => (
             <span key={type} className="row" style={{ gap: 4 }}>
               <Badge tone="seal">{label(type)}</Badge>
-              <button className="small" disabled={busy} aria-label={`Dejar de aplicar a ${label(type)}`}
-                onClick={() => change(() => api.del(`/schemas/${id}/applicability/${type}`), 'Aplicabilidad actualizada')}>×</button>
             </span>
           ))}
           {free.length > 0 && (
@@ -73,6 +71,7 @@ export function SchemaDetail() {
             </select>
           )}
         </div>
+        {s.assetTypes.length > 1 && <TransferApplicability schema={s} onDone={schema.reload} />}
       </Card>
 
       <Card
@@ -159,6 +158,46 @@ export function SchemaDetail() {
         )}
       </Card>
     </Page>
+  )
+}
+
+function TransferApplicability({ schema, onDone }: { schema: Schema; onDone: () => void }) {
+  const schemas = useLoad(() => api.get<Schema[]>('/schemas'), [])
+  const [assetType, setAssetType] = useState<AssetType | ''>('')
+  const [targetId, setTargetId] = useState('')
+  const { run, busy, error } = useAction()
+  const targets = schemas.data?.filter((candidate) => candidate.id !== schema.id
+    && candidate.effectiveVersion !== null && !candidate.assetTypes.includes(assetType as AssetType)) ?? []
+  return (
+    <form className="form" style={{ marginTop: 14 }} onSubmit={async (event) => {
+      event.preventDefault()
+      if (await run(() => api.post(`/schemas/${schema.id}/applicability/transfer`,
+        { assetType, targetSchemaId: targetId }), 'Aplicabilidad transferida')) {
+        setAssetType('')
+        setTargetId('')
+        schemas.reload()
+        onDone()
+      }
+    }}>
+      <Field label="Transferir tipo" hint="El esquema de origen conserva al menos un tipo de activo.">
+        <select value={assetType} required disabled={busy} onChange={(event) => {
+          setAssetType(event.target.value as AssetType | '')
+          setTargetId('')
+        }}>
+          <option value="">Elegí un tipo…</option>
+          {schema.assetTypes.map((type) => <option key={type} value={type}>{label(type)}</option>)}
+        </select>
+      </Field>
+      <Field label="Esquema de destino" hint="Debe tener una versión vigente que evalúe los subsistemas del tipo transferido.">
+        <select value={targetId} required disabled={busy || !assetType} onChange={(event) => setTargetId(event.target.value)}>
+          <option value="">Elegí un esquema…</option>
+          {targets.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
+        </select>
+      </Field>
+      <div className="form-actions"><button disabled={busy || !assetType || !targetId}>Transferir aplicabilidad</button></div>
+      {schemas.error && <LoadError message={schemas.error} retry={schemas.reload} />}
+      <ErrorLine message={error} />
+    </form>
   )
 }
 

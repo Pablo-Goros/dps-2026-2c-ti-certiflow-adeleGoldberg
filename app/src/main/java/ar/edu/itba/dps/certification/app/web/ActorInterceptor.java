@@ -3,11 +3,12 @@ package ar.edu.itba.dps.certification.app.web;
 import ar.edu.itba.dps.certification.app.config.ActorHeader;
 import ar.edu.itba.dps.certification.app.config.AuthenticationRequiredException;
 import ar.edu.itba.dps.certification.app.config.RequestActor;
-import ar.edu.itba.dps.certification.application.catalogue.usecase.BrowseParties;
+import ar.edu.itba.dps.certification.domain.catalogue.port.inbound.BrowseParties;
 import ar.edu.itba.dps.certification.domain.shared.Actor;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**

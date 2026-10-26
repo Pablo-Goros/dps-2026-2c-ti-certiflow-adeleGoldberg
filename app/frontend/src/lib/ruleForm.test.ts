@@ -5,6 +5,16 @@ import { blockerLabel, eventLabel, humanize, label } from './labels'
 import { describeBand, parseNumber } from './rules'
 
 describe('rule forms', () => {
+  it('keeps option names that coincide with JavaScript object properties', () => {
+    const form = newRuleForm('OPTIONS')
+    form.options[0].key = '__proto__'
+    form.options[1].key = 'constructor'
+    const options = toRule(form).options!
+    expect(Object.keys(options)).toEqual(['__proto__', 'constructor'])
+    const serialized = JSON.parse(JSON.stringify(options)) as Record<string, { result: string }>
+    expect(Object.hasOwn(serialized, '__proto__')).toBe(true)
+    expect(serialized['__proto__'].result).toBe('APPROVED')
+  })
   it('builds a yes/no rule, dropping the severity of an approved outcome', () => {
     const form = newRuleForm('YES_NO')
     form.yes.severity = 'HIGH'
@@ -88,6 +98,13 @@ describe('rule forms', () => {
 })
 
 describe('formatting helpers', () => {
+  it('does not interpret inherited object properties as translated codes', () => {
+    for (const text of ['__proto__', 'constructor', 'toString']) {
+      expect(label(text)).toBe(humanize(text))
+      expect(blockerLabel(text)).toBe(humanize(text))
+      expect(eventLabel(text)).toBe(humanize(text))
+    }
+  })
   it('parses numbers with a decimal comma and rejects text', () => {
     expect(parseNumber('3,5')).toBe(3.5)
     expect(parseNumber('')).toBeNull()

@@ -20,6 +20,7 @@ import ar.edu.itba.dps.certification.domain.shared.answer.OptionAnswer;
 import ar.edu.itba.dps.certification.domain.shared.answer.YesNoAnswer;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
+import ar.edu.itba.dps.certification.support.DirectTransactions;
 import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
 import ar.edu.itba.dps.certification.support.TestPolicies;
@@ -682,7 +683,7 @@ class PartialCertificationIT {
         assertThat(system.publishSchemaVersion.publish(generic.id()).published()).isTrue();
 
         var change = new ChangeSchemaApplicability(system.schemas, system.schemaApplicability,
-                system.audit);
+                system.audit, system.clock, DirectTransactions.INSTANCE);
 
         assertThatThrownBy(() -> change.applyTo(generic.id(), AssetType.FACTORY))
                 .isInstanceOf(DomainException.class)

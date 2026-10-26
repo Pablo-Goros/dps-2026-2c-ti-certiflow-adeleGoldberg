@@ -31,7 +31,8 @@ export function Schemas() {
                 <thead><tr><th>Nombre</th><th>Se aplica a</th><th>Versión vigente</th><th>Borrador</th></tr></thead>
                 <tbody>
                   {schemas.data.map((schema) => {
-                    const scheduled = schema.versions.filter((v) => isFuture(v.effectiveFrom))
+                    const scheduled = schema.versions.filter((v) => isFuture(v.effectiveFrom)
+                      && !schema.withdrawals.some((withdrawal) => withdrawal.number === v.number))
                     return (
                       <tr key={schema.id}>
                         <td><Link to={`/esquemas/${schema.id}`}>{schema.name}</Link></td>

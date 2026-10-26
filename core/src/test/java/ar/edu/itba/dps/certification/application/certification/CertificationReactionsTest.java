@@ -1,9 +1,6 @@
 package ar.edu.itba.dps.certification.application.certification;
 
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
-import ar.edu.itba.dps.certification.application.certification.port.CertificateRepository;
-import ar.edu.itba.dps.certification.application.finding.port.FindingQuery;
-import ar.edu.itba.dps.certification.application.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.audit.AuditAction;
 import ar.edu.itba.dps.certification.domain.audit.AuditedElementRef;
 import ar.edu.itba.dps.certification.domain.certification.CertificateId;
@@ -11,7 +8,10 @@ import ar.edu.itba.dps.certification.domain.certification.CertificateIssuer;
 import ar.edu.itba.dps.certification.domain.certification.CertificateLifecycle;
 import ar.edu.itba.dps.certification.domain.certification.CertificateStatus;
 import ar.edu.itba.dps.certification.domain.certification.issuance.CertificationAssessment;
+import ar.edu.itba.dps.certification.domain.certification.port.CertificateRepository;
 import ar.edu.itba.dps.certification.domain.finding.event.CorrectiveActionPlanned;
+import ar.edu.itba.dps.certification.domain.finding.port.FindingQuery;
+import ar.edu.itba.dps.certification.domain.inspection.port.InspectionQuery;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;

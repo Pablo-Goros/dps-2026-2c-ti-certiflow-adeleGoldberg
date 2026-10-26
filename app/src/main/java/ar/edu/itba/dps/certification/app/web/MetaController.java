@@ -1,13 +1,14 @@
 package ar.edu.itba.dps.certification.app.web;
 
-import ar.edu.itba.dps.certification.app.config.JurisdictionCatalog;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetType;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import ar.edu.itba.dps.certification.domain.certification.port.JurisdictionCatalog;
 
 import java.util.Arrays;
 import java.util.List;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /** Static reference data the front end needs to build its forms. */
 @RestController

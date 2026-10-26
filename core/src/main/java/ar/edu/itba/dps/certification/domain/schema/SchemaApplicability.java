@@ -5,6 +5,7 @@ import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
 
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -20,9 +21,9 @@ public final class SchemaApplicability {
         return new InspectionSchema(id, name, types);
     }
 
-    public void applyTo(InspectionSchema schema, AssetType type, Optional<SchemaId> registeredOwner) {
+    public void applyTo(InspectionSchema schema, AssetType type, Optional<SchemaId> registeredOwner, Instant at) {
         requireAvailable(type, Validate.required(registeredOwner, "registered schema owner"));
-        requireVersionEvaluatesEveryPartOf(schema, type);
+        requireVersionsEvaluateEveryPartOf(schema, type, at);
         schema.applyTo(type);
     }
 
@@ -34,7 +35,7 @@ public final class SchemaApplicability {
     }
 
     public void transfer(InspectionSchema source, InspectionSchema target, AssetType type,
-            Optional<SchemaId> registeredOwner) {
+            Optional<SchemaId> registeredOwner, Instant at) {
         Optional<SchemaId> owner = Validate.required(registeredOwner, "registered schema owner");
         Validate.required(type, "asset type");
         Validate.ensure(!source.id().equals(target.id()), "applicability must transfer to another schema");
@@ -44,22 +45,28 @@ public final class SchemaApplicability {
         Validate.ensure(!target.appliesTo(type), "target schema already applies to asset type " + type);
         Validate.ensure(owner.isPresent() && owner.get().equals(source.id()),
                 "source schema must be the registered owner of the asset type");
-        Validate.ensure(target.latestNonWithdrawnVersion().isPresent(),
-                "the replacement schema must have a published version");
-        requireVersionEvaluatesEveryPartOf(target, type);
+        Validate.ensure(target.effectiveVersionAt(at).isPresent(),
+                "the replacement schema must have a published version currently in effect");
+        requireVersionsEvaluateEveryPartOf(target, type, at);
         source.stopApplyingTo(type);
         target.applyTo(type);
     }
 
-    private void requireVersionEvaluatesEveryPartOf(InspectionSchema schema, AssetType type) {
-        schema.latestNonWithdrawnVersion().ifPresent(version -> {
-            Set<Subsystem> unevaluated = type.subsystems().stream()
-                    .filter(subsystem -> !version.declaredSubsystems().contains(subsystem))
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-            Validate.ensure(unevaluated.isEmpty(), "version " + version.id() + " of schema "
-                    + schema.id() + " evaluates no criterion for " + unevaluated
-                    + ", which assets of type " + type + " may have");
-        });
+    private void requireVersionsEvaluateEveryPartOf(InspectionSchema schema, AssetType type, Instant at) {
+        Validate.required(at, "applicability change instant");
+        Optional<SchemaVersion> current = schema.effectiveVersionAt(at);
+        // Superseded history is immutable; current and scheduled versions may still start inspections.
+        schema.publishedVersions().stream()
+                .filter(version -> !schema.withdrawn(version.id()))
+                .filter(version -> current.filter(version::equals).isPresent() || version.effectiveFrom().isAfter(at))
+                .forEach(version -> {
+                    Set<Subsystem> unevaluated = type.subsystems().stream()
+                            .filter(subsystem -> !version.declaredSubsystems().contains(subsystem))
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
+                    Validate.ensure(unevaluated.isEmpty(), "version " + version.id() + " of schema "
+                            + schema.id() + " evaluates no criterion for " + unevaluated
+                            + ", which assets of type " + type + " may have");
+                });
     }
 
     private void requireAvailable(AssetType type, Set<AssetType> alreadyCoveredAssetTypes) {

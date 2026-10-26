@@ -53,13 +53,15 @@ java -jar app/target/certiflow-app-1.0.0-SNAPSHOT-exec.jar
 | `infrastructure` | Persistencia JDBC + Flyway sobre H2, outbox de eventos, notificaciones. |
 | `app` | Spring Boot: composición, controladores REST, tareas programadas y el front (`app/frontend`). |
 
-La regla de dependencias es `app → infrastructure → core`, y dentro del núcleo `adapter → application → domain`;
-lo verifican pruebas de arquitectura en cada módulo.
+Los puertos de entrada y salida pertenecen a `core/domain`. Aplicación implementa los casos de uso y abre sus
+transacciones mediante esos contratos; web y jobs consumen interfaces. Los adaptadores JDBC implementan los
+puertos de dominio y `app/config` compone las piezas. Las pruebas de arquitectura verifican estas dependencias.
 
 ## Documentación
 
 - [`DESIGN.md`](DESIGN.md): decisiones de diseño, clases agregadas/modificadas por funcionalidad (F1, F2, F3),
   refactorizaciones y deuda técnica deliberada.
+- [`docs/auditoria-integral.md`](docs/auditoria-integral.md): hallazgos, cobertura real y deuda técnica verificada.
 - [`docs/API.md`](docs/API.md): endpoints y contrato de errores.
 - [`docs/arquitectura-hexagonal.md`](docs/arquitectura-hexagonal.md): arquitectura.
 - [`app/frontend/README.md`](app/frontend/README.md): desarrollo del front.
