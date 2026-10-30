@@ -79,4 +79,26 @@ public sealed interface EvaluationReason {
             return shortfall.describe();
         }
     }
+
+    record ObservedByInspector(ObservedNonConformity observation) implements EvaluationReason {
+
+        public ObservedByInspector {
+            Validate.required(observation, "observed non-conformity");
+        }
+
+        @Override
+        public CriterionResult result() {
+            return observation.result();
+        }
+
+        @Override
+        public Severity severity() {
+            return observation.severity();
+        }
+
+        @Override
+        public String describe() {
+            return "observed by the inspector: " + observation.description();
+        }
+    }
 }

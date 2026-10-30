@@ -41,7 +41,8 @@ class AppBoundaryTest {
 
     @Test
     void controllersDependOnlyOnDomainInterfacesAndDoNotOpenTransactions() throws Exception {
-        for (String name : List.of("Asset", "Party", "Schema", "Inspection", "Finding", "Certificate", "Audit", "Admin", "Meta")) {
+        for (String name : List.of("Asset", "Party", "Schema", "Inspection", "ObservedNonConformity", "Assistance",
+                "Finding", "Certificate", "Audit", "Admin", "Meta")) {
             Class<?> controller = Class.forName(ROOT_PACKAGE + ".app.web." + name + "Controller");
             for (var constructor : controller.getDeclaredConstructors()) {
                 for (Class<?> dependency : constructor.getParameterTypes()) {

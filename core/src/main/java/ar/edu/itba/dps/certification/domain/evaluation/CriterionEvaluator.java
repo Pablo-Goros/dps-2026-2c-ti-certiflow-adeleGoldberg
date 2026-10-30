@@ -3,6 +3,7 @@ package ar.edu.itba.dps.certification.domain.evaluation;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
 import ar.edu.itba.dps.certification.domain.inspection.CriterionRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
+import ar.edu.itba.dps.certification.domain.inspection.record.ObservedNonConformity;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
@@ -43,6 +44,11 @@ public final class CriterionEvaluator {
         for (EvidenceShortfall shortfall : criterion.shortfalls(record.evidenceCountByRequirement())) {
             reasons.add(new EvaluationReason.MissingEvidence(shortfall));
             result = result.worstOf(CriterionResult.REJECTED);
+        }
+
+        for (ObservedNonConformity observation : record.observations()) {
+            reasons.add(new EvaluationReason.ObservedByInspector(observation));
+            result = result.worstOf(observation.result());
         }
 
         if (result.approved()) {

@@ -2,6 +2,7 @@ package ar.edu.itba.dps.certification.domain.inspection;
 
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
+import ar.edu.itba.dps.certification.domain.inspection.record.ObservedNonConformity;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.Validate;
@@ -19,6 +20,7 @@ public final class CriterionRecord {
     private final boolean applicable;
     private final List<EvidenceRecord> evidence = new ArrayList<>();
     private final List<CriterionEvaluation> evaluations = new ArrayList<>();
+    private final List<ObservedNonConformity> observations = new ArrayList<>();
     private Answer answer;
 
     public CriterionRecord(CriterionId criterionId, boolean applicable) {
@@ -87,6 +89,28 @@ public final class CriterionRecord {
                 .findFirst()
                 .orElseThrow(() -> new DomainException(
                         "evidence " + evidenceId + " is not attached to criterion " + criterionId));
+    }
+
+    public List<ObservedNonConformity> observations() {
+        return List.copyOf(observations);
+    }
+
+    void recordObservation(ObservedNonConformity observation) {
+        observations.add(Validate.required(observation, "observed non-conformity"));
+    }
+
+    public ObservedNonConformity requireObservation(String observationId) {
+        return observations.stream()
+                .filter(observation -> observation.id().equals(observationId))
+                .findFirst()
+                .orElseThrow(() -> new DomainException("observed non-conformity " + observationId
+                        + " is not recorded on criterion " + criterionId));
+    }
+
+    ObservedNonConformity withdrawObservation(String observationId) {
+        ObservedNonConformity found = requireObservation(observationId);
+        observations.remove(found);
+        return found;
     }
 
     public Map<String, Integer> evidenceCountByRequirement() {

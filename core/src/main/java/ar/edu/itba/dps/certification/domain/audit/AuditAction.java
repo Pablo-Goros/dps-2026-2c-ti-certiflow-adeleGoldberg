@@ -24,6 +24,9 @@ public enum AuditAction {
     INSPECTION_CLOSED(false),
     INSPECTION_RECTIFIED(true),
 
+    ASSISTANCE_REQUESTED(false),
+    ASSISTANCE_SUGGESTION_DECIDED(false),
+
     FINDING_CREATED(false),
     FINDING_REVISED(true),
     FINDING_EVIDENCE_CORRECTED(true),

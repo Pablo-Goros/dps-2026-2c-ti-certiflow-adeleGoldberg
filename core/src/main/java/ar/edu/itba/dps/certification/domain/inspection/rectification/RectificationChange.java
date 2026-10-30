@@ -99,4 +99,35 @@ public sealed interface RectificationChange {
             return "note." + noteId;
         }
     }
+
+    record ObservationWithdrawn(CriterionId criterionId, String observationId, String previousValue)
+            implements RectificationChange {
+
+        public ObservationWithdrawn {
+            Validate.required(criterionId, "criterion id");
+            observationId = Validate.requiredText(observationId, "observed non-conformity id");
+            previousValue = Validate.requiredText(previousValue, "withdrawn non-conformity");
+        }
+
+        @Override
+        public Optional<CriterionId> affectedCriterion() {
+            return Optional.of(criterionId);
+        }
+
+        @Override
+        public String describe() {
+            return "observed non-conformity " + observationId + " of " + criterionId + " withdrawn: "
+                    + previousValue;
+        }
+
+        @Override
+        public String field() {
+            return "observation." + criterionId + "." + observationId;
+        }
+
+        @Override
+        public String currentValue() {
+            return null;
+        }
+    }
 }

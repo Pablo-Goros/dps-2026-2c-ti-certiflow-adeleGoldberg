@@ -17,7 +17,8 @@
   <name>Asset Inspection and Certification :: Infrastructure</name>
   <description>
     Driven adapters for the hexagonal core: JDBC persistence (aggregate-as-document) with
-    Flyway migrations. Depends on the core; the core never depends on this module.
+    Flyway migrations, the notification channel and the inspection assistant. Depends on the core;
+    the core never depends on this module.
   </description>
 
   <properties>
@@ -28,6 +29,8 @@
 
     <flyway.version>11.12.0</flyway.version>
     <h2.version>2.4.240</h2.version>
+    <!-- The version the Spring Boot BOM gives the app, which already ships it; upgrade them together. -->
+    <jackson.version>3.1.5</jackson.version>
     <junit.version>5.11.4</junit.version>
     <assertj.version>3.27.3</assertj.version>
 
@@ -54,6 +57,12 @@
       <artifactId>h2</artifactId>
       <version>${h2.version}</version>
       <scope>runtime</scope>
+    </dependency>
+    <!-- JSON for the HTTP adapters of the inspection assistant. -->
+    <dependency>
+      <groupId>tools.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
     </dependency>
 
     <!-- Core fixtures: FullSystem and the in-memory adapters, used as the oracle. -->
@@ -144,4 +153,24 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Evaluation against real models, never part of the CI because it costs money and is not
+         deterministic: runs the *Harness classes instead of the *IT ones
+         (mvn -pl infrastructure -am verify -Passistant-eval). -->
+    <profile>
+      <id>assistant-eval</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <includes><include>**/*Harness.java</include></includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

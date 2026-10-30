@@ -7,6 +7,7 @@ import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluatio
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
+import ar.edu.itba.dps.certification.domain.inspection.record.ObservedNonConformity;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
@@ -81,8 +82,19 @@ public final class InspectionDtos {
         }
     }
 
+    public record ObservedNonConformityDto(String id, String criterionId, CriterionResult result, Severity severity,
+            String description, String noteId, String recordedBy, Instant recordedAt) {
+
+        public static ObservedNonConformityDto of(CriterionId criterionId, ObservedNonConformity observation) {
+            return new ObservedNonConformityDto(observation.id(), criterionId.value(), observation.result(),
+                    observation.severity(), observation.description(), observation.noteId().orElse(null),
+                    observation.recordedBy().value(), observation.recordedAt());
+        }
+    }
+
     public record CriterionLine(String criterionId, String section, String subsystem, boolean applicable,
-            AnswerDto answer, List<EvidenceDto> evidence, EvaluationDto evaluation) {
+            AnswerDto answer, List<EvidenceDto> evidence, List<ObservedNonConformityDto> observedNonConformities,
+            EvaluationDto evaluation) {
     }
 
     public record NoteDto(String id, String criterionId, String text, String authorId, Instant recordedAt) {
@@ -126,6 +138,9 @@ public final class InspectionDtos {
                                 record.applicable(),
                                 record.answer().map(AnswerDto::of).orElse(null),
                                 record.evidence().stream().map(EvidenceDto::of).toList(),
+                                record.observations().stream()
+                                        .map(observation -> ObservedNonConformityDto.of(criterion.id(), observation))
+                                        .toList(),
                                 record.currentEvaluation().map(EvaluationDto::of).orElse(null)));
                     }
                 }
@@ -162,9 +177,17 @@ public final class InspectionDtos {
     public record NoteTextRequest(String text) {
     }
 
-    /** {@code type}: ANSWER (criterionId, answer), EVIDENCE_REFERENCE (criterionId, evidenceId, reference) or NOTE (noteId, text). */
+    /** {@code noteId} is optional, and an empty one counts as none: the note that records what was seen. */
+    public record ObservedNonConformityRequest(CriterionResult result, Severity severity, String description,
+            String noteId) {
+    }
+
+    /**
+     * {@code type}: ANSWER (criterionId, answer), EVIDENCE_REFERENCE (criterionId, evidenceId, reference),
+     * NOTE (noteId, text) or OBSERVATION_WITHDRAWAL (criterionId, observationId).
+     */
     public record CorrectionDto(String type, String criterionId, AnswerDto answer, String evidenceId,
-            String reference, String noteId, String text) {
+            String reference, String noteId, String text, String observationId) {
 
         Correction toDomain() {
             Validate.required(type, "correction type");
@@ -174,8 +197,10 @@ public final class InspectionDtos {
                 case "EVIDENCE_REFERENCE" -> new Correction.EvidenceReferenceCorrection(
                         CriterionId.of(criterionId), evidenceId, reference);
                 case "NOTE" -> new Correction.NoteCorrection(noteId, text);
-                default -> throw new InvalidArgumentException(
-                        "correction type must be ANSWER, EVIDENCE_REFERENCE or NOTE, not " + type);
+                case "OBSERVATION_WITHDRAWAL" -> new Correction.ObservationWithdrawal(
+                        CriterionId.of(criterionId), observationId);
+                default -> throw new InvalidArgumentException("correction type must be ANSWER, "
+                        + "EVIDENCE_REFERENCE, NOTE or OBSERVATION_WITHDRAWAL, not " + type);
             };
         }
     }
