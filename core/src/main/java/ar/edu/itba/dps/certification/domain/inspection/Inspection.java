@@ -7,14 +7,17 @@ import ar.edu.itba.dps.certification.domain.evaluation.CriterionEvaluator;
 import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluation;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
+import ar.edu.itba.dps.certification.domain.inspection.record.ObservedNonConformity;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectification;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationChange;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.Criterion;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
+import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
+import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.shared.DomainEvent;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
@@ -226,8 +229,42 @@ public final class Inspection {
         requireInProgress("remove a note");
         requireAssignedInspector(actor, "remove a note");
         InspectionNote removed = requireNote(noteId);
+        records.values().stream()
+                .flatMap(record -> record.observations().stream()
+                        .filter(observation -> observation.noteId().filter(noteId::equals).isPresent())
+                        .map(observation -> observation.id() + " of criterion " + record.criterionId()))
+                .findFirst()
+                .ifPresent(cited -> {
+                    throw new DomainException("note " + noteId + " supports observed non-conformity " + cited
+                            + "; withdraw it before removing the note");
+                });
         notes.remove(removed);
         return removed;
+    }
+
+    /** Built by the aggregate, like a note, so its author is always the acting inspector. */
+    public ObservedNonConformity recordObservedNonConformity(PartyId actor, CriterionId criterionId,
+            String observationId, CriterionResult result, Severity severity, String description,
+            Optional<String> noteId, Instant at) {
+        requireInProgress("record an observed non-conformity");
+        requireAssignedInspector(actor, "record an observed non-conformity");
+        CriterionRecord record = requireApplicableRecord(criterionId, "observed");
+        Validate.required(noteId, "note id").ifPresent(this::requireNote);
+        Validate.ensure(records.values().stream()
+                        .flatMap(existing -> existing.observations().stream())
+                        .noneMatch(existing -> existing.id().equals(observationId)),
+                "observed non-conformity " + observationId + " already exists");
+        ObservedNonConformity observation = new ObservedNonConformity(observationId, result, severity,
+                description, noteId, actor, at);
+        record.recordObservation(observation);
+        return observation;
+    }
+
+    public ObservedNonConformity withdrawObservedNonConformity(PartyId actor, CriterionId criterionId,
+            String observationId) {
+        requireInProgress("withdraw an observed non-conformity");
+        requireAssignedInspector(actor, "withdraw an observed non-conformity");
+        return requireApplicableRecord(criterionId, "observed").withdrawObservation(observationId);
     }
 
     public InspectionClosureResult close(PartyId actor, Instant at) {
@@ -265,6 +302,11 @@ public final class Inspection {
                 "rectification " + rectificationId + " is already recorded");
         corrections = List.copyOf(corrections);
         corrections.forEach(correction -> rejectIfInapplicable(frozenSchemaVersion, correction));
+        List<Correction> withdrawals = corrections.stream()
+                .filter(Correction.ObservationWithdrawal.class::isInstance)
+                .toList();
+        Validate.ensure(withdrawals.stream().distinct().count() == withdrawals.size(),
+                "a rectification cannot withdraw the same observed non-conformity twice");
 
         List<RectificationChange> changes = new ArrayList<>();
         for (Correction correction : corrections) {
@@ -305,6 +347,9 @@ public final class Inspection {
                     requireApplicableRecord(evidenceCorrection.criterionId(), "rectified")
                             .requireEvidence(evidenceCorrection.evidenceId());
             case Correction.NoteCorrection noteCorrection -> requireNote(noteCorrection.noteId());
+            case Correction.ObservationWithdrawal withdrawal ->
+                    requireApplicableRecord(withdrawal.criterionId(), "rectified")
+                            .requireObservation(withdrawal.observationId());
         }
     }
 
@@ -329,6 +374,12 @@ public final class Inspection {
                 notes.set(notes.indexOf(existing), existing.withText(noteCorrection.text()));
                 yield new RectificationChange.NoteCorrected(noteCorrection.noteId(), existing.text(),
                         noteCorrection.text());
+            }
+            case Correction.ObservationWithdrawal withdrawal -> {
+                ObservedNonConformity withdrawn = requireRecord(withdrawal.criterionId())
+                        .withdrawObservation(withdrawal.observationId());
+                yield new RectificationChange.ObservationWithdrawn(withdrawal.criterionId(),
+                        withdrawn.id(), withdrawn.describe());
             }
         };
     }

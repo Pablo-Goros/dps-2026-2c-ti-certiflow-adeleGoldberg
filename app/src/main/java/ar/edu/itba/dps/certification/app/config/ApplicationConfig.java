@@ -34,11 +34,13 @@ import ar.edu.itba.dps.certification.application.inspection.usecase.CorrectNote;
 import ar.edu.itba.dps.certification.application.inspection.usecase.ReassignInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RecordAnswer;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RecordNote;
+import ar.edu.itba.dps.certification.application.inspection.usecase.RecordObservedNonConformity;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RectifyClosedInspection;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveAnswer;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveEvidence;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RemoveNote;
 import ar.edu.itba.dps.certification.application.inspection.usecase.StartInspection;
+import ar.edu.itba.dps.certification.application.inspection.usecase.WithdrawObservedNonConformity;
 import ar.edu.itba.dps.certification.application.notification.NotifyCorrectiveActionExpiry;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateCertificateReport;
 import ar.edu.itba.dps.certification.application.report.usecase.GenerateFindingsSummary;
@@ -218,6 +220,16 @@ class ApplicationConfig {
     @Bean
     RemoveNote removeNote(InspectionRepository inspections, AuditRecorder audit, ActorProvider actors, Transactions transactions) {
         return new RemoveNote(inspections, audit, actors, transactions);
+    }
+
+    @Bean
+    RecordObservedNonConformity recordObservedNonConformity(InspectionRepository inspections, IdGenerator ids, Clock clock, AuditRecorder audit, ActorProvider actors, Transactions transactions) {
+        return new RecordObservedNonConformity(inspections, ids, clock, audit, actors, transactions);
+    }
+
+    @Bean
+    WithdrawObservedNonConformity withdrawObservedNonConformity(InspectionRepository inspections, AuditRecorder audit, ActorProvider actors, Transactions transactions) {
+        return new WithdrawObservedNonConformity(inspections, audit, actors, transactions);
     }
 
     @Bean

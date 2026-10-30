@@ -2,9 +2,12 @@ package ar.edu.itba.dps.certification.app.web;
 
 import ar.edu.itba.dps.certification.app.config.AuthenticationRequiredException;
 import ar.edu.itba.dps.certification.app.web.dto.ApiError;
+import ar.edu.itba.dps.certification.domain.assistant.AssistanceUnavailableException;
 import ar.edu.itba.dps.certification.domain.shared.ConflictException;
 import ar.edu.itba.dps.certification.domain.shared.DomainException;
 import ar.edu.itba.dps.certification.domain.shared.InvalidArgumentException;
+
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +23,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
  * One place that turns exceptions into the HTTP contract:
  * 400 malformed input, 401 no/unknown actor, 404 missing resource,
  * 409 concurrent change or duplicate, 422 business rule refused, the framework's own 4xx (unknown
- * route, wrong method...) as they are, 500 anything else.
+ * route, wrong method...) as they are, 503 the inspection assistant could not answer, 500 anything else.
  */
 @RestControllerAdvice
 class ApiExceptionHandler {
@@ -58,6 +61,15 @@ class ApiExceptionHandler {
     ResponseEntity<ApiError> conflict(ConflictException e) {
         return reply(HttpStatus.CONFLICT, "CONFLICT",
                 "the resource was changed concurrently or already exists; reload and retry");
+    }
+
+    /** Nothing was recorded; {@code details} carries the category so the caller can tell a retry from a setup problem. */
+    @ExceptionHandler(AssistanceUnavailableException.class)
+    ResponseEntity<ApiError> assistantUnavailable(AssistanceUnavailableException e) {
+        log.warn("inspection assistant unavailable ({}): {}", e.reason(), e.getMessage());
+        var status = HttpStatus.SERVICE_UNAVAILABLE;
+        return ResponseEntity.status(status).body(ApiError.of(status.value(), "ASSISTANT_UNAVAILABLE",
+                "the assistant could not answer; nothing was recorded", List.of(e.reason().name())));
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})

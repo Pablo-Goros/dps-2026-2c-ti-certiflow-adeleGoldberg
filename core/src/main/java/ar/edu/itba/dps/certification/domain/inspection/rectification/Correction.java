@@ -31,4 +31,12 @@ public sealed interface Correction {
             text = Validate.requiredText(text, "corrected note text");
         }
     }
+
+    record ObservationWithdrawal(CriterionId criterionId, String observationId) implements Correction {
+
+        public ObservationWithdrawal {
+            Validate.required(criterionId, "criterion id");
+            observationId = Validate.requiredText(observationId, "observed non-conformity id");
+        }
+    }
 }
