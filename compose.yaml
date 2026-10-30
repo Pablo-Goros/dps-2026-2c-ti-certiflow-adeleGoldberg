@@ -8,6 +8,18 @@ services:
       # The seeder only runs under this profile, and only on an empty database.
       SPRING_PROFILES_ACTIVE: demo
       CERTIFLOW_ZONE: America/Argentina/Buenos_Aires
+      # The inspection assistant against the optional local model below. It stays off until
+      # consultations are persisted: without that the application does not start.
+      CERTIFLOW_ASSISTANT_ENABLED: "false"
+      CERTIFLOW_ASSISTANT_PROVIDER: openai-compatible
+      CERTIFLOW_ASSISTANT_BASE_URL: http://ollama:11434/v1
+      CERTIFLOW_ASSISTANT_MODEL: llama3.2:3b
+      CERTIFLOW_ASSISTANT_TIMEOUT_SECONDS: "300"
+    depends_on:
+      # Only with the assistant profile: the application then starts once the model is downloaded.
+      ollama-model:
+        condition: service_completed_successfully
+        required: false
     healthcheck:
       test: ["CMD", "java", "-version"]
       interval: 30s
@@ -19,3 +31,40 @@ services:
     # Uncomment to keep the data between runs instead.
     # volumes:
     #   - ./data:/opt/certiflow/data
+
+  # Optional, for demonstrations: a local open model for the inspection assistant, Llama 3.2 3B
+  # served by Ollama, with no key, account or payment. It is one possible provider; any
+  # OpenAI-compatible service is configured the same way. It only starts with
+  #
+  #   docker compose --profile assistant up
+  #
+  # The first run downloads the Ollama image (about 3 GB) and the model (about 2 GB) into the
+  # ollama-models volume. Give Docker about 4 GB of memory. Docker uses no GPU on macOS, so a
+  # consultation can take a minute or two there; the timeout above allows for it.
+  ollama:
+    image: ollama/ollama:0.40.4
+    profiles: ["assistant"]
+    environment:
+      # The default window, 4096 tokens, would cut the prompt of a large inspection.
+      OLLAMA_CONTEXT_LENGTH: "8192"
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # Downloads the model once and exits; later runs find it in the volume.
+  ollama-model:
+    image: ollama/ollama:0.40.4
+    profiles: ["assistant"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    command: ["pull", "llama3.2:3b"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+volumes:
+  ollama-models:
