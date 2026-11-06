@@ -37,7 +37,7 @@ export function Certificates() {
                   {certificates.data.map((c) => (
                     <tr key={c.id}>
                       <td><Link to={`/certificados/${c.id}`}>{assetName(c.assetId)}</Link></td>
-                      <td>{c.scope === 'PARTIAL' ? <Badge tone="seal">{label(c.subsystem)}</Badge> : 'Global'}{c.mode === 'CONDITIONAL' && <> <Badge tone="warn">Condicional</Badge></>}</td>
+                      <td>{c.scope === 'PARTIAL' ? <Badge tone="seal" icon="layers">{label(c.subsystem)}</Badge> : <Badge icon="shield">Global</Badge>}{c.mode === 'CONDITIONAL' && <> <Badge tone="warn" icon="alert">Condicional</Badge></>}</td>
                       <td>{formatInstant(c.issuedAt)}</td>
                       <td>{formatInstant(c.expiresAt)}</td>
                       <td><CertificateBadge status={c.status} /></td>

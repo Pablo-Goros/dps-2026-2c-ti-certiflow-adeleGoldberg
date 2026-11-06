@@ -1,5 +1,7 @@
 import { type ComponentType } from 'react'
 import { NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { Avatar } from './components/ui'
+import { Icon, type IconName } from './components/Icon'
 import { useParties } from './components/Party'
 import { Dashboard } from './pages/Dashboard'
 import { Parties } from './pages/Parties'
@@ -16,16 +18,32 @@ import { CertificateDetail } from './pages/CertificateDetail'
 import { Audit } from './pages/Audit'
 import { Processes } from './pages/Processes'
 
-const links: [string, string][] = [
-  ['/', 'Panel'],
-  ['/personas', 'Personas'],
-  ['/activos', 'Activos'],
-  ['/esquemas', 'Esquemas'],
-  ['/inspecciones', 'Inspecciones'],
-  ['/hallazgos', 'Hallazgos'],
-  ['/certificados', 'Certificados'],
-  ['/auditoria', 'Auditoría'],
-  ['/procesos', 'Procesos'],
+// The menu follows the way of working: first what is done every day, then the catalogue it relies on, then the system.
+const menu: { group?: string; links: [to: string, text: string, icon: IconName][] }[] = [
+  { links: [['/', 'Panel', 'home']] },
+  {
+    group: 'Trabajo diario',
+    links: [
+      ['/inspecciones', 'Inspecciones', 'clipboard'],
+      ['/hallazgos', 'Hallazgos', 'alert'],
+      ['/certificados', 'Certificados', 'award'],
+    ],
+  },
+  {
+    group: 'Catálogo',
+    links: [
+      ['/activos', 'Activos', 'box'],
+      ['/esquemas', 'Esquemas', 'file'],
+      ['/personas', 'Personas', 'users'],
+    ],
+  },
+  {
+    group: 'Sistema',
+    links: [
+      ['/auditoria', 'Auditoría', 'book'],
+      ['/procesos', 'Procesos', 'activity'],
+    ],
+  },
 ]
 
 function Seal() {
@@ -46,6 +64,7 @@ function RecordRoute({ page: Page }: { page: ComponentType }) {
 
 export function App() {
   const { parties, actorId, chooseActor } = useParties()
+  const actor = parties.find((party) => party.id === actorId)
   return (
     <div className="shell">
       <aside className="side">
@@ -53,14 +72,23 @@ export function App() {
           <Seal /> CertiFlow
         </div>
         <nav className="nav" aria-label="Principal">
-          {links.map(([to, text]) => (
-            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
-              {text}
-            </NavLink>
+          {menu.map((section, index) => (
+            <div className="nav-section" key={section.group ?? index}>
+              {section.group && <div className="group">{section.group}</div>}
+              {section.links.map(([to, text, icon]) => (
+                <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
+                  <Icon name={icon} size={18} />
+                  {text}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="actor">
-          <label htmlFor="actor">Actuando como</label>
+          <label htmlFor="actor" className="actor-label">
+            {actor ? <Avatar name={actor.name} size={22} /> : <Icon name="user" size={16} />}
+            Actuando como
+          </label>
           <select id="actor" value={actorId ?? ''} onChange={(e) => chooseActor(e.target.value || null)}>
             <option value="">Sin identificar</option>
             {parties.map((party) => (

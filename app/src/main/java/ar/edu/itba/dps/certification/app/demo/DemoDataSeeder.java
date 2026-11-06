@@ -55,8 +55,8 @@ import java.util.function.Supplier;
  * different severities, a certificate per subsystem with its derived global one, and the same
  * inspection outcome decided under two jurisdictions.
  *
- * <p>It drives the real use cases rather than inserting rows. Everything the demo shows â€” the
- * evaluations, the findings and their severities, the certificates and their validity â€” is state
+ * <p>It drives the real use cases rather than inserting rows. Everything the demo shows — the
+ * evaluations, the findings and their severities, the certificates and their validity — is state
  * the domain computes, so writing it as SQL would mean recomputing by hand what the rules already
  * decide, and would silently drift the day a rule changes.
  */
@@ -153,18 +153,18 @@ class DemoDataSeeder implements ApplicationRunner {
     }
 
     private void seed() {
-        Party inspector = asSystem(() -> registerParty.register("Ana PÃ©rez", PartyKind.PERSON));
+        Party inspector = asSystem(() -> registerParty.register("Ana Pérez", PartyKind.PERSON));
         Party northern = asSystem(() ->
                 registerParty.register("Northern Industrial Park", PartyKind.ORGANIZATION));
         Party cordoba = asSystem(() ->
-                registerParty.register("CÃ³rdoba Logistics Hub", PartyKind.ORGANIZATION));
+                registerParty.register("Córdoba Logistics Hub", PartyKind.ORGANIZATION));
         Party reference = asSystem(() ->
                 registerParty.register("Reference Testing Grounds", PartyKind.ORGANIZATION));
 
         Asset buenosAires = asSystem(() -> registerAsset.register("Buenos Aires Plant",
                 AssetType.FACILITY, northern.id(), "Panamericana km 32",
                 Map.of("room", "Main hall", "purpose", "assembly"), BUENOS_AIRES));
-        Asset cordobaPlant = asSystem(() -> registerAsset.register("CÃ³rdoba Plant",
+        Asset cordobaPlant = asSystem(() -> registerAsset.register("Córdoba Plant",
                 AssetType.FACILITY, cordoba.id(), "Ruta 9 km 701",
                 Map.of("room", "Main hall", "purpose", "logistics"), CORDOBA));
         Asset referencePlant = asSystem(() -> registerAsset.register("Reference Plant",

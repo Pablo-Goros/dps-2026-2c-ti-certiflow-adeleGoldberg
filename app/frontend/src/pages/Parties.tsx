@@ -3,7 +3,8 @@ import { api } from '../lib/api'
 import { label } from '../lib/labels'
 import type { Party, PartyKind } from '../lib/types'
 import { useParties } from '../components/Party'
-import { Card, Empty, ErrorLine, Field, Page, useAction } from '../components/ui'
+import { Icon } from '../components/Icon'
+import { Badge, Card, Empty, ErrorLine, Field, Page, PersonName, useAction } from '../components/ui'
 
 export function Parties() {
   const { parties, loaded, reload, chooseActor, actorId } = useParties()
@@ -62,11 +63,11 @@ export function Parties() {
               <tbody>
                 {parties.map((party) => (
                   <tr key={party.id}>
-                    <td>{party.name}</td>
-                    <td>{label(party.kind)}</td>
+                    <td>{party.kind === 'PERSON' ? <PersonName name={party.name} /> : <span className="type-chip"><Icon name="building" size={18} />{party.name}</span>}</td>
+                    <td><Badge tone={party.kind === 'PERSON' ? 'info' : 'seal'} icon={party.kind === 'PERSON' ? 'user' : 'building'}>{label(party.kind)}</Badge></td>
                     <td className="num">
                       {party.id === actorId ? (
-                        <span className="muted">Estás actuando como esta persona</span>
+                        <Badge tone="ok" icon="check">Actuando como esta persona</Badge>
                       ) : (
                         <button className="small" onClick={() => chooseActor(party.id)}>
                           Actuar como

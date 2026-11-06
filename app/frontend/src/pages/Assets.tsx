@@ -4,8 +4,11 @@ import { api, query } from '../lib/api'
 import { useLoad } from '../lib/hooks'
 import { label } from '../lib/labels'
 import type { Asset, AssetType, AssetTypeInfo } from '../lib/types'
+import { Icon, type IconName } from '../components/Icon'
 import { PartySelect } from '../components/Party'
-import { Card, Empty, ErrorLine, Field, Loading, LoadError, Page, useAction } from '../components/ui'
+import { Badge, Card, Empty, ErrorLine, Field, Loading, LoadError, Page, PersonName, useAction } from '../components/ui'
+
+const typeIcon: Record<string, IconName> = { LABORATORY: 'flask', FACTORY: 'building', FACILITY: 'home', EQUIPMENT: 'wrench' }
 
 export function Assets() {
   const [type, setType] = useState('')
@@ -21,6 +24,7 @@ export function Assets() {
       subtitle="Laboratorios, fábricas, instalaciones y equipos que se inspeccionan y certifican."
       actions={
         <button className="primary" onClick={() => setCreating((open) => !open)}>
+          <Icon name={creating ? 'x' : 'plus'} size={16} />
           {creating ? 'Cerrar' : 'Registrar activo'}
         </button>
       }
@@ -73,10 +77,10 @@ export function Assets() {
                       <td>
                         <Link to={`/activos/${asset.id}`}>{asset.name}</Link>
                       </td>
-                      <td>{label(asset.assetType)}</td>
-                      <td>{asset.responsibleName}</td>
-                      <td>{asset.location}</td>
-                      <td>{asset.jurisdiction}</td>
+                      <td><span className="type-chip"><Icon name={typeIcon[asset.assetType] ?? 'box'} size={16} />{label(asset.assetType)}</span></td>
+                      <td><PersonName name={asset.responsibleName} /></td>
+                      <td><span className="type-chip"><Icon name="pin" size={15} />{asset.location}</span></td>
+                      <td><Badge icon="flag">{asset.jurisdiction}</Badge></td>
                     </tr>
                   ))}
                 </tbody>
