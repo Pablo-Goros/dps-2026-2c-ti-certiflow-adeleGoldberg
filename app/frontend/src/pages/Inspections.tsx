@@ -5,8 +5,9 @@ import { formatDate, today } from '../lib/format'
 import { useLoad } from '../lib/hooks'
 import { label } from '../lib/labels'
 import type { Asset, Inspection, InspectionRow, InspectionStatus } from '../lib/types'
+import { Icon } from '../components/Icon'
 import { PartySelect, useParties } from '../components/Party'
-import { Card, Empty, ErrorLine, Field, InspectionBadge, Loading, LoadError, Page, useAction } from '../components/ui'
+import { Card, Empty, ErrorLine, Field, InspectionBadge, Loading, LoadError, Page, PersonName, useAction } from '../components/ui'
 
 export function Inspections() {
   const [params] = useSearchParams()
@@ -27,6 +28,7 @@ export function Inspections() {
       subtitle={presetAsset ? `Del activo ${assetName(presetAsset)}` : 'Se asignan a un inspector, se completan y se cierran.'}
       actions={
         <button className="primary" onClick={() => setCreating((open) => !open)}>
+          <Icon name={creating ? 'x' : 'plus'} size={16} />
           {creating ? 'Cerrar' : 'Asignar inspección'}
         </button>
       }
@@ -57,8 +59,8 @@ export function Inspections() {
                   {rows.data.map((row) => (
                     <tr key={row.id}>
                       <td><Link to={`/inspecciones/${row.id}`}>{assetName(row.assetId)}</Link></td>
-                      <td>{nameOf(row.inspectorId)}</td>
-                      <td>{formatDate(row.expectedDate)}</td>
+                      <td><PersonName name={nameOf(row.inspectorId)} /></td>
+                      <td className="nowrap"><span className="type-chip"><Icon name="calendar" size={15} />{formatDate(row.expectedDate)}</span></td>
                       <td><InspectionBadge status={row.status} /></td>
                     </tr>
                   ))}

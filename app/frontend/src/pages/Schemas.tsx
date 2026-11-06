@@ -5,6 +5,7 @@ import { isFuture } from '../lib/format'
 import { useLoad } from '../lib/hooks'
 import { label } from '../lib/labels'
 import type { AssetType, AssetTypeInfo, Schema } from '../lib/types'
+import { Icon } from '../components/Icon'
 import { Badge, Card, Empty, ErrorLine, Field, Loading, LoadError, Page, useAction } from '../components/ui'
 
 export function Schemas() {
@@ -16,7 +17,7 @@ export function Schemas() {
     <Page
       title="Esquemas de inspección"
       subtitle="Qué se revisa en cada tipo de activo. Cada publicación crea una versión nueva; las inspecciones usan la que estaba vigente al iniciar."
-      actions={<button className="primary" onClick={() => setCreating((open) => !open)}>{creating ? 'Cerrar' : 'Crear esquema'}</button>}
+      actions={<button className="primary" onClick={() => setCreating((open) => !open)}><Icon name={creating ? 'x' : 'plus'} size={16} />{creating ? 'Cerrar' : 'Crear esquema'}</button>}
     >
       {creating && types.data && <NewSchema types={types.data} />}
       <Card>
@@ -39,9 +40,9 @@ export function Schemas() {
                         <td>{schema.assetTypes.map(label).join(', ') || '—'}</td>
                         <td>
                           {schema.effectiveVersion ? `v${schema.effectiveVersion}` : <span className="muted">Ninguna</span>}
-                          {scheduled.length > 0 && <> <Badge tone="info">v{scheduled[0].number} programada</Badge></>}
+                          {scheduled.length > 0 && <> <Badge tone="info" icon="calendar">v{scheduled[0].number} programada</Badge></>}
                         </td>
-                        <td>{schema.draft ? <Badge tone="warn">Abierto</Badge> : '—'}</td>
+                        <td>{schema.draft ? <Badge tone="warn" icon="edit">Abierto</Badge> : '—'}</td>
                       </tr>
                     )
                   })}

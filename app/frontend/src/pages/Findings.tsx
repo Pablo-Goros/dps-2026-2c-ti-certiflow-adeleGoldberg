@@ -6,7 +6,7 @@ import { useLoad } from '../lib/hooks'
 import type { Asset, Finding } from '../lib/types'
 import { useParties } from '../components/Party'
 import {
-  ActionBadge, Badge, Card, Empty, Field, Loading, LoadError, Page, ResultBadge, SeverityBadge,
+  ActionBadge, Badge, Card, Empty, Field, Loading, LoadError, Page, PersonName, ResultBadge, SeverityBadge,
 } from '../components/ui'
 
 export function Findings() {
@@ -51,11 +51,11 @@ export function Findings() {
                   {findings.data.map((finding) => {
                     const action = finding.correctiveActions.at(-1)
                     return (
-                      <tr key={finding.id}>
+                      <tr key={finding.id} className={finding.severity === 'CRITICAL' || finding.severity === 'HIGH' ? 'sev-bad' : finding.severity === 'MEDIUM' ? 'sev-warn' : 'sev-info'}>
                         <td><Link to={`/hallazgos/${finding.id}`}>{finding.criterionId}</Link></td>
                         <td>{assetName(finding.assetId)}</td>
                         <td><ResultBadge result={finding.result} /> <SeverityBadge severity={finding.severity} /></td>
-                        <td>{nameOf(finding.responsibleId)}</td>
+                        <td><PersonName name={nameOf(finding.responsibleId)} /></td>
                         <td>
                           {finding.obligationVoided ? <Badge>Sin obligación</Badge> : action ? <ActionBadge status={action.status} /> : '—'}
                         </td>

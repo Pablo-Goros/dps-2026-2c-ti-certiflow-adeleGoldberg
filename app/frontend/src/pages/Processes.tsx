@@ -4,6 +4,7 @@ import { formatInstant } from '../lib/format'
 import { useLoad } from '../lib/hooks'
 import { eventLabel, label } from '../lib/labels'
 import type { JobsResult, OutboxEntry } from '../lib/types'
+import { Icon } from '../components/Icon'
 import { Badge, Card, Empty, ErrorLine, Loading, LoadError, Notice, Page, useAction, type Tone } from '../components/ui'
 
 const tone: Record<OutboxEntry['status'], Tone> = { PENDING: 'warn', DONE: 'ok', DEAD: 'bad' }
@@ -37,6 +38,7 @@ export function Processes() {
             if (!ok) setResult(null)
           }}
         >
+          <Icon name="play" size={15} />
           Ejecutar ahora
         </button>
         {result && (

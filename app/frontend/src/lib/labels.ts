@@ -93,6 +93,13 @@ const dictionary: Record<string, string> = {
   CERTIFICATE_REACTIVATED: 'Certificado reactivado',
   CERTIFICATE_RENEWED: 'Certificado renovado',
   CERTIFICATE_EXPIRED: 'Certificado vencido',
+  // fields that the audit trail reports as changed
+  location: 'Ubicación',
+  responsible: 'Responsable',
+  expectedDate: 'Fecha prevista',
+  inspector: 'Inspector',
+  applicableAssetTypes: 'Tipos de activo',
+  'presented evidence': 'Evidencia presentada',
   // audit element types
   ASSET: 'Activo',
   PARTY: 'Persona u organización',

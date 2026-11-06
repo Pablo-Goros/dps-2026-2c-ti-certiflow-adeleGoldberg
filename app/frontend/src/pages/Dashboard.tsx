@@ -4,8 +4,21 @@ import { formatDate, formatInstant } from '../lib/format'
 import { label } from '../lib/labels'
 import { useLoad } from '../lib/hooks'
 import type { Asset, Certificate, Finding, InspectionRow } from '../lib/types'
+import { Icon, type IconName } from '../components/Icon'
 import { useParties } from '../components/Party'
 import { Badge, Card, CertificateBadge, Empty, InspectionBadge, Loading, LoadError, Page } from '../components/ui'
+
+function Stat({ to, icon, tone, value, text }: { to: string; icon: IconName; tone: string; value: number; text: string }) {
+  return (
+    <Link className="stat" to={to}>
+      <span className={`stat-icon tone-${tone}`}><Icon name={icon} size={22} /></span>
+      <span>
+        <strong>{value}</strong>
+        <span className="stat-label">{text}</span>
+      </span>
+    </Link>
+  )
+}
 
 export function Dashboard() {
   const { parties, loaded } = useParties()
@@ -26,10 +39,10 @@ export function Dashboard() {
     return (
       <Page title="Bienvenido a CertiFlow" subtitle="Gestioná inspecciones y certificados de laboratorios, fábricas e instalaciones.">
         <Card title="Para empezar">
-          <ol>
-            <li>Registrá a las <Link to="/personas">personas</Link> que van a responsabilizarse e inspeccionar.</li>
-            <li>Creá un <Link to="/esquemas">esquema de inspección</Link> y publicalo.</li>
-            <li>Registrá los <Link to="/activos">activos</Link> y asigná su primera <Link to="/inspecciones">inspección</Link>.</li>
+          <ol className="welcome-steps">
+            <li><span>Registrá a las <Link to="/personas">personas</Link> que van a responsabilizarse e inspeccionar.</span></li>
+            <li><span>Creá un <Link to="/esquemas">esquema de inspección</Link> y publicalo.</span></li>
+            <li><span>Registrá los <Link to="/activos">activos</Link> y asigná su primera <Link to="/inspecciones">inspección</Link>.</span></li>
           </ol>
         </Card>
       </Page>
@@ -43,38 +56,42 @@ export function Dashboard() {
       {!loading && (
         <>
           <div className="stats">
-            <Link className="stat" to="/activos"><strong>{assets.data!.length}</strong><span>Activos</span></Link>
-            <Link className="stat" to="/inspecciones"><strong>{open.length}</strong><span>Inspecciones abiertas</span></Link>
-            <Link className="stat" to="/hallazgos"><strong>{findings.data!.length}</strong><span>Hallazgos con acciones abiertas</span></Link>
-            <Link className="stat" to="/certificados"><strong>{valid.length}</strong><span>Certificados vigentes</span></Link>
-            <Link className="stat" to="/certificados"><strong>{suspended.length}</strong><span>Certificados suspendidos</span></Link>
+            <Stat to="/activos" icon="box" tone="seal" value={assets.data!.length} text="Activos" />
+            <Stat to="/inspecciones" icon="clipboard" tone="info" value={open.length} text="Inspecciones abiertas" />
+            <Stat to="/hallazgos" icon="alert" tone="warn" value={findings.data!.length} text="Hallazgos con acciones abiertas" />
+            <Stat to="/certificados" icon="shieldCheck" tone="ok" value={valid.length} text="Certificados vigentes" />
+            <Stat to="/certificados" icon="pause" tone="bad" value={suspended.length} text="Certificados suspendidos" />
           </div>
           <div className="grid-2">
-            <Card title="Inspecciones abiertas">
+            <Card title="Inspecciones abiertas" actions={<Link className="section-link" to="/inspecciones">Ver todas <Icon name="arrowRight" size={14} /></Link>}>
               {open.length === 0 ? <Empty title="Nada pendiente" /> : (
-                <div className="table-wrap"><table><tbody>
+                <ul className="mini-list">
                   {open.slice(0, 6).map((i) => (
-                    <tr key={i.id}>
-                      <td><Link to={`/inspecciones/${i.id}`}>{assetName(i.assetId)}</Link></td>
-                      <td>{formatDate(i.expectedDate)}</td>
-                      <td><InspectionBadge status={i.status} /></td>
-                    </tr>
+                    <li key={i.id}>
+                      <span className="grow">
+                        <Link to={`/inspecciones/${i.id}`}>{assetName(i.assetId)}</Link>
+                        <span className="meta"><Icon name="calendar" size={13} /> {formatDate(i.expectedDate)}</span>
+                      </span>
+                      <InspectionBadge status={i.status} />
+                    </li>
                   ))}
-                </tbody></table></div>
+                </ul>
               )}
             </Card>
-            <Card title="Próximos vencimientos">
+            <Card title="Próximos vencimientos" actions={<Link className="section-link" to="/certificados">Ver todos <Icon name="arrowRight" size={14} /></Link>}>
               {soon.length === 0 ? <Empty title="No hay certificados vigentes" /> : (
-                <div className="table-wrap"><table><tbody>
+                <ul className="mini-list">
                   {soon.map((c) => (
-                    <tr key={c.id}>
-                      <td><Link to={`/certificados/${c.id}`}>{assetName(c.assetId)}</Link></td>
-                      <td>{c.scope === 'PARTIAL' ? <Badge tone="seal">{label(c.subsystem)}</Badge> : 'Global'}</td>
-                      <td>{formatInstant(c.expiresAt)}</td>
-                      <td><CertificateBadge status={c.status} /></td>
-                    </tr>
+                    <li key={c.id}>
+                      <span className="grow">
+                        <Link to={`/certificados/${c.id}`}>{assetName(c.assetId)}</Link>
+                        <span className="meta"><Icon name="clock" size={13} /> Vence {formatInstant(c.expiresAt)}</span>
+                      </span>
+                      {c.scope === 'PARTIAL' ? <Badge tone="seal" icon="layers">{label(c.subsystem)}</Badge> : <Badge icon="shield">Global</Badge>}
+                      <CertificateBadge status={c.status} />
+                    </li>
                   ))}
-                </tbody></table></div>
+                </ul>
               )}
             </Card>
           </div>
