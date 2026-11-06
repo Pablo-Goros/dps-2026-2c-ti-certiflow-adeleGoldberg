@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, configure, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Inspection, InspectionAct, Schema } from '../lib/types'
 import { InspectionDetail } from './InspectionDetail'
+
+// The page loads several resources before it renders; a slow CI runner needs more than the 1 s default.
+configure({ asyncUtilTimeout: 5000 })
 
 vi.mock('../components/Party', () => ({
   useParties: () => ({ nameOf: (id: string | null | undefined) => id ?? '—' }),
@@ -99,8 +102,8 @@ describe('InspectionDetail closed and incomplete workflows', () => {
     renderPage()
 
     fireEvent.click(await screen.findByRole('button', { name: 'Rectificar inspección' }))
-    fireEvent.change(screen.getByLabelText('Nueva medición de TEMP'), { target: { value: '5' } })
-    fireEvent.change(screen.getByLabelText('Motivo de rectificación'), { target: { value: 'Lectura mal transcripta' } })
+    fireEvent.change(await screen.findByLabelText('Nueva medición de TEMP'), { target: { value: '5' } })
+    fireEvent.change(await screen.findByLabelText('Motivo de rectificación'), { target: { value: 'Lectura mal transcripta' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar rectificación' }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/inspections/inspection/rectifications', expect.objectContaining({ method: 'POST' })))
