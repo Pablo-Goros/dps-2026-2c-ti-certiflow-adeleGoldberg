@@ -47,6 +47,7 @@ el razonamiento y las consecuencias de cada una.
 | D43 | Origen de la no conformidad observada como valor de la inspección | `SuggestionOrigin`, `ObservedNonConformity.origin`, `RecordObservedNonConformity.recordSuggested` | Que el acta, el hallazgo y el resumen digan qué propuso la IA y qué aceptó o editó el inspector, sin consultar otra tabla | Que solo la decisión de la consulta apunte a la observación (traza en un sentido), o referenciar `ConsultationId` desde la inspección | La traza va en los dos sentidos. Los identificadores son texto para que `inspection` no dependa de `assistant`, que ya depende de `inspection` (sección 20) |
 | D44 | El motivo de evaluación nombra el origen | `EvaluationReason.ObservedByInspector.describe()`, `InspectionAct.ActObservation` | Que la traza llegue a todos los informes por el camino que ya recorren los motivos, sin tocar `FindingsSummary` ni la certificación | Un campo nuevo en cada informe | Un solo punto de cambio; el texto del motivo es más largo y está en inglés como los demás motivos del núcleo (sección 20) |
 | D45 | Instrucciones del modelo en inglés, texto para el inspector en español | `suggest-findings/v1/instructions.md`, el system prompt que reciben todos los proveedores | Los modelos siguen con más fidelidad instrucciones en inglés, sobre todo los abiertos y chicos que se pueden correr localmente, y el prompt es configuración técnica, como el código. Lo que lee el inspector, `description` y `rationale`, se pide explícitamente en español, el idioma de las notas y de la interfaz | Escribir las instrucciones en español | Un modelo chico puede contestar en inglés pese a la instrucción. Si pasa, una versión en español es un prompt nuevo que se mide contra esta con el harness, como cualquier cambio de prompt |
+| D46 | La interfaz pregunta si el asistente está encendido | `GET /api/meta/assistant` (`MetaController`), puerto `AssistantAvailability` (dominio) ← record de `app.config`, `AssistantPanel` | Que la demo y el uso real muestren un aviso claro cuando el asistente está apagado o sin proveedor, en lugar de un error | Deducirlo de que las rutas del asistente responden 404, lo que ata la interfaz al texto de un error | Un endpoint más; expone solo `enabled` y el nombre del adaptador, nunca dirección, modelo ni clave (sección 20.6) |
 
 ### Patrones deliberadamente no aplicados
 
@@ -1107,3 +1108,35 @@ que venía de una sugerencia, así que el acta y el hallazgo no lo mostraban.
   interfaz puede mostrar el origen a partir del campo estructurado `origin` en lugar del texto.
 - *La consulta guarda la entrada completa que vio el modelo,* notas incluidas. Es lo que permite
   reproducir una sugerencia, pero duplica texto de la inspección; no hay política de retención.
+
+### 20.6. Interfaz y flujo del inspector
+
+La consigna pide que un humano acepte o descarte cada sugerencia y que ninguna se aplique sola. La interfaz lo
+resuelve sin lógica de negocio propia: todo pasa por los casos de uso a través de la API.
+
+- **`AssistantPanel`** (pantalla de la inspección): pide sugerencias, y cada una se acepta, se edita (con nota
+  obligatoria) o se descarta (con motivo opcional). Muestra el historial de consultas con el modelo y la versión de
+  prompt que respondió, y lo que el sistema descartó de la respuesta. Solo se ofrece con la inspección en curso y con
+  al menos una nota, que es lo que lee el asistente; un 503 se explica según su categoría y aclara que no se registró
+  nada.
+- **`CriterionCard`**: cada criterio lista sus no conformidades observadas con su origen («Sugerida por IA», «Sugerida
+  por IA, editada», «Del inspector»), y mientras la inspección está en curso se pueden registrar a mano y quitar.
+- **`InspectionActView`**: el acta muestra las mismas no conformidades con su origen.
+  Al probarlo con la aplicación real apareció un defecto previo: el acta recibe `schemaVersionId` como objeto
+  (`{schemaId, number}`) y la vista lo mostraba como texto, lo que rompía la pantalla de toda inspección cerrada. El
+  tipo del front ahora refleja el contrato, la vista muestra «v1», y el test usa la forma que manda la API.
+- **`GET /api/meta/assistant`** (D46): la interfaz sabe si el asistente está encendido y muestra cómo activarlo si no.
+  El controlador recibe el contrato de dominio `AssistantAvailability` (como `JurisdictionCatalog`), implementado en
+  `app.config` desde las propiedades, así respeta la regla de que los controladores solo dependen de interfaces del
+  dominio.
+
+Pruebas: `assistant.test.ts` (origen, armado de una edición y mensajes de error, parametrizadas),
+`AssistantPanel.test.tsx` (apagado, sin notas, pedir, aceptar, editar con nota, descartar, 503, y que el flujo nunca
+llame a cerrar la inspección ni a emitir certificados), `InspectionDetail.test.tsx` (origen en el criterio y en el
+acta, registrar y quitar) y los `*ApiIT` del asistente para `/meta/assistant`.
+
+**Deuda técnica deliberada.**
+- *Sin retiro por rectificación desde la interfaz:* después del cierre una no conformidad observada solo se retira con
+  la API (`OBSERVATION_WITHDRAWAL`); la consigna de la Entrega 3 no lo pide.
+- *Sin streaming:* la respuesta del modelo llega entera; con un modelo local la espera puede ser larga y la interfaz
+  solo muestra que está consultando.
