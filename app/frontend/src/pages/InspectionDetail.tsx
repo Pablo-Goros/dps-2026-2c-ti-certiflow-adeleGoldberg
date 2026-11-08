@@ -40,6 +40,8 @@ export function InspectionDetail() {
     [schemas.data, inspection.data?.schemaVersion],
   )
   const criteria = useMemo(() => criteriaById(version), [version])
+  const schemaName = schemas.data?.find((s) => s.versions.some((v) => v.id === inspection.data?.schemaVersion))?.name
+  const schemaLabel = schemaName && version ? `${schemaName} · v${version.number}` : undefined
 
   if (inspection.error) return <Page title="Inspección"><LoadError message={inspection.error} retry={inspection.reload} /></Page>
   if (!inspection.data) return <Page title="Inspección"><Loading /></Page>
@@ -70,7 +72,7 @@ export function InspectionDetail() {
             ['Inspector', nameOf(i.inspectorId)],
             ['Inicio', formatInstant(i.startedAt)],
             ['Cierre', formatInstant(i.closedAt)],
-            ['Versión del esquema', i.schemaVersion ?? 'Se fija al iniciar'],
+            ['Versión del esquema', schemaLabel ?? i.schemaVersion ?? 'Se fija al iniciar'],
           ]}
         />
       </Card>
@@ -107,8 +109,8 @@ export function InspectionDetail() {
               </div>
             </Card>
           ))}
-          <AssistantPanel inspection={i} onChange={inspection.reload} />
           <Notes inspection={i} onChange={inspection.reload} />
+          <AssistantPanel inspection={i} onChange={inspection.reload} />
         </>
       )}
 

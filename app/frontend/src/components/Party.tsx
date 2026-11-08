@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, ApiError, currentActor, setActor } from '../lib/api'
+import { setNameResolver } from '../lib/errors'
 import type { Party } from '../lib/types'
 
 interface PartyDirectory {
@@ -49,6 +50,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick])
+
+  // Error texts of the core carry ids; once the people are known, they read with names.
+  useEffect(() => {
+    setNameResolver((id) => parties.find((p) => p.id === id)?.name ?? id)
+    return () => setNameResolver(null)
+  }, [parties])
 
   const value = useMemo<PartyDirectory>(
     () => ({

@@ -129,7 +129,8 @@ describe('InspectionDetail closed and incomplete workflows', () => {
     expect(screen.getAllByText('Lectura mal transcripta').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Sensor mal fijado/).length).toBeGreaterThan(0)
     expect(screen.getByText('Sugerida por IA, editada')).toBeTruthy()
-    expect(screen.getByText(/Versión aplicada: v1\./)).toBeTruthy()
+    expect(screen.getByText('Versión aplicada')).toBeTruthy()
+    expect(screen.getByText('v1')).toBeTruthy()
     expect(fetchMock).toHaveBeenCalledWith('/api/inspections/inspection/act', expect.anything())
   })
 
