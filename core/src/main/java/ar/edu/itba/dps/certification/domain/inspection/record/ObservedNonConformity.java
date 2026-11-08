@@ -11,7 +11,9 @@ import java.util.Optional;
 /**
  * A non-conformity the inspector saw that the criterion's rule does not measure, such as an exposed
  * conductor next to an insulation reading that is within range. It weighs on the criterion's
- * evaluation like the rule's own verdict.
+ * evaluation like the rule's own verdict. {@code origin} names the assistant's suggestion it was
+ * recorded from, when the inspector accepted or edited one; it is empty when the inspector wrote it,
+ * and in documents stored before the assistant existed.
  */
 public record ObservedNonConformity(
         String id,
@@ -20,7 +22,8 @@ public record ObservedNonConformity(
         String description,
         Optional<String> noteId,
         PartyId recordedBy,
-        Instant recordedAt) {
+        Instant recordedAt,
+        Optional<SuggestionOrigin> origin) {
 
     public ObservedNonConformity {
         id = Validate.requiredText(id, "observed non-conformity id");
@@ -31,6 +34,11 @@ public record ObservedNonConformity(
         Validate.required(noteId, "observed non-conformity note id");
         Validate.required(recordedBy, "observed non-conformity author");
         Validate.required(recordedAt, "observed non-conformity instant");
+        Validate.required(origin, "observed non-conformity origin");
+    }
+
+    public boolean suggestedByAssistant() {
+        return origin.isPresent();
     }
 
     public String describe() {

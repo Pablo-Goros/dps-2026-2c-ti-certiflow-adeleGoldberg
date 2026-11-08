@@ -8,6 +8,7 @@ import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.port.InspectionRepository;
 import ar.edu.itba.dps.certification.domain.inspection.record.ObservedNonConformity;
+import ar.edu.itba.dps.certification.domain.inspection.record.SuggestionOrigin;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
@@ -40,16 +41,30 @@ public final class RecordObservedNonConformity implements ar.edu.itba.dps.certif
 
     public ObservedNonConformity record(InspectionId inspectionId, CriterionId criterionId, CriterionResult result,
             Severity severity, String description, Optional<String> noteId) {
+        return recorded(inspectionId, criterionId, result, severity, description, noteId, Optional.empty());
+    }
+
+    public ObservedNonConformity recordSuggested(InspectionId inspectionId, CriterionId criterionId,
+            CriterionResult result, Severity severity, String description, SuggestionOrigin origin) {
+        return recorded(inspectionId, criterionId, result, severity, description, Optional.empty(),
+                Optional.of(origin));
+    }
+
+    private ObservedNonConformity recorded(InspectionId inspectionId, CriterionId criterionId,
+            CriterionResult result, Severity severity, String description, Optional<String> noteId,
+            Optional<SuggestionOrigin> origin) {
         return transactions.execute(() -> {
             var actor = actors.requireUser();
             Inspection inspection = inspections.require(inspectionId);
             ObservedNonConformity observation = inspection.recordObservedNonConformity(actor.partyId(),
-                    criterionId, ids.newIdentifier(), result, severity, description, noteId, clock.now());
+                    criterionId, ids.newIdentifier(), result, severity, description, noteId, clock.now(), origin);
             inspections.save(inspection);
+            String recordedValue = observation.describe()
+                    + origin.map(suggested -> " [" + suggested.describe() + "]").orElse("");
             audit.recordAs(actor, AuditedElementRef.inspection(inspection.id().value()),
                     AuditAction.INSPECTION_DATA_RECORDED,
                     AuditDetail.dataChanged(new FieldChange("observation." + criterionId + "." + observation.id(),
-                            null, observation.describe())));
+                            null, recordedValue)));
             return observation;
         });
     }

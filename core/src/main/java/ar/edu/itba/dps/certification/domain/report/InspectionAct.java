@@ -3,8 +3,10 @@ package ar.edu.itba.dps.certification.domain.report;
 import ar.edu.itba.dps.certification.domain.catalogue.AssetSnapshot;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionStatus;
+import ar.edu.itba.dps.certification.domain.inspection.record.SuggestionOrigin;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
+import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersionId;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
 import ar.edu.itba.dps.certification.domain.shared.PartyId;
@@ -62,7 +64,8 @@ public record InspectionAct(
             List<String> missingEvidence,
             Optional<ReportedValue<String>> result,
             Optional<Severity> severity,
-            List<String> reasons) {
+            List<String> reasons,
+            List<ActObservation> observations) {
 
         public ActCriterionLine {
             Validate.required(criterionId, "criterion id");
@@ -72,6 +75,25 @@ public record InspectionAct(
             Validate.required(result, "result");
             Validate.required(severity, "severity");
             reasons = List.copyOf(Validate.required(reasons, "reasons"));
+            observations = List.copyOf(Validate.required(observations, "observed non-conformities"));
+        }
+    }
+
+    /**
+     * A non-conformity the inspector recorded on the criterion. {@code origin} tells one the assistant
+     * suggested, and whether the inspector accepted it as is or edited it, from one they wrote.
+     */
+    public record ActObservation(String id, CriterionResult result, Severity severity, String description,
+            PartyId recordedBy, Instant recordedAt, Optional<SuggestionOrigin> origin) {
+
+        public ActObservation {
+            id = Validate.requiredText(id, "observed non-conformity id");
+            Validate.required(result, "observed result");
+            Validate.required(severity, "observed severity");
+            description = Validate.requiredText(description, "observed non-conformity description");
+            Validate.required(recordedBy, "author");
+            Validate.required(recordedAt, "instant");
+            Validate.required(origin, "origin");
         }
     }
 

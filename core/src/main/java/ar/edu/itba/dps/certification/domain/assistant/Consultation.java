@@ -4,6 +4,7 @@ import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionStatus;
 import ar.edu.itba.dps.certification.domain.inspection.record.ObservedNonConformity;
+import ar.edu.itba.dps.certification.domain.inspection.record.SuggestionOrigin;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
@@ -112,7 +113,7 @@ public final class Consultation {
         Suggestion suggestion = requireDecidable(suggestionId, inspection, actor);
         var decision = new SuggestionDecision.Accepted(actor, at, observationId);
         requireRecordedAs(inspection, decision.observationId(), suggestion.criterionId(), suggestion.result(),
-                suggestion.severity(), suggestion.description());
+                suggestion.severity(), suggestion.description(), originOf(suggestionId, false));
         return decide(suggestion, decision);
     }
 
@@ -123,7 +124,7 @@ public final class Consultation {
         var decision = new SuggestionDecision.Edited(actor, at, observationId, criterionId, result, severity,
                 description, note);
         requireRecordedAs(inspection, decision.observationId(), decision.criterionId(), decision.result(),
-                decision.severity(), decision.description());
+                decision.severity(), decision.description(), originOf(suggestionId, true));
         return decide(suggestion, decision);
     }
 
@@ -139,11 +140,18 @@ public final class Consultation {
         return decided;
     }
 
+    /** How an observed non-conformity recorded from this suggestion names where it came from. */
+    public SuggestionOrigin originOf(SuggestionId suggestionId, boolean edited) {
+        requireSuggestion(suggestionId);
+        return new SuggestionOrigin(id.value(), suggestionId.value(), edited, version.describe());
+    }
+
     private static void requireRecordedAs(Inspection inspection, String observationId, CriterionId criterionId,
-            CriterionResult result, Severity severity, String description) {
+            CriterionResult result, Severity severity, String description, SuggestionOrigin origin) {
         ObservedNonConformity observation = inspection.requireRecord(criterionId).requireObservation(observationId);
         Validate.ensure(observation.result() == result && observation.severity() == severity
-                        && observation.description().equals(description),
+                        && observation.description().equals(description)
+                        && observation.origin().equals(Optional.of(origin)),
                 "observed non-conformity " + observationId + " does not record what was decided");
     }
 

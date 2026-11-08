@@ -1,5 +1,10 @@
 package ar.edu.itba.dps.certification.infrastructure.persistence.codec;
 
+import ar.edu.itba.dps.certification.domain.inspection.record.ObservedNonConformity;
+import ar.edu.itba.dps.certification.domain.inspection.record.SuggestionOrigin;
+import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
+import ar.edu.itba.dps.certification.domain.schema.Severity;
+import ar.edu.itba.dps.certification.domain.shared.PartyId;
 import ar.edu.itba.dps.certification.infrastructure.persistence.PersistenceException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -402,5 +407,23 @@ class StateCodecTest {
         assertThatThrownBy(() -> Json.parse("\"\\u12\"")).isInstanceOf(PersistenceException.class);
         assertThatThrownBy(() -> Json.parse("tru")).isInstanceOf(PersistenceException.class);
         assertThatThrownBy(() -> Json.parse("@")).isInstanceOf(PersistenceException.class);
+    }
+
+    @Test
+    @DisplayName("an observed non-conformity stored before it had an origin loads as one the inspector wrote")
+    @SuppressWarnings("unchecked")
+    void anObservationWithoutOriginLoadsAsTheInspectorsOwn() {
+        ObservedNonConformity suggested = new ObservedNonConformity("o-1", CriterionResult.REJECTED, Severity.HIGH,
+                "exposed conductor", Optional.empty(), PartyId.of("p-1"), Instant.parse("2026-03-01T10:00:00Z"),
+                Optional.of(new SuggestionOrigin("c-1", "s1", false, "test fixed v1")));
+        Map<String, Object> document = (Map<String, Object>) Json.parse(codec.write(suggested));
+        document.remove("origin");
+
+        ObservedNonConformity old = codec.read(Json.write(document), ObservedNonConformity.class);
+
+        assertThat(codec.read(codec.write(suggested), ObservedNonConformity.class)).isEqualTo(suggested);
+        assertThat(old.origin()).isEmpty();
+        assertThat(old.suggestedByAssistant()).isFalse();
+        assertThat(old.description()).isEqualTo("exposed conductor");
     }
 }

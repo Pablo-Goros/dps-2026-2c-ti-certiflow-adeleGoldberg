@@ -8,6 +8,7 @@ import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluatio
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
 import ar.edu.itba.dps.certification.domain.inspection.record.ObservedNonConformity;
+import ar.edu.itba.dps.certification.domain.inspection.record.SuggestionOrigin;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectification;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationChange;
@@ -246,6 +247,14 @@ public final class Inspection {
     public ObservedNonConformity recordObservedNonConformity(PartyId actor, CriterionId criterionId,
             String observationId, CriterionResult result, Severity severity, String description,
             Optional<String> noteId, Instant at) {
+        return recordObservedNonConformity(actor, criterionId, observationId, result, severity, description,
+                noteId, at, Optional.empty());
+    }
+
+    /** As above; {@code origin} names the assistant's suggestion the inspector accepted or edited, if any. */
+    public ObservedNonConformity recordObservedNonConformity(PartyId actor, CriterionId criterionId,
+            String observationId, CriterionResult result, Severity severity, String description,
+            Optional<String> noteId, Instant at, Optional<SuggestionOrigin> origin) {
         requireInProgress("record an observed non-conformity");
         requireAssignedInspector(actor, "record an observed non-conformity");
         CriterionRecord record = requireApplicableRecord(criterionId, "observed");
@@ -255,7 +264,7 @@ public final class Inspection {
                         .noneMatch(existing -> existing.id().equals(observationId)),
                 "observed non-conformity " + observationId + " already exists");
         ObservedNonConformity observation = new ObservedNonConformity(observationId, result, severity,
-                description, noteId, actor, at);
+                description, noteId, actor, at, Validate.required(origin, "origin"));
         record.recordObservation(observation);
         return observation;
     }

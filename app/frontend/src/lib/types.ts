@@ -171,6 +171,25 @@ export interface InspectionActLine {
   result: ReportedTextValue | null
   severity: Severity | null
   reasons: string[]
+  observations: ActObservation[]
+}
+
+/** The assistant's suggestion an observed non-conformity was recorded from, and whether the inspector edited it. */
+export interface SuggestionOrigin {
+  consultationId: string
+  suggestionId: string
+  edited: boolean
+  assistant: string
+}
+
+export interface ActObservation {
+  id: string
+  result: CriterionResult
+  severity: Severity
+  description: string
+  recordedBy: string
+  recordedAt: string
+  origin: SuggestionOrigin | null
 }
 
 export interface InspectionAct {

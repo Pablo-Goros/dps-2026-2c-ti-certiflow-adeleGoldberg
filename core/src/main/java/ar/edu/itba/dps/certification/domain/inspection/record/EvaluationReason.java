@@ -96,9 +96,12 @@ public sealed interface EvaluationReason {
             return observation.severity();
         }
 
+        /** Names the assistant's suggestion it came from, so the act and the finding keep that trace. */
         @Override
         public String describe() {
-            return "observed by the inspector: " + observation.description();
+            return observation.origin()
+                    .map(origin -> origin.describe() + ": " + observation.description())
+                    .orElse("observed by the inspector: " + observation.description());
         }
     }
 }
