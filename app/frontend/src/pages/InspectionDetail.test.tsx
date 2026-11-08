@@ -2,7 +2,7 @@
 import { cleanup, configure, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import type { Inspection, InspectionAct, Schema } from '../lib/types'
+import type { Inspection, InspectionAct, ObservedNonConformity, Schema } from '../lib/types'
 import { InspectionDetail } from './InspectionDetail'
 
 // The page loads several resources before it renders; a slow CI runner needs more than the 1 s default.
@@ -16,6 +16,7 @@ const line = {
   criterionId: 'TEMP', section: 'Mediciones', subsystem: null, applicable: true,
   answer: { type: 'MEASUREMENT' as const, value: 30, unit: '°C' }, evidence: [],
   evaluation: { result: 'REJECTED' as const, severity: 'HIGH' as const, reasons: ['Fuera de rango'], fromRectification: false },
+  observedNonConformities: [] as ObservedNonConformity[],
 }
 
 const schema: Schema = {
@@ -45,13 +46,17 @@ const act: InspectionAct = {
   inspectionId: 'inspection', status: 'CLOSED',
   asset: { name: 'Laboratorio histórico', location: 'Piso 2' },
   inspector: 'inspector', expectedDate: '2026-10-10', startedAt: '2026-10-10T10:00:00Z',
-  closedAt: '2026-10-10T11:00:00Z', schemaVersionId: 'schema-v1',
+  closedAt: '2026-10-10T11:00:00Z', schemaVersionId: { schemaId: 'schema', number: 1 },
   sections: [{ name: 'Mediciones', lines: [{
     criterionId: 'TEMP', applicable: true,
     answer: { type: 'Rectified', originalValue: '30 °C', correctedValue: '5 °C', reason: 'Lectura mal transcripta' },
     evidenceReferences: [], missingEvidence: [],
     result: { type: 'Rectified', originalValue: 'REJECTED', correctedValue: 'APPROVED', reason: 'Lectura mal transcripta' },
-    severity: null, reasons: [], observations: [],
+    severity: null, reasons: [],
+    observations: [{
+      id: 'o-1', result: 'OBSERVED', severity: 'MEDIUM', description: 'Sensor mal fijado', recordedBy: 'inspector',
+      recordedAt: '2026-10-10T10:40:00Z', origin: { consultationId: 'c-1', suggestionId: 's1', edited: true, assistant: 'test m v1' },
+    }],
   }] }],
   notes: [], rectifications: [{ author: 'inspector', performedAt: '2026-10-10T12:00:00Z', reason: 'Lectura mal transcripta', changes: ['TEMP: 30 °C → 5 °C'] }],
 }
@@ -122,7 +127,44 @@ describe('InspectionDetail closed and incomplete workflows', () => {
     expect(screen.getAllByText('30 °C').length).toBeGreaterThan(0)
     expect(screen.getAllByText('5 °C').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Lectura mal transcripta').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Sensor mal fijado/).length).toBeGreaterThan(0)
+    expect(screen.getByText('Sugerida por IA, editada')).toBeTruthy()
+    expect(screen.getByText(/Versión aplicada: v1\./)).toBeTruthy()
     expect(fetchMock).toHaveBeenCalledWith('/api/inspections/inspection/act', expect.anything())
+  })
+
+  it('shows who proposed each observed non-conformity, and records and withdraws them through the API', async () => {
+    const observation = (id: string, description: string, origin: ObservedNonConformity['origin']): ObservedNonConformity => ({
+      id, criterionId: 'TEMP', result: 'REJECTED', severity: 'CRITICAL', description, noteId: null,
+      recordedBy: 'inspector', recordedAt: '2026-10-10T10:30:00Z', origin,
+    })
+    inspection = {
+      ...inProgressWithNoAnswers(),
+      criteria: [{
+        ...line, answer: null, evaluation: null,
+        observedNonConformities: [
+          observation('o-ai', 'Conductor expuesto', { consultationId: 'c-1', suggestionId: 's1', edited: false, assistant: 'test m v1' }),
+          observation('o-own', 'Tapa del tablero rota', null),
+        ],
+      }],
+    }
+    renderPage()
+
+    expect(await screen.findByText('Sugerida por IA')).toBeTruthy()
+    expect(screen.getByText('Del inspector')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar no conformidad' }))
+    fireEvent.change(screen.getByLabelText('Descripción'), { target: { value: 'Falta señalización' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      '/api/inspections/inspection/criteria/TEMP/observed-nonconformities', expect.objectContaining({ method: 'POST' })))
+    const recorded = fetchMock.mock.calls.find(([input, init]) =>
+      String(input).endsWith('/observed-nonconformities') && init?.method === 'POST')?.[1]
+    expect(JSON.parse(String(recorded?.body))).toEqual({ result: 'OBSERVED', severity: 'MEDIUM', description: 'Falta señalización' })
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Quitar' })[0])
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      '/api/inspections/inspection/criteria/TEMP/observed-nonconformities/o-ai', expect.objectContaining({ method: 'DELETE' })))
   })
 
   it('allows closure when every applicable answer is missing', async () => {

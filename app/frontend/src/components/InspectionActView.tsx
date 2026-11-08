@@ -1,6 +1,8 @@
+import { originLabel } from '../lib/assistant'
 import { formatDate, formatInstant } from '../lib/format'
-import type { InspectionAct, ReportedTextValue } from '../lib/types'
-import { Card, Empty, Loading, LoadError } from './ui'
+import { label } from '../lib/labels'
+import type { ActObservation, InspectionAct, ReportedTextValue } from '../lib/types'
+import { Badge, Card, Empty, Loading, LoadError } from './ui'
 import { Tree } from './Tree'
 
 export function InspectionActView({ act, error, loading, retry }: {
@@ -18,7 +20,7 @@ export function InspectionActView({ act, error, loading, retry }: {
       <Card title="Acta de inspección">
         <p className="muted">
           Activo al iniciar: <strong>{act.asset?.name ?? 'Sin datos históricos'}</strong>
-          {act.asset?.location ? ` · ${act.asset.location}` : ''}. Versión aplicada: {act.schemaVersionId ?? '—'}.
+          {act.asset?.location ? ` · ${act.asset.location}` : ''}. Versión aplicada: {act.schemaVersionId ? `v${act.schemaVersionId.number}` : '—'}.
         </p>
         <p className="muted">Inspector: {act.inspector} · prevista para el {formatDate(act.expectedDate)} · cerrada el {formatInstant(act.closedAt)}.</p>
         {act.sections.map((section) => (
@@ -34,7 +36,10 @@ export function InspectionActView({ act, error, loading, retry }: {
                         <td>{line.criterionId}{!line.applicable && <div className="muted small">No aplicable</div>}</td>
                         <td><ReportedValue value={line.answer} /></td>
                         <td>{line.result ? <ReportedValue value={line.result} /> : '—'}</td>
-                        <td>{line.reasons.length ? <ul>{line.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : '—'}</td>
+                        <td>
+                          {line.reasons.length ? <ul>{line.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : '—'}
+                          <ActObservations observations={line.observations ?? []} />
+                        </td>
                         <td>{line.evidenceReferences.length ? line.evidenceReferences.map((value, index) => <div key={index}><ReportedValue value={value} /></div>) : '—'}</td>
                       </tr>
                     ))}
@@ -73,6 +78,26 @@ export function InspectionActView({ act, error, loading, retry }: {
           <Tree value={act} />
         </details>
       </Card>
+    </div>
+  )
+}
+
+/** The non-conformities recorded on a line, saying which the assistant proposed and which the inspector wrote. */
+function ActObservations({ observations }: { observations: ActObservation[] }) {
+  if (observations.length === 0) return null
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div className="muted small">No conformidades observadas:</div>
+      <ul className="evidence-list">
+        {observations.map((observation) => (
+          <li key={observation.id}>
+            <span>{label(observation.result)} · {label(observation.severity).toLowerCase()}: {observation.description}</span>
+            <Badge tone={observation.origin ? 'info' : 'neutral'} icon={observation.origin ? 'bolt' : 'user'}>
+              {originLabel(observation.origin)}
+            </Badge>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

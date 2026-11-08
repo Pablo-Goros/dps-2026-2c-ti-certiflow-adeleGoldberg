@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { api } from '../lib/api'
+import { originLabel } from '../lib/assistant'
 import { label } from '../lib/labels'
 import { describeAnswer, parseNumber } from '../lib/rules'
-import type { Answer, Criterion, CriterionLine } from '../lib/types'
+import type { Answer, Criterion, CriterionLine, CriterionResult, Severity } from '../lib/types'
 import { Badge, ErrorLine, ResultBadge, SeverityBadge, useAction } from './ui'
 
 interface Props {
@@ -74,6 +75,87 @@ export function CriterionCard({ inspectionId, line, criterion, editable, onChang
 
       {criterion && criterion.evidence.length > 0 && (
         <EvidenceBlock inspectionId={inspectionId} line={line} criterion={criterion} editable={editable} onChange={onChange} />
+      )}
+      <ObservationsBlock inspectionId={inspectionId} line={line} editable={editable} onChange={onChange} />
+      <ErrorLine message={error} />
+    </div>
+  )
+}
+
+const NON_CONFORMING: CriterionResult[] = ['OBSERVED', 'REJECTED']
+const SEVERITIES: Severity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+
+/**
+ * Non-conformities seen beyond what the rule measures, each with who proposed it: the assistant
+ * (accepted or edited by the inspector) or the inspector alone.
+ */
+function ObservationsBlock({ inspectionId, line, editable, onChange }: {
+  inspectionId: string
+  line: CriterionLine
+  editable: boolean
+  onChange: () => void
+}) {
+  const { run, busy, error } = useAction()
+  const [adding, setAdding] = useState(false)
+  const [result, setResult] = useState<CriterionResult>('OBSERVED')
+  const [severity, setSeverity] = useState<Severity>('MEDIUM')
+  const [description, setDescription] = useState('')
+  const observations = line.observedNonConformities ?? []
+  const base = `/inspections/${inspectionId}/criteria/${encodeURIComponent(line.criterionId)}/observed-nonconformities`
+
+  const record = (event: FormEvent) => {
+    event.preventDefault()
+    run(async () => {
+      await api.post(base, { result, severity, description: description.trim() })
+      setDescription('')
+      setAdding(false)
+      onChange()
+    }, 'No conformidad registrada')
+  }
+  const withdraw = (observationId: string) =>
+    run(async () => {
+      await api.del(`${base}/${encodeURIComponent(observationId)}`)
+      onChange()
+    }, 'No conformidad retirada')
+
+  if (observations.length === 0 && !editable) return null
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="section-title">No conformidades observadas</div>
+      {observations.length > 0 && (
+        <ul className="evidence-list">
+          {observations.map((observation) => (
+            <li key={observation.id} className="observation">
+              <ResultBadge result={observation.result} />
+              <SeverityBadge severity={observation.severity} />
+              <span>{observation.description}</span>
+              <Badge tone={observation.origin ? 'info' : 'neutral'} icon={observation.origin ? 'bolt' : 'user'}>
+                {originLabel(observation.origin)}
+              </Badge>
+              {editable && (
+                <button className="small danger" disabled={busy} onClick={() => withdraw(observation.id)}>Quitar</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {editable && !adding && (
+        <button className="small" style={{ marginTop: 8 }} disabled={busy} onClick={() => setAdding(true)}>
+          Registrar no conformidad
+        </button>
+      )}
+      {editable && adding && (
+        <form className="row" style={{ marginTop: 8 }} onSubmit={record} aria-label={`Registrar no conformidad en ${line.criterionId}`}>
+          <select style={{ width: 'auto' }} aria-label="Resultado" value={result} onChange={(e) => setResult(e.target.value as CriterionResult)}>
+            {NON_CONFORMING.map((value) => <option key={value} value={value}>{label(value)}</option>)}
+          </select>
+          <select style={{ width: 'auto' }} aria-label="Severidad" value={severity} onChange={(e) => setSeverity(e.target.value as Severity)}>
+            {SEVERITIES.map((value) => <option key={value} value={value}>{label(value)}</option>)}
+          </select>
+          <input style={{ flex: 1, minWidth: 180 }} aria-label="Descripción" placeholder="Qué observaste" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <button disabled={busy || !description.trim()}>Registrar</button>
+          <button type="button" disabled={busy} onClick={() => setAdding(false)}>Cancelar</button>
+        </form>
       )}
       <ErrorLine message={error} />
     </div>
