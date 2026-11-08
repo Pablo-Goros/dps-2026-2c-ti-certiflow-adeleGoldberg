@@ -1,6 +1,6 @@
 # Decisiones de diseño
 
-El proyecto abarca dos entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 19 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14).
+El proyecto abarca dos entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 19 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14). La Entrega 3 agrega el asistente de inspección; la sección 20 describe su trazabilidad y persistencia.
 
 Además de las decisiones técnicas, se explicitan las interpretaciones adoptadas por el equipo para precisar comportamientos que el enunciado deja abiertos. Estas interpretaciones delimitan el alcance del modelo; no son requisitos adicionales impuestos por la consigna.
 
@@ -43,6 +43,9 @@ el razonamiento y las consecuencias de cada una.
 | D29 | Casos de uso de consulta (lado de lectura) | `BrowseParties`, `BrowseSchemas`, `BrowseInspections`, `BrowseFindings`, `BrowseCertificates`, `BrowseAuditTrail` | Que los adaptadores de entrada lean solo a través de la capa de aplicación y que las consultas con regla (versión vigente en una fecha, filtros combinados) vivan fuera del controlador | Inyectar repositorios en los controladores | Seis clases pequeñas; una prueba de arquitectura impide que la web vuelva a importar repositorios (sección 18) |
 | D30 | Notificación como puerto de salida | `NotificationSender` ← `LogNotificationSender`, `WebhookNotificationSender`; `NotifyCorrectiveActionExpiry` | Integrar un canal externo sin que el núcleo conozca HTTP, y sin que su caída afecte a los certificados | Llamar al webhook desde el caso de uso, o hacer fallar el evento si el canal falla | Entrega «al mejor esfuerzo»: una notificación puede perderse si el canal está caído (sección 18) |
 | D31 | El rango numérico clasifica, no filtra | `NumericRangeRule` (`rangeMinimum`, `rangeMaximum`, `bands`, `outOfRange`), `Inspection.recordAnswer` | Que el inspector pueda registrar lo que midió, incluso fuera de la escala, y que el sistema decida qué significa | Tratar la medición fuera del rango como respuesta inadmisible: en la primera versión 1200 se registraba y 1201 se rechazaba con un error | La regla declara un resultado más, que no puede ser aprobatorio, y el formato persistido cambió; a cambio una inspección nunca queda sin poder expresar lo que se midió (sección 19) |
+| D42 | La consulta al asistente es un agregado propio, persistido como documento | `Consultation`, `ConsultationRepository` ← `JdbcConsultationRepository`, tabla `consultation` (V4), `BrowseConsultations` | Conservar qué vio el modelo, qué versión respondió, qué sugirió, qué rechazó el dominio y qué decidió el inspector, aunque la aplicación se reinicie | Guardar solo la auditoría textual, o meter las consultas dentro del documento de la inspección | El historial se consulta y se compara; decidir una sugerencia reescribe el documento con control de versión, así dos decisiones concurrentes no se pisan (409) (sección 20) |
+| D43 | Origen de la no conformidad observada como valor de la inspección | `SuggestionOrigin`, `ObservedNonConformity.origin`, `RecordObservedNonConformity.recordSuggested` | Que el acta, el hallazgo y el resumen digan qué propuso la IA y qué aceptó o editó el inspector, sin consultar otra tabla | Que solo la decisión de la consulta apunte a la observación (traza en un sentido), o referenciar `ConsultationId` desde la inspección | La traza va en los dos sentidos. Los identificadores son texto para que `inspection` no dependa de `assistant`, que ya depende de `inspection` (sección 20) |
+| D44 | El motivo de evaluación nombra el origen | `EvaluationReason.ObservedByInspector.describe()`, `InspectionAct.ActObservation` | Que la traza llegue a todos los informes por el camino que ya recorren los motivos, sin tocar `FindingsSummary` ni la certificación | Un campo nuevo en cada informe | Un solo punto de cambio; el texto del motivo es más largo y está en inglés como los demás motivos del núcleo (sección 20) |
 | D45 | Instrucciones del modelo en inglés, texto para el inspector en español | `suggest-findings/v1/instructions.md`, el system prompt que reciben todos los proveedores | Los modelos siguen con más fidelidad instrucciones en inglés, sobre todo los abiertos y chicos que se pueden correr localmente, y el prompt es configuración técnica, como el código. Lo que lee el inspector, `description` y `rationale`, se pide explícitamente en español, el idioma de las notas y de la interfaz | Escribir las instrucciones en español | Un modelo chico puede contestar en inglés pese a la instrucción. Si pasa, una versión en español es un prompt nuevo que se mide contra esta con el harness, como cualquier cambio de prompt |
 
 ### Patrones deliberadamente no aplicados
@@ -1034,3 +1037,73 @@ atado el contrato a un idioma.
 
 **Deuda técnica deliberada.** Sigue en pie la de la sección 16: los textos que arma el núcleo (motivos,
 descripciones de resultados) viajan en inglés y se muestran como llegan, porque son datos y no códigos.
+
+## 20. Entrega 3: trazabilidad y persistencia del asistente
+
+La consigna de la Entrega 3 pide que «quede trazado qué fue sugerido por la IA y qué decidió el
+inspector». El dominio ya lo modelaba en `Consultation` (entrada, versión que respondió, sugerencias,
+rechazos y decisiones) y la auditoría registraba `ASSISTANCE_REQUESTED` y
+`ASSISTANCE_SUGGESTION_DECIDED`, pero faltaban dos cosas: las consultas solo existían en memoria (por
+eso el asistente no podía encenderse en la aplicación real), y la no conformidad registrada no sabía
+que venía de una sugerencia, así que el acta y el hallazgo no lo mostraban.
+
+### 20.1. Clases agregadas y modificadas
+
+| Capa | Agregadas | Modificadas |
+|---|---|---|
+| Dominio | `inspection.record.SuggestionOrigin` | `ObservedNonConformity` (`origin`), `Inspection.recordObservedNonConformity` (sobrecarga con origen), `EvaluationReason.ObservedByInspector.describe()`, `Consultation` (`originOf`, verifica el origen al aceptar o editar), `InspectionAct` (`ActObservation`, `ActCriterionLine.observations`), puerto `RecordObservedNonConformity` (`recordSuggested`) |
+| Aplicación | `assistant.usecase.BrowseConsultations` | `RecordObservedNonConformity` (registra el origen y lo audita), `DecideSuggestion` (acepta y edita con origen), `GenerateInspectionAct` |
+| Infraestructura | `JdbcConsultationRepository`, migración `V4__create_consultation.sql` | `JdbcPersistence` |
+| App | — | `PersistenceConfig`, `AssistantConfig` (beans de consulta), `InspectionDtos.ObservedNonConformityDto` (`origin`), `application.properties`, `compose.yaml` |
+| Front | tipos `SuggestionOrigin`, `ActObservation` | `InspectionActLine.observations` |
+
+### 20.2. Decisiones
+
+- **Consulta persistida como documento (D42).** Sigue el patrón de los demás agregados (sección 13):
+  una fila por consulta con el documento completo y `inspection_id` indexado, con clave foránea a la
+  inspección. El control optimista de `DocumentRepository` hace que dos decisiones simultáneas sobre la
+  misma consulta no se pisen: la segunda falla con conflicto (409) en lugar de perder la primera.
+- **Traza en los dos sentidos (D43).** La decisión ya nombraba la observación (`observationId`); ahora
+  la observación nombra la consulta y la sugerencia (`origin`), si fue editada y qué asistente respondió
+  (adaptador, modelo y versión de prompt). `Consultation` verifica al decidir que la observación lleve
+  exactamente ese origen, así una no conformidad escrita a mano con los mismos valores no se confunde
+  con una aceptada. El origen usa texto y no `ConsultationId` para no crear un ciclo
+  `inspection ↔ assistant`.
+- **El motivo lleva el origen (D44).** Los motivos de evaluación ya llegan al hallazgo, al resumen de
+  hallazgos, al acta y a la certificación; nombrar ahí el origen hace visible la traza en todos esos
+  lugares con un único cambio. El acta además lista las observaciones de cada criterio con su origen,
+  también mientras la inspección sigue abierta.
+- **Encendido explícito.** El asistente sigue apagado por defecto (`certiflow.assistant.enabled`), ahora
+  porque encenderlo implica mandar notas de inspección a un modelo, no por falta de persistencia.
+
+### 20.3. Refactorizaciones
+
+- `RecordObservedNonConformity` concentra el registro en un método privado que reciben tanto el
+  registro manual como el sugerido, en lugar de duplicar la transacción y la auditoría.
+- `AssistanceApiIT` dejó de usar repositorio y consulta en memoria: corre contra H2 real y solo
+  reemplaza el modelo (stub determinista, como pide la consigna para la CI).
+
+### 20.4. Pruebas
+
+- Repositorio contra H2 real (`JdbcConsultationRepositoryIT`): lectura idéntica tras un reinicio, con
+  decisiones aceptada, editada y descartada y rechazos; listado igual al del repositorio en memoria;
+  clave foránea; origen guardado en la inspección; dos decisiones concurrentes (la segunda se rechaza);
+  y atomicidad: si no se puede guardar la consulta, tampoco quedan la observación ni la auditoría.
+- Compatibilidad (`StateCodecTest`): una observación guardada antes de existir `origin` se lee como
+  escrita por el inspector.
+- Núcleo (`AssistedInspectionIT`, `ConsultationTest`): motivo y acta con origen aceptado y editado,
+  observación manual sin origen, historial más nuevo primero, y rechazo de una observación con los
+  mismos valores pero sin el origen de la sugerencia.
+- API (`AssistanceApiIT`, `AssistantWithoutProviderApiIT`): origen en la inspección, el acta y el resumen
+  de hallazgos; historial persistido; y la aplicación arranca con el asistente encendido sin ningún
+  reemplazo (sin proveedor responde 503 `MISCONFIGURED`).
+
+### 20.5. Deuda técnica deliberada
+
+- *Sin migración de documentos:* las observaciones guardadas antes de esta versión no tienen origen y se
+  leen como escritas por el inspector. Es correcto, porque antes no había forma de aceptar sugerencias
+  fuera de los tests.
+- *El texto del motivo está en inglés,* como el resto de los motivos del núcleo (sección 19.2); la
+  interfaz puede mostrar el origen a partir del campo estructurado `origin` en lugar del texto.
+- *La consulta guarda la entrada completa que vio el modelo,* notas incluidas. Es lo que permite
+  reproducir una sugerencia, pero duplica texto de la inspección; no hay política de retención.
