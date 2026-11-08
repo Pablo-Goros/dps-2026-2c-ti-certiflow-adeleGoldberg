@@ -51,7 +51,7 @@ const act: InspectionAct = {
     answer: { type: 'Rectified', originalValue: '30 °C', correctedValue: '5 °C', reason: 'Lectura mal transcripta' },
     evidenceReferences: [], missingEvidence: [],
     result: { type: 'Rectified', originalValue: 'REJECTED', correctedValue: 'APPROVED', reason: 'Lectura mal transcripta' },
-    severity: null, reasons: [],
+    severity: null, reasons: [], observations: [],
   }] }],
   notes: [], rectifications: [{ author: 'inspector', performedAt: '2026-10-10T12:00:00Z', reason: 'Lectura mal transcripta', changes: ['TEMP: 30 °C → 5 °C'] }],
 }

@@ -57,8 +57,9 @@ public final class DecideSuggestion implements ar.edu.itba.dps.certification.dom
             Consultation consultation = consultations.require(consultationId);
             Suggestion suggestion = consultation.requireDecidable(suggestionId, inspections.require(inspectionId),
                     actor.partyId());
-            ObservedNonConformity observation = recordObservation.record(inspectionId, suggestion.criterionId(),
-                    suggestion.result(), suggestion.severity(), suggestion.description(), Optional.empty());
+            ObservedNonConformity observation = recordObservation.recordSuggested(inspectionId,
+                    suggestion.criterionId(), suggestion.result(), suggestion.severity(), suggestion.description(),
+                    consultation.originOf(suggestionId, false));
             Suggestion decided = consultation.accept(suggestionId, observation.id(), inspections.require(inspectionId),
                     actor.partyId(), clock.now());
             return saved(actor, consultation, decided);
@@ -71,8 +72,8 @@ public final class DecideSuggestion implements ar.edu.itba.dps.certification.dom
             var actor = actors.requireUser();
             Consultation consultation = consultations.require(consultationId);
             consultation.requireEditable(suggestionId, result, note, inspections.require(inspectionId), actor.partyId());
-            ObservedNonConformity observation = recordObservation.record(inspectionId, criterionId, result, severity,
-                    description, Optional.empty());
+            ObservedNonConformity observation = recordObservation.recordSuggested(inspectionId, criterionId, result,
+                    severity, description, consultation.originOf(suggestionId, true));
             Suggestion decided = consultation.edit(suggestionId, observation.id(), criterionId, result, severity,
                     description, note, inspections.require(inspectionId), actor.partyId(), clock.now());
             return saved(actor, consultation, decided);

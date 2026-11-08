@@ -8,6 +8,7 @@ import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
 import ar.edu.itba.dps.certification.domain.inspection.record.ObservedNonConformity;
+import ar.edu.itba.dps.certification.domain.inspection.record.SuggestionOrigin;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Correction;
 import ar.edu.itba.dps.certification.domain.catalogue.Subsystem;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
@@ -82,13 +83,14 @@ public final class InspectionDtos {
         }
     }
 
+    /** {@code origin} is the assistant's suggestion it was recorded from, or {@code null} if the inspector wrote it. */
     public record ObservedNonConformityDto(String id, String criterionId, CriterionResult result, Severity severity,
-            String description, String noteId, String recordedBy, Instant recordedAt) {
+            String description, String noteId, String recordedBy, Instant recordedAt, SuggestionOrigin origin) {
 
         public static ObservedNonConformityDto of(CriterionId criterionId, ObservedNonConformity observation) {
             return new ObservedNonConformityDto(observation.id(), criterionId.value(), observation.result(),
                     observation.severity(), observation.description(), observation.noteId().orElse(null),
-                    observation.recordedBy().value(), observation.recordedAt());
+                    observation.recordedBy().value(), observation.recordedAt(), observation.origin().orElse(null));
         }
     }
 

@@ -1,5 +1,6 @@
 package ar.edu.itba.dps.certification.app.config;
 
+import ar.edu.itba.dps.certification.application.assistant.usecase.BrowseConsultations;
 import ar.edu.itba.dps.certification.application.assistant.usecase.DecideSuggestion;
 import ar.edu.itba.dps.certification.application.assistant.usecase.RequestAssistance;
 import ar.edu.itba.dps.certification.application.audit.AuditRecorder;
@@ -27,8 +28,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * The inspection assistant: its use cases and the adapter of the configured provider. Off unless
- * {@code certiflow.assistant.enabled=true}, because consultations need a {@link ConsultationRepository}
- * and a {@code BrowseConsultations}, which the persistence work provides with its own migration.
+ * {@code certiflow.assistant.enabled=true}: a deployment opts in to sending inspection notes to a model.
+ * Consultations are stored by the {@link ConsultationRepository} of the persistence configuration.
  *
  * <p>{@code certiflow.assistant.provider} picks the adapter: {@code openai-compatible} for any
  * service of that protocol (with base-url, model and, if the provider needs one, the key in
@@ -69,6 +70,11 @@ class AssistantConfig {
     @Bean
     DecideSuggestion decideSuggestion(ConsultationRepository consultations, InspectionRepository inspections, RecordObservedNonConformity recordObservation, Clock clock, AuditRecorder audit, ActorProvider actors, Transactions transactions) {
         return new DecideSuggestion(consultations, inspections, recordObservation, clock, audit, actors, transactions);
+    }
+
+    @Bean
+    BrowseConsultations browseConsultations(ConsultationRepository consultations, Transactions transactions) {
+        return new BrowseConsultations(consultations, transactions);
     }
 
     private static String required(String value, String property) {

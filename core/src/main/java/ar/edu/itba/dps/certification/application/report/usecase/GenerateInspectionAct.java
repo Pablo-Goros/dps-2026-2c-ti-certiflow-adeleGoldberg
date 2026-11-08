@@ -8,6 +8,7 @@ import ar.edu.itba.dps.certification.domain.inspection.record.CriterionEvaluatio
 import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
 import ar.edu.itba.dps.certification.domain.inspection.record.EvidenceRecord;
 import ar.edu.itba.dps.certification.domain.inspection.record.InspectionNote;
+import ar.edu.itba.dps.certification.domain.inspection.record.ObservedNonConformity;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.Rectification;
 import ar.edu.itba.dps.certification.domain.inspection.rectification.RectificationChange;
 import ar.edu.itba.dps.certification.domain.report.InspectionAct;
@@ -87,7 +88,13 @@ public final class GenerateInspectionAct implements ar.edu.itba.dps.certificatio
                 resultOf(record),
                 current.flatMap(CriterionEvaluation::optionalSeverity),
                 current.map(evaluation -> evaluation.reasons().stream()
-                        .map(EvaluationReason::describe).toList()).orElseGet(List::of));
+                        .map(EvaluationReason::describe).toList()).orElseGet(List::of),
+                record.observations().stream().map(GenerateInspectionAct::observationOf).toList());
+    }
+
+    private static InspectionAct.ActObservation observationOf(ObservedNonConformity observation) {
+        return new InspectionAct.ActObservation(observation.id(), observation.result(), observation.severity(),
+                observation.description(), observation.recordedBy(), observation.recordedAt(), observation.origin());
     }
 
     private ReportedValue<String> answerOf(Inspection inspection, CriterionRecord record) {

@@ -4,23 +4,15 @@ import ar.edu.itba.dps.certification.domain.assistant.AssistanceRequest;
 import ar.edu.itba.dps.certification.domain.assistant.AssistanceUnavailableException;
 import ar.edu.itba.dps.certification.domain.assistant.AssistantReply;
 import ar.edu.itba.dps.certification.domain.assistant.AssistantVersion;
-import ar.edu.itba.dps.certification.domain.assistant.Consultation;
-import ar.edu.itba.dps.certification.domain.assistant.ConsultationId;
 import ar.edu.itba.dps.certification.domain.assistant.SuggestedFinding;
-import ar.edu.itba.dps.certification.domain.assistant.port.ConsultationRepository;
 import ar.edu.itba.dps.certification.domain.assistant.port.InspectionAssistant;
-import ar.edu.itba.dps.certification.domain.assistant.port.inbound.BrowseConsultations;
-import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
@@ -34,8 +26,8 @@ import org.springframework.context.annotation.Primary;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The assistant over HTTP with a scripted model. Storing and browsing consultations are stand-ins
- * here until the persistence work provides them; everything else is the real application over H2.
+ * The assistant over HTTP with a scripted model in place of the real one; everything else, including
+ * where consultations are stored, is the real application over H2.
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -52,54 +44,12 @@ class AssistanceApiIT extends ApiTest {
     static class StandIns {
 
         @Bean
-        ConsultationRepository consultations() {
-            return new MemoryConsultations();
-        }
-
-        @Bean
-        BrowseConsultations browseConsultations(ConsultationRepository consultations) {
-            return new BrowseConsultations() {
-                @Override
-                public List<Consultation> of(InspectionId inspectionId) {
-                    return consultations.findByInspection(inspectionId).stream()
-                            .sorted(Comparator.comparing(Consultation::requestedAt).reversed())
-                            .toList();
-                }
-
-                @Override
-                public Optional<Consultation> find(ConsultationId consultationId) {
-                    return consultations.findById(consultationId);
-                }
-            };
-        }
-
-        @Bean
         @Primary
         InspectionAssistant scriptedModel() {
             return request -> {
                 calls.incrementAndGet();
                 return model.apply(request);
             };
-        }
-    }
-
-    static final class MemoryConsultations implements ConsultationRepository {
-
-        private final Map<ConsultationId, Consultation> stored = new ConcurrentHashMap<>();
-
-        @Override
-        public void save(Consultation consultation) {
-            stored.put(consultation.id(), consultation);
-        }
-
-        @Override
-        public Optional<Consultation> findById(ConsultationId id) {
-            return Optional.ofNullable(stored.get(id));
-        }
-
-        @Override
-        public List<Consultation> findByInspection(InspectionId inspectionId) {
-            return stored.values().stream().filter(consultation -> consultation.inspectionId().equals(inspectionId)).toList();
         }
     }
 
@@ -268,6 +218,46 @@ class AssistanceApiIT extends ApiTest {
         assertThat(discarded.status()).as(discarded.body()).isEqualTo(200);
         assertThat((Map<String, Object>) suggestions(discarded).getFirst().get("decision"))
                 .containsEntry("verdict", "DISCARDED").containsEntry("reason", null);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void theObservationTheActAndTheFindingsSummaryNameTheSuggestionAndTheHistoryIsStored() {
+        api.post(inspection("/notes"), Map.of("text", "cable con la aislación pelada junto al tablero"), inspector);
+        String consultationId = api.post(consultations(), Map.of(), inspector).text("id");
+        api.post(decision(consultationId, "s1"), Map.of("verdict", "ACCEPTED"), inspector);
+        api.post(decision(consultationId, "s2"), Map.of("verdict", "EDITED", "criterionId", "PRES",
+                "result", "OBSERVED", "severity", "MEDIUM", "description", "etiqueta ilegible",
+                "note", "no se puede leer"), inspector);
+        var observed = (List<Map<String, Object>>) criterion(api.get(inspection("")), "ELEC").get("observedNonConformities");
+        api.post(inspection("/close"), Map.of(), inspector);
+        var act = api.get(inspection("/act"));
+        var summary = api.get(inspection("/findings-summary"));
+        var history = api.get(consultations());
+
+        var origin = Map.of("consultationId", consultationId, "suggestionId", "s1", "edited", false,
+                "assistant", "test scripted v1");
+        assertThat(observed).singleElement().satisfies(observation -> assertThat(observation).containsEntry("origin", origin));
+        String suggested = "suggested by the assistant (test scripted v1, consultation " + consultationId + ")";
+        assertThat(act.status()).as(act.body()).isEqualTo(200);
+        var electrical = actLine(act, "ELEC");
+        assertThat((List<String>) electrical.get("reasons"))
+                .contains(suggested + ", accepted by the inspector: conductor expuesto junto al tablero");
+        assertThat((List<Map<String, Object>>) electrical.get("observations")).singleElement()
+                .satisfies(observation -> assertThat(observation).containsEntry("origin", origin));
+        assertThat((Map<String, Object>) ((List<Map<String, Object>>) actLine(act, "PRES").get("observations"))
+                .getFirst().get("origin")).containsEntry("edited", true);
+        assertThat(summary.body()).contains(suggested + ", edited by the inspector: etiqueta ilegible");
+        assertThat(history.jsonList()).singleElement().satisfies(consultation -> assertThat(consultation)
+                .containsEntry("id", consultationId));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> actLine(Api.Reply act, String criterionId) {
+        return ((List<Map<String, Object>>) act.json().get("sections")).stream()
+                .flatMap(section -> ((List<Map<String, Object>>) section.get("lines")).stream())
+                .filter(line -> criterionId.equals(line.get("criterionId")))
+                .findFirst().orElseThrow();
     }
 
     private String inspection(String suffix) {

@@ -6,6 +6,7 @@ import ar.edu.itba.dps.certification.domain.catalogue.JurisdictionId;
 import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.inspection.Inspection;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
+import ar.edu.itba.dps.certification.domain.inspection.record.SuggestionOrigin;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.SchemaVersion;
@@ -102,22 +103,29 @@ class ConsultationTest {
     }
 
     @Test
-    @DisplayName("accepting names the observed non-conformity the inspector recorded with exactly the suggested values")
+    @DisplayName("accepting names the observed non-conformity recorded with exactly the suggested values and its origin")
     void acceptingNeedsTheMatchingObservation() {
         Consultation consultation = record(request,
                 finding(ELEC, CriterionResult.REJECTED, Severity.CRITICAL, "exposed conductor", "the note describes it"));
+        SuggestionOrigin origin = consultation.originOf(FIRST, false);
         inspection().recordObservedNonConformity(inspector.id(), ELEC, "o-1", CriterionResult.REJECTED, Severity.HIGH,
-                "exposed conductor", Optional.empty(), now());
+                "exposed conductor", Optional.empty(), now(), Optional.of(origin));
+        inspection().recordObservedNonConformity(inspector.id(), ELEC, "o-2", CriterionResult.REJECTED,
+                Severity.CRITICAL, "exposed conductor", Optional.empty(), now());
 
         assertThatThrownBy(() -> consultation.accept(FIRST, "o-1", inspection(), inspector.id(), now()))
                 .hasMessageContaining("does not record what was decided");
+        assertThatThrownBy(() -> consultation.accept(FIRST, "o-2", inspection(), inspector.id(), now()))
+                .as("the same values written by the inspector do not trace back to the suggestion")
+                .hasMessageContaining("does not record what was decided");
 
-        inspection().recordObservedNonConformity(inspector.id(), ELEC, "o-2", CriterionResult.REJECTED,
-                Severity.CRITICAL, "exposed conductor", Optional.empty(), now());
-        Suggestion accepted = consultation.accept(FIRST, "o-2", inspection(), inspector.id(), now());
+        inspection().recordObservedNonConformity(inspector.id(), ELEC, "o-3", CriterionResult.REJECTED,
+                Severity.CRITICAL, "exposed conductor", Optional.empty(), now(), Optional.of(origin));
+        Suggestion accepted = consultation.accept(FIRST, "o-3", inspection(), inspector.id(), now());
 
+        assertThat(origin).isEqualTo(new SuggestionOrigin("c-1", "s1", false, "test fixed v1"));
         assertThat(accepted.decision()).get().isInstanceOfSatisfying(SuggestionDecision.Accepted.class, decision -> {
-            assertThat(decision.observationId()).isEqualTo("o-2");
+            assertThat(decision.observationId()).isEqualTo("o-3");
             assertThat(decision.by()).isEqualTo(inspector.id());
         });
         assertThatThrownBy(() -> consultation.discard(FIRST, Optional.empty(), inspection(), inspector.id(), now()))

@@ -100,15 +100,23 @@ pelado junto a una medición de aislación correcta. La respuesta del criterio n
 
 - `POST .../criteria/{criterionId}/observed-nonconformities` con
   `{"result": "REJECTED", "severity": "CRITICAL", "description": "...", "noteId": "opcional"}` responde
-  201 con `{id, criterionId, result, severity, description, noteId, recordedBy, recordedAt}`.
+  201 con `{id, criterionId, result, severity, description, noteId, recordedBy, recordedAt, origin}`.
   `result` es `OBSERVED` o `REJECTED`; `noteId`, si viene, es una nota de la inspección, y vacío
   equivale a no enviarlo.
+- `origin` es `null` cuando la escribió el inspector. Cuando la registró aceptando o editando una
+  sugerencia del asistente es `{consultationId, suggestionId, edited, assistant}`: la consulta y la
+  sugerencia de la que vino, si el inspector la editó y qué asistente respondió (adaptador, modelo y
+  versión de prompt).
 - Solo el inspector asignado, con la inspección en curso y en un criterio aplicable. Si no, 422; si
   falta un campo, 400.
 - Al cerrar, la evaluación del criterio toma el peor resultado y la mayor severidad entre la regla y
-  las observaciones, y suma el motivo `observed by the inspector: <descripción>`. Así llega al
-  hallazgo, al acta y a la certificación como cualquier otro motivo.
-- Cada línea de criterio de `GET /inspections/{id}` trae `observedNonConformities`.
+  las observaciones, y suma un motivo por observación: `observed by the inspector: <descripción>`, o
+  `suggested by the assistant (<asistente>, consultation <id>), accepted|edited by the inspector: <descripción>`
+  si vino de una sugerencia. Así llega al hallazgo, al resumen de hallazgos, al acta y a la
+  certificación como cualquier otro motivo, y se ve qué propuso la IA y qué decidió el inspector.
+- Cada línea de criterio de `GET /inspections/{id}` trae `observedNonConformities`, y cada línea de
+  `GET /inspections/{id}/act` trae `observations` con `{id, result, severity, description, recordedBy,
+  recordedAt, origin}`.
 - Una nota que respalda una no conformidad observada no se puede borrar mientras la observación siga
   registrada: responde 422, y primero se retira la observación.
 - `DELETE .../observed-nonconformities/{observationId}` la retira mientras la inspección está en curso,
@@ -159,6 +167,10 @@ necesita una versión de prompt con sus propios parámetros.
   mismo criterio.
 - Solo consulta el inspector asignado, con la inspección en curso y con al menos una nota. Si no,
   responde 422 sin llamar al modelo. Cada pedido es una consulta nueva.
+- Cada consulta se guarda en la base (tabla `consultation`, migración V4) con la entrada que vio el
+  modelo, la versión que respondió, sus sugerencias, lo rechazado y cada decisión, y sobrevive a un
+  reinicio. `GET /inspections/{id}/consultations` es ese historial: compara lo que sugirió la IA con
+  lo que decidió el inspector.
 - Si la consulta falla, la respuesta es 503 `ASSISTANT_UNAVAILABLE`, y no se guarda la consulta ni
   cambia la inspección. `details` dice por qué: `UNREACHABLE` (no respondió a tiempo o está
   saturado), `REFUSED` (se negó), `INCOMPLETE` (la respuesta o la inspección superan un límite de
@@ -176,8 +188,9 @@ consulta actualizada. El cuerpo es uno de estos:
 
 Aceptar y editar siguen las reglas de la no conformidad observada, y se guardan en la misma
 transacción que la decisión y su auditoría. `decision` trae `verdict`, `by`, `at`, y además
-`observationId` (al aceptar o editar), los valores editados con `note`, o `reason`. Cada sugerencia
-se decide una sola vez.
+`observationId` (al aceptar o editar), los valores editados con `note`, o `reason`. La no conformidad
+registrada lleva a su vez `origin` con esta consulta y sugerencia, así la traza va en los dos
+sentidos. Cada sugerencia se decide una sola vez.
 
 Errores: 400 sin `verdict`, con uno desconocido o con un campo de la edición vacío; 401; 404 si la
 inspección o la consulta de esa inspección no existen; 409 ante una decisión concurrente; 422 si la

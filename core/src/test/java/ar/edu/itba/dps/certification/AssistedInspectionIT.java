@@ -1,5 +1,6 @@
 package ar.edu.itba.dps.certification;
 
+import ar.edu.itba.dps.certification.application.assistant.usecase.BrowseConsultations;
 import ar.edu.itba.dps.certification.application.assistant.usecase.DecideSuggestion;
 import ar.edu.itba.dps.certification.application.assistant.usecase.RequestAssistance;
 import ar.edu.itba.dps.certification.application.inspection.usecase.RecordObservedNonConformity;
@@ -15,6 +16,9 @@ import ar.edu.itba.dps.certification.domain.catalogue.Party;
 import ar.edu.itba.dps.certification.domain.certification.CertificateScope;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionId;
 import ar.edu.itba.dps.certification.domain.inspection.InspectionStatus;
+import ar.edu.itba.dps.certification.domain.inspection.record.EvaluationReason;
+import ar.edu.itba.dps.certification.domain.inspection.record.SuggestionOrigin;
+import ar.edu.itba.dps.certification.domain.report.InspectionAct;
 import ar.edu.itba.dps.certification.domain.schema.CriterionId;
 import ar.edu.itba.dps.certification.domain.schema.CriterionResult;
 import ar.edu.itba.dps.certification.domain.schema.Severity;
@@ -25,6 +29,7 @@ import ar.edu.itba.dps.certification.support.DomainWorld;
 import ar.edu.itba.dps.certification.support.FullSystem;
 import ar.edu.itba.dps.certification.support.InMemoryConsultations;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -129,6 +134,73 @@ class AssistedInspectionIT {
         assertThat(system.findings.findByInspection(id)).isEmpty();
         assertThat(issuedCertificate(system.issueCertificate.issuePartial(id, DomainWorld.ELECTRICAL)).scope())
                 .isEqualTo(CertificateScope.of(DomainWorld.ELECTRICAL));
+    }
+
+    @Test
+    @DisplayName("the act and the finding name the suggestion each observation came from and whether it was edited")
+    void theActAndTheFindingTraceTheSuggestion() {
+        InspectionId id = inspectWithANoteAboutTheCable();
+        Consultation consultation = requestAssistance.request(id);
+
+        decide.accept(id, consultation.id(), CABLE);
+        decide.edit(id, consultation.id(), VALVE, DomainWorld.PRESSURE_VALVES, CriterionResult.OBSERVED,
+                Severity.MEDIUM, "valve label unreadable", "the label cannot be read at all");
+        system.closeInspection.close(id);
+
+        String suggested = "suggested by the assistant (test fixed v1, consultation " + consultation.id().value() + ")";
+        assertThat(findingReasons(id, ELEC))
+                .containsExactly(suggested + ", accepted by the inspector: exposed conductor next to the panel");
+        assertThat(findingReasons(id, DomainWorld.PRESSURE_VALVES))
+                .containsExactly(suggested + ", edited by the inspector: valve label unreadable");
+        assertThat(actLine(id, ELEC).reasons()).containsAll(findingReasons(id, ELEC));
+        assertThat(actLine(id, ELEC).observations()).singleElement().satisfies(observation ->
+                assertThat(observation.origin()).contains(
+                        new SuggestionOrigin(consultation.id().value(), CABLE.value(), false, "test fixed v1")));
+        assertThat(actLine(id, DomainWorld.PRESSURE_VALVES).observations()).singleElement()
+                .satisfies(observation -> assertThat(observation.origin().orElseThrow().edited()).isTrue());
+    }
+
+    @Test
+    @DisplayName("an observation the inspector writes has no origin and keeps its usual reason")
+    void anObservationOfTheInspectorHasNoOrigin() {
+        InspectionId id = inspectWithANoteAboutTheCable();
+        var recordObservation = new RecordObservedNonConformity(system.inspections, system.ids, system.clock,
+                system.audit, system.actors, DirectTransactions.INSTANCE);
+
+        recordObservation.record(id, ELEC, CriterionResult.REJECTED, Severity.HIGH, "exposed conductor", Optional.empty());
+        system.closeInspection.close(id);
+
+        assertThat(findingReasons(id, ELEC)).containsExactly("observed by the inspector: exposed conductor");
+        assertThat(actLine(id, ELEC).observations()).singleElement()
+                .satisfies(observation -> assertThat(observation.origin()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("the history of an inspection lists its consultations newest first, with every decision")
+    void theHistoryListsConsultationsNewestFirst() {
+        InspectionId id = inspectWithANoteAboutTheCable();
+        Consultation first = requestAssistance.request(id);
+        decide.discard(id, first.id(), CABLE, Optional.of("another building"));
+        system.clock.advance(Duration.ofMinutes(5));
+        Consultation second = requestAssistance.request(id);
+        BrowseConsultations browse = new BrowseConsultations(consultations, DirectTransactions.INSTANCE);
+
+        assertThat(browse.of(id)).extracting(Consultation::id).containsExactly(second.id(), first.id());
+        assertThat(browse.find(first.id())).get()
+                .satisfies(stored -> assertThat(stored.requireSuggestion(CABLE).decided()).isTrue());
+        assertThat(browse.of(InspectionId.of("another"))).isEmpty();
+    }
+
+    private List<String> findingReasons(InspectionId id, CriterionId criterionId) {
+        return system.findings.findByCriterion(id, criterionId).orElseThrow().reasons().stream()
+                .map(EvaluationReason::describe).toList();
+    }
+
+    private InspectionAct.ActCriterionLine actLine(InspectionId id, CriterionId criterionId) {
+        return system.generateInspectionAct.generate(id).sections().stream()
+                .flatMap(section -> section.lines().stream())
+                .filter(line -> line.criterionId().equals(criterionId))
+                .findFirst().orElseThrow();
     }
 
     private InspectionId inspectWithANoteAboutTheCable() {
