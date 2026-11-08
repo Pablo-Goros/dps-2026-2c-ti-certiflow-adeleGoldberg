@@ -130,6 +130,71 @@ export interface CriterionLine {
   answer: Answer | null
   evidence: EvidenceRecord[]
   evaluation: Evaluation | null
+  observedNonConformities: ObservedNonConformity[]
+}
+
+/** A non-conformity recorded on a criterion beyond what its rule measures; `origin` says if the assistant proposed it. */
+export interface ObservedNonConformity {
+  id: string
+  criterionId: string
+  result: CriterionResult
+  severity: Severity
+  description: string
+  noteId: string | null
+  recordedBy: string
+  recordedAt: string
+  origin: SuggestionOrigin | null
+}
+
+export type Verdict = 'ACCEPTED' | 'EDITED' | 'DISCARDED'
+
+export interface SuggestionDecisionView {
+  verdict: Verdict
+  by: string
+  at: string
+  observationId: string | null
+  criterionId: string | null
+  result: CriterionResult | null
+  severity: Severity | null
+  description: string | null
+  note: string | null
+  reason: string | null
+}
+
+export interface Suggestion {
+  id: string
+  criterionId: string
+  section: string | null
+  result: CriterionResult
+  severity: Severity
+  description: string
+  rationale: string
+  decision: SuggestionDecisionView | null
+}
+
+export interface RejectedSuggestion {
+  criterionId: string
+  result: CriterionResult
+  severity: Severity
+  description: string
+  rationale: string
+  reason: string
+}
+
+/** One request to the assistant: what it suggested, what the system refused and what the inspector decided. */
+export interface Consultation {
+  id: string
+  inspectionId: string
+  requestedBy: string
+  requestedAt: string
+  assistant: { adapter: string; model: string; prompt: string }
+  suggestions: Suggestion[]
+  rejected: RejectedSuggestion[]
+}
+
+export interface AssistantInfo {
+  enabled: boolean
+  provider: string
 }
 
 export interface Note {
@@ -200,7 +265,7 @@ export interface InspectionAct {
   expectedDate: string
   startedAt: string | null
   closedAt: string | null
-  schemaVersionId: string | null
+  schemaVersionId: { schemaId: string; number: number } | null
   sections: { name: string; lines: InspectionActLine[] }[]
   notes: { criterionId: string | null; text: ReportedTextValue; author: string; recordedAt: string }[]
   rectifications: { id?: string; author: string; performedAt: string; reason: string; changes: string[] }[]

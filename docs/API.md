@@ -41,6 +41,7 @@ Al crear una sección, cada criterio lleva una regla en `rule.type`:
 | `POST /assets`, `GET /assets?type=&responsible=&name=`, `GET /assets/{id}` | activos |
 | `PUT /assets/{id}/location`, `PUT /assets/{id}/responsible` | reubicar / cambiar responsable |
 | `GET /meta/asset-types`, `GET /meta/jurisdictions` | datos para armar formularios |
+| `GET /meta/assistant` | `{enabled, provider}`: si el asistente está encendido y qué adaptador responde (`none` u `openai-compatible`); nunca la dirección, el modelo ni la clave |
 | `POST /schemas`, `GET /schemas`, `GET /schemas/{id}`, `GET /schemas/{id}/versions/{n}` | esquemas de inspección |
 | `GET /schemas/{id}/effective-version?at=<instante ISO-8601>` | qué versión regía (o regirá) en esa fecha (F2); sin `at` usa el instante actual; 404 si ninguna regía; 400 si `at` no es un instante |
 | `POST` / `DELETE /schemas/{id}/draft` | abrir / descartar borrador |

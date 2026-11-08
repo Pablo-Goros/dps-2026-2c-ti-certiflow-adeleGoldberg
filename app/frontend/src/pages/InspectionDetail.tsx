@@ -5,6 +5,7 @@ import { formatDate, formatInstant } from '../lib/format'
 import { useLoad } from '../lib/hooks'
 import { criteriaById } from '../lib/rules'
 import type { Asset, Inspection, InspectionAct, Schema } from '../lib/types'
+import { AssistantPanel } from '../components/AssistantPanel'
 import { CertificationPanel } from '../components/CertificationPanel'
 import { CriterionCard } from '../components/CriterionCard'
 import { InspectionActView } from '../components/InspectionActView'
@@ -106,6 +107,7 @@ export function InspectionDetail() {
               </div>
             </Card>
           ))}
+          <AssistantPanel inspection={i} onChange={inspection.reload} />
           <Notes inspection={i} onChange={inspection.reload} />
         </>
       )}

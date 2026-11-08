@@ -193,6 +193,16 @@ button.link { border: 0; background: none; padding: 0; color: var(--seal); text-
 .reasons { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
 .section-title { margin: 10px 0 2px; font-size: 14px; color: var(--muted); font-weight: 650; }
 
+/* ------------------------------------------------------------ inspection assistant */
+.consultation { margin-top: 12px; }
+.consultation + .consultation { border-top: 1px solid var(--line); padding-top: 12px; }
+.suggestion { border: 1px solid #c4d9ec; border-left: 4px solid var(--info); border-radius: 10px; padding: 12px 14px; background: var(--surface); }
+.suggestion.decided { border-color: var(--line); border-left-color: var(--line-strong); background: #f7faf9; }
+.suggestion-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.suggestion .why { margin: 6px 0 0; padding-left: 10px; border-left: 3px solid var(--line-strong); color: #34453e; font-size: 14px; }
+.decision { margin-top: 10px; }
+.observation span:not(.badge) { overflow-wrap: anywhere; }
+
 /* ------------------------------------------------------------ certificate */
 .certificate { position: relative; border: 2px solid var(--seal); border-radius: 10px; padding: 22px 26px 22px 104px; background: linear-gradient(180deg, #fff, #f6fbf9); }
 .certificate.suspended { border-color: #d99a2b; }

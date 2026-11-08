@@ -36,6 +36,13 @@ class SupportConfig {
         return () -> UUID.randomUUID().toString();
     }
 
+    /** Always present, unlike the assistant itself, so the interface can tell whether to offer it. */
+    @Bean
+    AssistantAvailability assistantAvailability(@Value("${certiflow.assistant.enabled:false}") boolean enabled,
+            @Value("${certiflow.assistant.provider:none}") String provider) {
+        return new AssistantAvailability(enabled, provider.strip());
+    }
+
     @Bean
     RequestActor actors() {
         return new RequestActor();

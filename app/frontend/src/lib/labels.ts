@@ -28,6 +28,10 @@ const dictionary: Record<string, string> = {
   MEDIUM: 'Media',
   HIGH: 'Alta',
   CRITICAL: 'Crítica',
+  // decisions on the assistant's suggestions
+  ACCEPTED: 'Aceptada',
+  EDITED: 'Editada',
+  DISCARDED: 'Descartada',
   // inspections
   ASSIGNED: 'Asignada',
   IN_PROGRESS: 'En curso',
