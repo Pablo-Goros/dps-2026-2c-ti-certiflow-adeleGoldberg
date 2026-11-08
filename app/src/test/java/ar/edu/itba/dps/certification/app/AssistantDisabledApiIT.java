@@ -17,4 +17,12 @@ class AssistantDisabledApiIT extends ApiTest {
         assertThat(consulted.status()).isEqualTo(404);
         assertThat(consulted.text("message")).isEqualTo("there is nothing at this address");
     }
+
+    @Test
+    void theInterfaceIsToldTheAssistantIsOff() {
+        var info = api.get("/api/meta/assistant");
+
+        assertThat(info.status()).isEqualTo(200);
+        assertThat(info.json()).containsEntry("enabled", false).containsEntry("provider", "none");
+    }
 }

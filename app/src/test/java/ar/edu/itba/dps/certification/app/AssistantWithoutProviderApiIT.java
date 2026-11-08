@@ -49,4 +49,12 @@ class AssistantWithoutProviderApiIT extends ApiTest {
         assertThat(consulted.json().get("details")).isEqualTo(List.of("MISCONFIGURED"));
         assertThat(api.get(base + "/consultations").jsonList()).isEmpty();
     }
+
+    @Test
+    void theInterfaceIsToldTheAssistantIsOnWithoutAProvider() {
+        var info = api.get("/api/meta/assistant");
+
+        assertThat(info.json()).containsEntry("enabled", true).containsEntry("provider", "none");
+        assertThat(info.body()).doesNotContain("base-url", "model", "key");
+    }
 }
