@@ -1,0 +1,91 @@
+{
+  "id": "09-ya-registrada",
+  "summary": "El problema de la nota ya está registrado como no conformidad observada",
+  "request": {
+    "assetType": "FACILITY",
+    "subsystems": [
+      "electrical installation",
+      "pressure system",
+      "building safety"
+    ],
+    "criteria": [
+      {
+        "id": "SAFE-EXITS",
+        "section": "Seguridad edilicia",
+        "subsystem": "building safety",
+        "answer": "EXITS_OK",
+        "provisionalEvaluation": {
+          "result": "REJECTED",
+          "severity": "CRITICAL",
+          "reasons": [
+            "observed by the inspector: salida del depósito bloqueada por pallets"
+          ]
+        },
+        "observedNonConformities": [
+          "REJECTED CRITICAL: salida del depósito bloqueada por pallets"
+        ],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "EXITS_BLOCKED",
+            "result": "REJECTED",
+            "severity": "CRITICAL",
+            "description": "salida de emergencia obstruida o cerrada con llave"
+          },
+          {
+            "code": "EXITS_SIGNAGE",
+            "result": "OBSERVED",
+            "severity": "MEDIUM",
+            "description": "señalización de salida faltante o apagada"
+          },
+          {
+            "code": "EXITS_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "salidas libres y señalizadas"
+          }
+        ]
+      },
+      {
+        "id": "SAFE-EXTINGUISHERS",
+        "section": "Seguridad edilicia",
+        "subsystem": "building safety",
+        "answer": "EXT_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "EXT_EXPIRED",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "matafuego descargado o con la carga vencida"
+          },
+          {
+            "code": "EXT_ACCESS",
+            "result": "OBSERVED",
+            "severity": "MEDIUM",
+            "description": "matafuego obstruido o fuera de su lugar"
+          },
+          {
+            "code": "EXT_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "matafuegos cargados, vigentes y accesibles"
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "criterionId": null,
+        "text": "Salida del depósito bloqueada por pallets."
+      }
+    ]
+  },
+  "expected": []
+}

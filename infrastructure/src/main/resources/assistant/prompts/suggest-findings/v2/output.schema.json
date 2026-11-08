@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "criterionId": { "type": "string" },
+          "result": { "type": "string", "enum": ["OBSERVED", "REJECTED"] },
+          "severity": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "description": { "type": "string" },
+          "rationale": { "type": "string" }
+        },
+        "required": ["criterionId", "result", "severity", "description", "rationale"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["findings"],
+  "additionalProperties": false
+}

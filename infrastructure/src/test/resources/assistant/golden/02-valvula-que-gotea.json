@@ -1,0 +1,87 @@
+{
+  "id": "02-valvula-que-gotea",
+  "summary": "La respuesta dice que no hay pérdidas, pero la nota del criterio describe una válvula que gotea",
+  "request": {
+    "assetType": "FACILITY",
+    "subsystems": [
+      "electrical installation",
+      "pressure system",
+      "building safety"
+    ],
+    "criteria": [
+      {
+        "id": "ELEC-INSULATION",
+        "section": "Eléctrica",
+        "subsystem": "electrical installation",
+        "answer": "15 MOhm",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "INSULATION_LOW",
+            "result": "REJECTED",
+            "severity": "CRITICAL",
+            "description": "aislación dañada o resistencia de aislación menor a 1 MOhm: riesgo de electrocución"
+          },
+          {
+            "code": "INSULATION_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "aislación íntegra, resistencia de al menos 1 MOhm"
+          }
+        ]
+      },
+      {
+        "id": "PRES-VALVES",
+        "section": "Presión",
+        "subsystem": "pressure system",
+        "answer": "VALVES_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "VALVES_LEAK",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "una válvula pierde fluido"
+          },
+          {
+            "code": "VALVES_LABEL",
+            "result": "OBSERVED",
+            "severity": "LOW",
+            "description": "válvula sin identificación legible"
+          },
+          {
+            "code": "VALVES_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "válvulas estancas e identificadas"
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "criterionId": "PRES-VALVES",
+        "text": "Al reabrir el circuito la válvula V-3 gotea de forma continua sobre la bandeja."
+      }
+    ]
+  },
+  "expected": [
+    {
+      "criterionId": "PRES-VALVES",
+      "result": "REJECTED",
+      "severity": "HIGH"
+    }
+  ]
+}

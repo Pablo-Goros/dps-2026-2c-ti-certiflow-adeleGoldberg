@@ -1,0 +1,85 @@
+{
+  "id": "13-heladera-puerta",
+  "summary": "Laboratorio: la temperatura es correcta pero la puerta de la heladera no cierra",
+  "request": {
+    "assetType": "LABORATORY",
+    "subsystems": [],
+    "criteria": [
+      {
+        "id": "LAB-COLD-STORAGE",
+        "section": "Conservación de muestras",
+        "subsystem": null,
+        "answer": "4 °C",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [
+          "PHOTO: termómetro de la heladera"
+        ],
+        "outcomes": [
+          {
+            "code": "COLD_OUT",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "temperatura de conservación fuera de 2 a 8 °C"
+          },
+          {
+            "code": "COLD_DOOR",
+            "result": "OBSERVED",
+            "severity": "MEDIUM",
+            "description": "la puerta o el burlete no cierran correctamente"
+          },
+          {
+            "code": "COLD_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "temperatura entre 2 y 8 °C y cierre correcto"
+          }
+        ]
+      },
+      {
+        "id": "LAB-FUME-HOOD",
+        "section": "Seguridad del laboratorio",
+        "subsystem": null,
+        "answer": "HOOD_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "HOOD_FAIL",
+            "result": "REJECTED",
+            "severity": "CRITICAL",
+            "description": "campana de extracción sin flujo de aire"
+          },
+          {
+            "code": "HOOD_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "campana con flujo verificado"
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "criterionId": null,
+        "text": "La heladera de muestras marca 4 °C, pero la puerta no cierra sola y queda entreabierta."
+      }
+    ]
+  },
+  "expected": [
+    {
+      "criterionId": "LAB-COLD-STORAGE",
+      "result": "OBSERVED",
+      "severity": "MEDIUM"
+    }
+  ]
+}

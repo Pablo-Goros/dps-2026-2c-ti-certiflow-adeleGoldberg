@@ -115,6 +115,7 @@ requests and pushes to `main`, and uploads test and coverage reports.
 - [Design record](DESIGN.md): design decisions, classes added or modified for
   F1-F3, refactorings, and deliberate technical debt.
 - [REST API](docs/API.md): endpoints, actor identification, and error contracts.
+- [Assistant evaluation](docs/assistant-eval/README.md): golden set, metrics, how to run the harness, and results.
 - [Architecture](docs/arquitectura-hexagonal.md): hexagonal architecture overview.
 - [Frontend README](app/frontend/README.md): frontend structure and development.
 - [Project instructions](AGENTS.md): contributor and agent rules, validation,

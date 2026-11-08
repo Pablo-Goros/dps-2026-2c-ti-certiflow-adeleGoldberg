@@ -1,0 +1,116 @@
+{
+  "id": "14-lavaojos-obstruido",
+  "summary": "Laboratorio: el lavaojos funciona pero está tapado por cajas",
+  "request": {
+    "assetType": "LABORATORY",
+    "subsystems": [],
+    "criteria": [
+      {
+        "id": "LAB-EYEWASH",
+        "section": "Seguridad del laboratorio",
+        "subsystem": null,
+        "answer": "EYEWASH_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "EYEWASH_MISSING",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "lavaojos inexistente o sin agua"
+          },
+          {
+            "code": "EYEWASH_ACCESS",
+            "result": "OBSERVED",
+            "severity": "LOW",
+            "description": "lavaojos obstruido o sin señalizar"
+          },
+          {
+            "code": "EYEWASH_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "lavaojos accesible, señalizado y con agua"
+          }
+        ]
+      },
+      {
+        "id": "LAB-FUME-HOOD",
+        "section": "Seguridad del laboratorio",
+        "subsystem": null,
+        "answer": "HOOD_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "HOOD_FAIL",
+            "result": "REJECTED",
+            "severity": "CRITICAL",
+            "description": "campana de extracción sin flujo de aire"
+          },
+          {
+            "code": "HOOD_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "campana con flujo verificado"
+          }
+        ]
+      },
+      {
+        "id": "LAB-COLD-STORAGE",
+        "section": "Conservación de muestras",
+        "subsystem": null,
+        "answer": "5 °C",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "COLD_OUT",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "temperatura de conservación fuera de 2 a 8 °C"
+          },
+          {
+            "code": "COLD_DOOR",
+            "result": "OBSERVED",
+            "severity": "MEDIUM",
+            "description": "la puerta o el burlete no cierran correctamente"
+          },
+          {
+            "code": "COLD_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "temperatura entre 2 y 8 °C y cierre correcto"
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "criterionId": "LAB-EYEWASH",
+        "text": "El lavaojos tiene agua, pero quedó tapado por cajas de insumos y no se ve el cartel."
+      }
+    ]
+  },
+  "expected": [
+    {
+      "criterionId": "LAB-EYEWASH",
+      "result": "OBSERVED",
+      "severity": "LOW"
+    }
+  ]
+}
