@@ -8,9 +8,10 @@ services:
       # The seeder only runs under this profile, and only on an empty database.
       SPRING_PROFILES_ACTIVE: demo
       CERTIFLOW_ZONE: America/Argentina/Buenos_Aires
-      # The inspection assistant against the optional local model below. It stays off until
-      # consultations are persisted: without that the application does not start.
-      CERTIFLOW_ASSISTANT_ENABLED: "false"
+      # The inspection assistant against the optional local model below. Off by default; run
+      #   CERTIFLOW_ASSISTANT_ENABLED=true docker compose --profile assistant up
+      # to turn it on together with the model.
+      CERTIFLOW_ASSISTANT_ENABLED: ${CERTIFLOW_ASSISTANT_ENABLED:-false}
       CERTIFLOW_ASSISTANT_PROVIDER: openai-compatible
       CERTIFLOW_ASSISTANT_BASE_URL: http://ollama:11434/v1
       CERTIFLOW_ASSISTANT_MODEL: llama3.2:3b

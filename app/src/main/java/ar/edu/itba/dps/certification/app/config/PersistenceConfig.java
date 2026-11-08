@@ -1,5 +1,6 @@
 package ar.edu.itba.dps.certification.app.config;
 
+import ar.edu.itba.dps.certification.domain.assistant.port.ConsultationRepository;
 import ar.edu.itba.dps.certification.domain.audit.port.AuditTrail;
 import ar.edu.itba.dps.certification.domain.catalogue.port.AssetRepository;
 import ar.edu.itba.dps.certification.domain.catalogue.port.PartyRepository;
@@ -62,6 +63,11 @@ class PersistenceConfig {
     @Bean
     AuditTrail auditTrail(JdbcPersistence persistence) {
         return persistence.auditTrail();
+    }
+
+    @Bean
+    ConsultationRepository consultations(JdbcPersistence persistence) {
+        return persistence.consultations();
     }
 
     @Bean
