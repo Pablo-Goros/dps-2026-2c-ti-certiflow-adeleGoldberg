@@ -1,6 +1,6 @@
 # Decisiones de diseño
 
-El proyecto abarca dos entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 19 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14). La Entrega 3 agrega el asistente de inspección; la sección 20 describe su trazabilidad y persistencia.
+El proyecto abarca tres entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 19 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14). La Entrega 3 agrega el asistente de inspección; la sección 20 describe su trazabilidad y persistencia.
 
 Además de las decisiones técnicas, se explicitan las interpretaciones adoptadas por el equipo para precisar comportamientos que el enunciado deja abiertos. Estas interpretaciones delimitan el alcance del modelo; no son requisitos adicionales impuestos por la consigna.
 
@@ -965,7 +965,8 @@ no pudo verificarse desde el código.
   futura del JDK cambia el formato de clases habrá que actualizarlo. Mockito se carga con
   `-XX:+EnableDynamicAgentLoading` en la ejecución de pruebas del módulo `app`.
 - *Endpoints `/api/admin/*` sin protección* (igual que la autenticación, sección 14).
-- *Protección de ramas de GitHub* sin verificar (18.4).
+- *Protección de ramas de GitHub:* resuelta después; un ruleset del repositorio exige el check **Build and test** antes de
+  integrar a `main`.
 
 ## 19. Revisión del modelo: medición fuera del rango y textos de la interfaz
 
@@ -1159,7 +1160,7 @@ y compare; y que la CI use un stub del puerto. Cómo correrlo y los resultados e
 | Capa | Agregadas | Modificadas |
 |---|---|---|
 | Dominio | `SuggestionScreening` (+ `SuggestionScreeningTest`) | `Consultation` (usa `SuggestionScreening`) |
-| Infraestructura (recursos) | `prompts/suggest-findings/v2/`, `assistant/golden/*.json` (14 casos, en test) | — |
+| Infraestructura (recursos) | `prompts/suggest-findings/v2/` y `v3/`, `assistant/golden/*.json` (14 casos, en test) | — |
 | Infraestructura (tests, paquete `assistant.eval`) | `GoldenCase`, `GoldenSet`, `Scoring`, `Scorecard`, `Evaluation`, `EvaluationReport`, `SuggestFindingsHarness`, `GoldenSetTest`, `ScoringTest`, `HarnessWithStubIT`, `PromptVersionsAreMeasuredTest` | — |
 
 **Refactorización.** La regla con la que `Consultation` separaba sugerencias válidas de rechazadas pasó a
@@ -1180,6 +1181,8 @@ métricas cuentan bien (con un stub cuyas respuestas, y por lo tanto cuyos error
 **Deuda técnica deliberada.**
 - *Muestra chica y en un solo idioma:* 14 casos escritos por el equipo, en castellano y sobre dos tipos de activo; los
   porcentajes tienen mucho margen de error.
+- *La v3 midió peor que la v2* (67 % contra 89 % de correctos con `llama3.1:8b`): queda versionada y medida como
+  antecedente, y la recomendación sigue siendo la v2. El harness no evalúa si la justificación es más explicativa.
 - *Riesgo de sobreajuste:* la v2 del prompt se escribió después de ver los errores de la v1 sobre este mismo conjunto.
   Sus ejemplos evitan los casos del conjunto, pero lo correcto sería medir también sobre casos reservados.
 - *Comparación exacta:* no se evalúa la redacción de la descripción ni de la justificación.

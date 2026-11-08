@@ -54,8 +54,11 @@ el rango salió en general cerrado, pero un proveedor que no respete la semilla 
 | `suggest-findings/v1` | `llama3.1:8b` | 44 % | 27 % | 100 % | 0,50 | 0 de 18 |
 | `suggest-findings/v2` | `llama3.2:3b` | 33 % | 21 % | 100 % | 0,64 | 0 de 18 |
 | `suggest-findings/v2` | `llama3.1:8b` | **89 %** | **53 %** | 100 % | **0,43** | 0 de 18 |
+| `suggest-findings/v3` | `llama3.2:3b` | 33 % | 21 % | 100 % | 0,57 | 0 de 18 |
+| `suggest-findings/v3` | `llama3.1:8b` | 67 % | 40 % | 100 % | 0,50 | 0 de 18 |
 
-Detalle por caso y cada error con el texto del modelo: [v1](suggest-findings-v1.md) · [v2](suggest-findings-v2.md).
+Detalle por caso y cada error con el texto del modelo: [v1](suggest-findings-v1.md) · [v2](suggest-findings-v2.md) ·
+[v3](suggest-findings-v3.md).
 
 ### Qué muestran
 
@@ -65,6 +68,12 @@ Detalle por caso y cada error con el texto del modelo: [v1](suggest-findings-v1.
   cambiaron — empezó a copiar el ejemplo del prompt ("la manguera de gas de la cocina…") en casos que no tenían
   nada que ver, y a bajar a OBSERVED problemas graves. Un número agregado igual puede esconder errores distintos:
   hay que leerlos.
+- **Un cambio que parecía mejor fue peor.** La v3 exige citar textualmente la nota y nombrar el código de la escala,
+  para que la justificación sea explicativa y para frenar los inventos. Con el 8b bajó de 89 % a 67 % de correctos y
+  de 53 % a 40 % de precisión: volvió a marcar como REJECTED problemas leves (una etiqueta borrosa, un lavaojos
+  tapado) y no inventó menos. Sin el harness, la v3 habría parecido una mejora; con él, la recomendación sigue
+  siendo la v2. El harness no mide la redacción de la justificación, así que no se puede afirmar que la v3 la haya
+  mejorado.
 - **Ningún modelo se abstiene.** En los 6 casos donde lo correcto es no sugerir nada, todos sugirieron algo, en
   todas las corridas. Los errores típicos: copiar literalmente la descripción de la escala del criterio («aislación
   dañada… riesgo de electrocución») cuando la nota dice "sin novedades"; volver a sugerir un problema que el
@@ -90,9 +99,12 @@ Una versión medida no se edita: un cambio es una versión nueva, que se mide an
   necesita un problema que el inspector *vio* (lo hipotético no cuenta); la escala del criterio sirve para
   clasificar, no se copia; cuando la escala tiene un resultado OBSERVED que corresponde, se usa ese; y dos ejemplos
   que no son casos del conjunto dorado.
+- **v3**: escrita para que la justificación cite la nota ("La nota dice «…»; corresponde a CODE") en lugar de
+  copiar la frase del ejemplo de la v2. Cada hallazgo necesita una cita textual; la escala no se puede citar. Midió
+  peor que la v2 con el 8b y queda como antecedente.
 
 La aplicación sigue usando la v1 por defecto (`certiflow.assistant.prompt`). Con estos resultados conviene la v2
-con un modelo de al menos 8b; cambiar el default es una decisión aparte del equipo.
+con un modelo de al menos 8b (la v3 midió peor); cambiar el default es una decisión aparte del equipo.
 
 ## Cómo correrlo
 
