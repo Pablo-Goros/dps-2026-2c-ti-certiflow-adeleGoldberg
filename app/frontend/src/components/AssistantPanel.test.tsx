@@ -24,7 +24,8 @@ const inspection = (notes = 1): Inspection => ({
 
 const suggestion = (id: string, criterionId: string, description: string): Suggestion => ({
   id, criterionId, section: 'Subsistemas', result: 'REJECTED', severity: 'CRITICAL', description,
-  rationale: 'La nota describe el problema', decision: null,
+  rationale: 'La nota describe el problema',
+  withoutNotes: { answer: '345 MOhm', result: 'APPROVED', severity: null }, decision: null,
 })
 
 const answered = (): Consultation => ({
@@ -120,6 +121,16 @@ describe('AssistantPanel', () => {
     expect(screen.getByText('suggest-findings/v1')).toBeTruthy()
     expect(screen.getByText(/Respuestas descartadas por el sistema \(1\)/)).toBeTruthy()
     expect(screen.getAllByText('Sugerencia de IA')).toHaveLength(2)
+  })
+
+  it('puts what the notes said first and what the rule alone concluded below', async () => {
+    await consult()
+
+    const card = screen.getByRole('article', { name: 'Sugerencia sobre ELEC' })
+    const text = card.textContent ?? ''
+    expect(text.indexOf('Lo que leyó en las notas')).toBeLessThan(text.indexOf('Sin la nota'))
+    expect(text).toContain('con la respuesta «345 MOhm», el criterio quedaba')
+    expect(text).toContain('Se registraría como: Conductor expuesto junto al tablero')
   })
 
   it('accepts a suggestion through the API and refreshes the inspection', async () => {

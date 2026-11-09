@@ -5,7 +5,7 @@ import type { Suggestion } from './types'
 
 const suggestion: Suggestion = {
   id: 's1', criterionId: 'ELEC', section: 'Eléctrica', result: 'REJECTED', severity: 'CRITICAL',
-  description: 'Conductor expuesto junto al tablero', rationale: 'La nota describe un cable pelado', decision: null,
+  description: 'Conductor expuesto junto al tablero', rationale: 'La nota describe un cable pelado', withoutNotes: null, decision: null,
 }
 
 describe('origin of an observed non-conformity', () => {

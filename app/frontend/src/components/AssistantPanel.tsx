@@ -220,8 +220,16 @@ function SuggestionCard({ consultationId, suggestion, inspection, open, onDecide
           <SeverityBadge severity={suggestion.severity} />
         </div>
       </header>
-      <p style={{ margin: '6px 0 0' }}>{suggestion.description}</p>
-      <p className="why"><span className="muted">Por qué lo sugiere: </span>{suggestion.rationale}</p>
+      <p style={{ margin: '6px 0 0' }}><span className="muted">Lo que leyó en las notas: </span>{suggestion.rationale}</p>
+      {suggestion.withoutNotes && (
+        <p className="why">
+          <span className="muted">Sin la nota: </span>
+          {suggestion.withoutNotes.answer && <>con la respuesta «{describeAnswerText(suggestion.withoutNotes.answer)}», </>}
+          el criterio quedaba <ResultBadge result={suggestion.withoutNotes.result} />
+          {suggestion.withoutNotes.severity && <> <SeverityBadge severity={suggestion.withoutNotes.severity} /></>}
+        </p>
+      )}
+      <p className="why"><span className="muted">Se registraría como: </span>{suggestion.description}</p>
 
       {suggestion.decision ? (
         <DecisionView decision={suggestion.decision} />
@@ -282,6 +290,13 @@ function SuggestionCard({ consultationId, suggestion, inspection, open, onDecide
       <ErrorLine message={error} />
     </article>
   )
+}
+
+/** The domain describes yes/no answers in English; everything else (a measurement, an option) reads as is. */
+function describeAnswerText(answer: string): string {
+  if (answer === 'yes') return 'Sí'
+  if (answer === 'no') return 'No'
+  return answer
 }
 
 function DecisionView({ decision }: { decision: SuggestionDecisionView }) {

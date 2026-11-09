@@ -103,6 +103,12 @@ class AssistanceApiIT extends ApiTest {
         assertThat(suggestions(consulted)).first().satisfies(suggestion -> assertThat(suggestion)
                 .containsEntry("id", "s1").containsEntry("criterionId", "ELEC").containsEntry("section", "Subsystems")
                 .containsEntry("result", "REJECTED").containsEntry("severity", "CRITICAL").containsEntry("decision", null));
+        var withoutNotes = new HashMap<String, Object>();
+        withoutNotes.put("answer", "clean");
+        withoutNotes.put("result", "APPROVED");
+        withoutNotes.put("severity", null);
+        assertThat(suggestions(consulted).getFirst().get("withoutNotes")).as("what the rule alone concluded")
+                .isEqualTo(withoutNotes);
         assertThat((List<Map<String, Object>>) consulted.json().get("rejected")).singleElement().satisfies(rejected ->
                 assertThat(rejected).containsEntry("criterionId", "SAFE")
                         .containsEntry("reason", "criterion SAFE was not part of the consultation"));
