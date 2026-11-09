@@ -1,0 +1,93 @@
+{
+  "id": "05-etiqueta-borrosa",
+  "summary": "Un desvío leve: la identificación de una válvula casi no se lee",
+  "request": {
+    "assetType": "FACILITY",
+    "subsystems": [
+      "electrical installation",
+      "pressure system",
+      "building safety"
+    ],
+    "criteria": [
+      {
+        "id": "PRES-VALVES",
+        "section": "Presión",
+        "subsystem": "pressure system",
+        "answer": "VALVES_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "VALVES_LEAK",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "una válvula pierde fluido"
+          },
+          {
+            "code": "VALVES_LABEL",
+            "result": "OBSERVED",
+            "severity": "LOW",
+            "description": "válvula sin identificación legible"
+          },
+          {
+            "code": "VALVES_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "válvulas estancas e identificadas"
+          }
+        ]
+      },
+      {
+        "id": "ELEC-PANEL",
+        "section": "Eléctrica",
+        "subsystem": "electrical installation",
+        "answer": "PANEL_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "PANEL_UNSAFE",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "tablero sin tapa o con partes energizadas accesibles"
+          },
+          {
+            "code": "PANEL_LABELS",
+            "result": "OBSERVED",
+            "severity": "LOW",
+            "description": "rótulos del tablero incompletos o ilegibles"
+          },
+          {
+            "code": "PANEL_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "tablero cerrado, protegido y rotulado"
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "criterionId": null,
+        "text": "La etiqueta de identificación de la válvula de alivio está borrosa, casi no se lee."
+      }
+    ]
+  },
+  "expected": [
+    {
+      "criterionId": "PRES-VALVES",
+      "result": "OBSERVED",
+      "severity": "LOW"
+    }
+  ]
+}

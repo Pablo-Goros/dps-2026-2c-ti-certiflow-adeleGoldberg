@@ -37,4 +37,5 @@ El panel consulta `GET /api/meta/assistant`: si el asistente está apagado en el
 lugar del botón.
 
 Las rutas usan `#` (`/#/activos`): así el servidor no necesita reenviar rutas del front a `index.html`.
-La persona con la que se actúa se elige arriba a la izquierda y viaja en el header `X-Actor-Id`.
+La persona con la que se actúa se elige en «Actuando como», en la barra lateral (arriba de todo en pantallas angostas),
+y viaja en el header `X-Actor-Id`.

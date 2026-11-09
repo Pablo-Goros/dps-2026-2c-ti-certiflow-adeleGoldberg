@@ -1,5 +1,7 @@
 // The only place that talks HTTP. Every call returns parsed JSON or throws an ApiError.
 
+import { humanizeDomainMessage } from './errors'
+
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
@@ -101,9 +103,9 @@ export function query(params: Record<string, string | boolean | undefined | null
 /** What to show a person when a call fails. */
 export function describeError(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 401) return 'Elegí quién sos en el selector de arriba para hacer esto.'
+    if (error.status === 401) return 'Elegí quién sos en «Actuando como», en la barra lateral, para hacer esto.'
     const extra = error.details.length ? ` ${error.details.join('; ')}` : ''
-    return error.message + extra
+    return humanizeDomainMessage(error.message) + extra
   }
   return error instanceof Error ? error.message : 'Ocurrió un error inesperado.'
 }

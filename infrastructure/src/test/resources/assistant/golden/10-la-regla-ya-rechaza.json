@@ -1,0 +1,83 @@
+{
+  "id": "10-la-regla-ya-rechaza",
+  "summary": "La evaluación provisoria ya rechaza el criterio por lo mismo que dice la nota",
+  "request": {
+    "assetType": "FACILITY",
+    "subsystems": [
+      "electrical installation",
+      "pressure system",
+      "building safety"
+    ],
+    "criteria": [
+      {
+        "id": "ELEC-INSULATION",
+        "section": "Eléctrica",
+        "subsystem": "electrical installation",
+        "answer": "0.4 MOhm",
+        "provisionalEvaluation": {
+          "result": "REJECTED",
+          "severity": "CRITICAL",
+          "reasons": [
+            "INSULATION_LOW: resistencia de aislación menor a 1 MOhm"
+          ]
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "INSULATION_LOW",
+            "result": "REJECTED",
+            "severity": "CRITICAL",
+            "description": "aislación dañada o resistencia de aislación menor a 1 MOhm: riesgo de electrocución"
+          },
+          {
+            "code": "INSULATION_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "aislación íntegra, resistencia de al menos 1 MOhm"
+          }
+        ]
+      },
+      {
+        "id": "PRES-VALVES",
+        "section": "Presión",
+        "subsystem": "pressure system",
+        "answer": "VALVES_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "VALVES_LEAK",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "una válvula pierde fluido"
+          },
+          {
+            "code": "VALVES_LABEL",
+            "result": "OBSERVED",
+            "severity": "LOW",
+            "description": "válvula sin identificación legible"
+          },
+          {
+            "code": "VALVES_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "válvulas estancas e identificadas"
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "criterionId": "ELEC-INSULATION",
+        "text": "Aislación muy baja en el circuito de bombas; coincide con la medición."
+      }
+    ]
+  },
+  "expected": []
+}

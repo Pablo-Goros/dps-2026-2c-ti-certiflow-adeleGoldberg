@@ -1,0 +1,191 @@
+{
+  "id": "06-dos-problemas",
+  "summary": "Una sola nota general con dos problemas de criterios distintos",
+  "request": {
+    "assetType": "FACILITY",
+    "subsystems": [
+      "electrical installation",
+      "pressure system",
+      "building safety"
+    ],
+    "criteria": [
+      {
+        "id": "ELEC-INSULATION",
+        "section": "Eléctrica",
+        "subsystem": "electrical installation",
+        "answer": "20 MOhm",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "INSULATION_LOW",
+            "result": "REJECTED",
+            "severity": "CRITICAL",
+            "description": "aislación dañada o resistencia de aislación menor a 1 MOhm: riesgo de electrocución"
+          },
+          {
+            "code": "INSULATION_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "aislación íntegra, resistencia de al menos 1 MOhm"
+          }
+        ]
+      },
+      {
+        "id": "ELEC-PANEL",
+        "section": "Eléctrica",
+        "subsystem": "electrical installation",
+        "answer": "PANEL_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "PANEL_UNSAFE",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "tablero sin tapa o con partes energizadas accesibles"
+          },
+          {
+            "code": "PANEL_LABELS",
+            "result": "OBSERVED",
+            "severity": "LOW",
+            "description": "rótulos del tablero incompletos o ilegibles"
+          },
+          {
+            "code": "PANEL_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "tablero cerrado, protegido y rotulado"
+          }
+        ]
+      },
+      {
+        "id": "PRES-VALVES",
+        "section": "Presión",
+        "subsystem": "pressure system",
+        "answer": "VALVES_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "VALVES_LEAK",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "una válvula pierde fluido"
+          },
+          {
+            "code": "VALVES_LABEL",
+            "result": "OBSERVED",
+            "severity": "LOW",
+            "description": "válvula sin identificación legible"
+          },
+          {
+            "code": "VALVES_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "válvulas estancas e identificadas"
+          }
+        ]
+      },
+      {
+        "id": "SAFE-EXITS",
+        "section": "Seguridad edilicia",
+        "subsystem": "building safety",
+        "answer": "EXITS_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "EXITS_BLOCKED",
+            "result": "REJECTED",
+            "severity": "CRITICAL",
+            "description": "salida de emergencia obstruida o cerrada con llave"
+          },
+          {
+            "code": "EXITS_SIGNAGE",
+            "result": "OBSERVED",
+            "severity": "MEDIUM",
+            "description": "señalización de salida faltante o apagada"
+          },
+          {
+            "code": "EXITS_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "salidas libres y señalizadas"
+          }
+        ]
+      },
+      {
+        "id": "SAFE-EXTINGUISHERS",
+        "section": "Seguridad edilicia",
+        "subsystem": "building safety",
+        "answer": "EXT_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "EXT_EXPIRED",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "matafuego descargado o con la carga vencida"
+          },
+          {
+            "code": "EXT_ACCESS",
+            "result": "OBSERVED",
+            "severity": "MEDIUM",
+            "description": "matafuego obstruido o fuera de su lugar"
+          },
+          {
+            "code": "EXT_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "matafuegos cargados, vigentes y accesibles"
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "criterionId": null,
+        "text": "Recorrida: el tablero principal no tiene la tapa colocada y quedan bornes a la vista; además, el cartel luminoso de salida del sector B está apagado."
+      }
+    ]
+  },
+  "expected": [
+    {
+      "criterionId": "ELEC-PANEL",
+      "result": "REJECTED",
+      "severity": "HIGH"
+    },
+    {
+      "criterionId": "SAFE-EXITS",
+      "result": "OBSERVED",
+      "severity": "MEDIUM"
+    }
+  ]
+}

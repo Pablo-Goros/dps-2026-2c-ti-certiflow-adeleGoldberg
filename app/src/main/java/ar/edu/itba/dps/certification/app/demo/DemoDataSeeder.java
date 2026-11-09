@@ -78,7 +78,7 @@ class DemoDataSeeder implements ApplicationRunner {
          * their jurisdiction, so whatever separates their certificates is the policy deciding.
          */
         static Findings upToMedium() {
-            return new Findings("12", "worn");
+            return new Findings("12", "desgastada");
         }
 
         /**
@@ -86,7 +86,7 @@ class DemoDataSeeder implements ApplicationRunner {
          * still certifies an asset found this way.
          */
         static Findings withHighSeverity() {
-            return new Findings("3", "worn");
+            return new Findings("3", "desgastada");
         }
     }
 
@@ -221,7 +221,7 @@ class DemoDataSeeder implements ApplicationRunner {
             answer(inspection, DemoSchema.GROUNDING, YesNoAnswer.yes());
             answer(inspection, DemoSchema.RELIEF_VALVE, OptionAnswer.of(found.reliefValve()));
             answer(inspection, DemoSchema.VESSEL_TEST, Measurement.of("9", "bar"));
-            answer(inspection, DemoSchema.EXITS, OptionAnswer.of("clear"));
+            answer(inspection, DemoSchema.EXITS, OptionAnswer.of("despejada"));
             answer(inspection, DemoSchema.EXTINGUISHERS, YesNoAnswer.no());
             answer(inspection, DemoSchema.MANUAL, YesNoAnswer.yes());
             answer(inspection, DemoSchema.TRAINING, Measurement.of("2", "h"));

@@ -71,21 +71,39 @@ export function PersonName({ name }: { name: string }) {
   )
 }
 
-export function Card({ title, actions, children, className = '' }: {
+/**
+ * A section of a page. With a title it can be collapsed and expanded by the person: its content is
+ * hidden, not unmounted, so a half-written form keeps what was typed.
+ */
+export function Card({ title, actions, children, className = '', collapsible = Boolean(title), defaultOpen = true }: {
   title?: ReactNode
   actions?: ReactNode
   children: ReactNode
   className?: string
+  collapsible?: boolean
+  defaultOpen?: boolean
 }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const toggle = () => setOpen((value) => !value)
+  const what = typeof title === 'string' ? `«${title}»` : 'la sección'
   return (
-    <section className={`card ${className}`}>
+    <section className={`card ${className} ${open ? '' : 'collapsed'}`}>
       {(title || actions) && (
         <div className="card-head">
-          {title && <h2>{title}</h2>}
+          <div className="card-title-group">
+            {collapsible && (
+              <button type="button" className="card-toggle" aria-expanded={open}
+                aria-label={`${open ? 'Contraer' : 'Desplegar'} ${what}`} onClick={toggle}>
+                <Icon name="arrowRight" size={16} className="card-chevron" />
+              </button>
+            )}
+            {title && <h2 className={collapsible ? 'card-title clickable' : 'card-title'}
+              onClick={collapsible ? toggle : undefined}>{title}</h2>}
+          </div>
           {actions && <div className="card-actions">{actions}</div>}
         </div>
       )}
-      {children}
+      <div className="card-body" hidden={!open}>{children}</div>
     </section>
   )
 }

@@ -20,8 +20,8 @@ import java.util.Map;
 
 final class DemoSchema {
 
-    static final String NAME = "Facility inspection";
-    static final String SAFETY_MANUAL = "safety manual";
+    static final String NAME = "Inspección de instalaciones";
+    static final String SAFETY_MANUAL = "manual de seguridad";
 
     static final Subsystem ELECTRICAL = Subsystem.of("electrical installation");
     static final Subsystem PRESSURE = Subsystem.of("pressure system");
@@ -42,10 +42,10 @@ final class DemoSchema {
 
     static List<Section> firstVersion() {
         return List.of(
-                Section.of("Electrical", 1, insulation(), grounding()),
-                Section.of("Pressure", 2, reliefValve(), vesselTest()),
-                Section.of("Building safety", 3, exits(), extinguishers()),
-                Section.of("Documentation", 4, manual(), training()));
+                Section.of("Eléctrica", 1, insulation(), grounding()),
+                Section.of("Presión", 2, reliefValve(), vesselTest()),
+                Section.of("Seguridad edilicia", 3, exits(), extinguishers()),
+                Section.of("Documentación", 4, manual(), training()));
     }
 
     /**
@@ -54,10 +54,10 @@ final class DemoSchema {
      */
     static List<Section> secondVersion() {
         return List.of(
-                Section.of("Electrical", 1, insulation(), grounding()),
-                Section.of("Pressure", 2, reliefValve(), vesselTest()),
-                Section.of("Building safety", 3, exits(), extinguishers()),
-                Section.of("Documentation", 4, manual(), training(), evacuationDrill()));
+                Section.of("Eléctrica", 1, insulation(), grounding()),
+                Section.of("Presión", 2, reliefValve(), vesselTest()),
+                Section.of("Seguridad edilicia", 3, exits(), extinguishers()),
+                Section.of("Documentación", 4, manual(), training(), evacuationDrill()));
     }
 
     private static Criterion insulation() {
@@ -73,10 +73,10 @@ final class DemoSchema {
 
     private static Criterion reliefValve() {
         return Criterion.of(RELIEF_VALVE.value(), new MappedOptionsRule(Map.of(
-                "ok", RuleOutcome.approved("VALVE_OK", "la válvula de alivio abre en su punto de ajuste"),
-                "worn", RuleOutcome.observed("VALVE_WORN", Severity.MEDIUM,
+                "correcta", RuleOutcome.approved("VALVE_OK", "la válvula de alivio abre en su punto de ajuste"),
+                "desgastada", RuleOutcome.observed("VALVE_WORN", Severity.MEDIUM,
                         "la válvula de alivio presenta desgaste y requiere mantenimiento"),
-                "faulty", RuleOutcome.rejected("VALVE_FAULTY", Severity.HIGH,
+                "falla", RuleOutcome.rejected("VALVE_FAULTY", Severity.HIGH,
                         "la válvula de alivio no abre en su punto de ajuste"))), PRESSURE);
     }
 
@@ -86,10 +86,10 @@ final class DemoSchema {
 
     private static Criterion exits() {
         return Criterion.of(EXITS.value(), new MappedOptionsRule(Map.of(
-                "clear", RuleOutcome.approved("EXIT_CLEAR", "todas las salidas de emergencia están despejadas"),
-                "obstructed", RuleOutcome.observed("EXIT_OBSTRUCTED", Severity.MEDIUM,
+                "despejada", RuleOutcome.approved("EXIT_CLEAR", "todas las salidas de emergencia están despejadas"),
+                "obstruida", RuleOutcome.observed("EXIT_OBSTRUCTED", Severity.MEDIUM,
                         "una salida de emergencia está parcialmente obstruida"),
-                "blocked", RuleOutcome.rejected("EXIT_BLOCKED", Severity.CRITICAL,
+                "bloqueada", RuleOutcome.rejected("EXIT_BLOCKED", Severity.CRITICAL,
                         "una salida de emergencia está bloqueada"))), BUILDING_SAFETY);
     }
 

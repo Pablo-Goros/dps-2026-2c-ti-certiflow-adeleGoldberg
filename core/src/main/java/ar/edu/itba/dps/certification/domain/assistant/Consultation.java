@@ -58,32 +58,15 @@ public final class Consultation {
                     "criterion " + criterion.id() + " is not applicable in inspection " + inspection.id());
         }
         Consultation consultation = new Consultation(id, inspection.id(), requestedBy, at, request, reply.version());
-        reply.findings().forEach(consultation::classify);
+        SuggestionScreening.Screened screened = SuggestionScreening.screen(request, reply.findings());
+        for (SuggestedFinding finding : screened.accepted()) {
+            consultation.suggestions.add(new Suggestion(
+                    SuggestionId.of("s" + (consultation.suggestions.size() + 1)), finding.criterionId(),
+                    finding.result(), finding.severity(), finding.description(), finding.rationale(),
+                    Optional.empty()));
+        }
+        consultation.rejected.addAll(screened.rejected());
         return consultation;
-    }
-
-    private void classify(SuggestedFinding finding) {
-        problemWith(finding).ifPresentOrElse(
-                problem -> rejected.add(new RejectedSuggestion(finding, problem)),
-                () -> suggestions.add(new Suggestion(SuggestionId.of("s" + (suggestions.size() + 1)),
-                        finding.criterionId(), finding.result(), finding.severity(), finding.description(),
-                        finding.rationale(), Optional.empty())));
-    }
-
-    private Optional<String> problemWith(SuggestedFinding finding) {
-        if (request.criterion(finding.criterionId()).isEmpty()) {
-            return Optional.of("criterion " + finding.criterionId() + " was not part of the consultation");
-        }
-        if (finding.result().approved()) {
-            return Optional.of("an approving result is not a finding");
-        }
-        if (finding.description().isBlank() || finding.rationale().isBlank()) {
-            return Optional.of("a suggestion needs a description and a rationale");
-        }
-        if (suggestions.stream().anyMatch(existing -> existing.criterionId().equals(finding.criterionId()))) {
-            return Optional.of("criterion " + finding.criterionId() + " was already suggested in this consultation");
-        }
-        return Optional.empty();
     }
 
     /** Checked before any side effect, so a refused decision records nothing anywhere. */

@@ -1,0 +1,81 @@
+{
+  "id": "12-nota-hipotetica",
+  "summary": "La nota menciona una posibilidad que no se pudo verificar",
+  "request": {
+    "assetType": "FACILITY",
+    "subsystems": [
+      "electrical installation",
+      "pressure system",
+      "building safety"
+    ],
+    "criteria": [
+      {
+        "id": "PRES-VALVES",
+        "section": "Presión",
+        "subsystem": "pressure system",
+        "answer": "VALVES_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "VALVES_LEAK",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "una válvula pierde fluido"
+          },
+          {
+            "code": "VALVES_LABEL",
+            "result": "OBSERVED",
+            "severity": "LOW",
+            "description": "válvula sin identificación legible"
+          },
+          {
+            "code": "VALVES_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "válvulas estancas e identificadas"
+          }
+        ]
+      },
+      {
+        "id": "ELEC-INSULATION",
+        "section": "Eléctrica",
+        "subsystem": "electrical installation",
+        "answer": "17 MOhm",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "INSULATION_LOW",
+            "result": "REJECTED",
+            "severity": "CRITICAL",
+            "description": "aislación dañada o resistencia de aislación menor a 1 MOhm: riesgo de electrocución"
+          },
+          {
+            "code": "INSULATION_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "aislación íntegra, resistencia de al menos 1 MOhm"
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "criterionId": null,
+        "text": "Podría haber una pérdida en la válvula V-2; no se pudo verificar porque el circuito estaba despresurizado. Queda para la próxima visita."
+      }
+    ]
+  },
+  "expected": []
+}

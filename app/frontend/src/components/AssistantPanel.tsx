@@ -7,6 +7,7 @@ import { label } from '../lib/labels'
 import type {
   AssistantInfo, Consultation, CriterionResult, Inspection, Severity, Suggestion, SuggestionDecisionView, Verdict,
 } from '../lib/types'
+import { Icon } from './Icon'
 import { useParties } from './Party'
 import {
   Badge, Card, Empty, ErrorLine, Field, Loading, LoadError, Notice, ResultBadge, SeverityBadge, useAction, useToast,
@@ -16,6 +17,13 @@ import {
 const NON_CONFORMING: CriterionResult[] = ['OBSERVED', 'REJECTED']
 const SEVERITIES: Severity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 const verdictTone: Record<Verdict, Tone> = { ACCEPTED: 'ok', EDITED: 'info', DISCARDED: 'neutral' }
+
+const ASSISTANT_TITLE = (
+  <>
+    <Icon name="bolt" size={18} className="assistant-icon" /> Asistente de inspección{' '}
+    <Badge tone="info">IA</Badge>
+  </>
+)
 
 /**
  * The inspection assistant: ask it for suggestions, then accept, edit or discard each one. Nothing
@@ -35,12 +43,12 @@ export function AssistantPanel({ inspection, onChange }: { inspection: Inspectio
 
   const history = consultations.data ?? []
   if (!open && history.length === 0) return null
-  if (info.error) return <Card title="Asistente de inspección"><LoadError message={info.error} retry={info.reload} /></Card>
-  if (!info.data) return <Card title="Asistente de inspección"><Loading /></Card>
+  if (info.error) return <Card title={ASSISTANT_TITLE} className="assistant-card"><LoadError message={info.error} retry={info.reload} /></Card>
+  if (!info.data) return <Card title={ASSISTANT_TITLE} className="assistant-card"><Loading /></Card>
 
   if (!enabled) {
     return (
-      <Card title="Asistente de inspección">
+      <Card title={ASSISTANT_TITLE} className="assistant-card">
         <Notice>
           El asistente está apagado en este servidor. Se enciende con <code>certiflow.assistant.enabled=true</code> y un
           proveedor configurado.
@@ -73,7 +81,7 @@ export function AssistantPanel({ inspection, onChange }: { inspection: Inspectio
   const [latest, ...earlier] = history
 
   return (
-    <Card title="Asistente de inspección">
+    <Card title={ASSISTANT_TITLE} className="assistant-card">
       <p className="muted">
         Lee tus notas y la evidencia, y sugiere hallazgos que la evaluación de las reglas no refleja. Las sugerencias no
         cambian nada hasta que las aceptás o las editás; el asistente nunca cierra la inspección ni emite certificados.
@@ -119,11 +127,19 @@ function ConsultationView({ consultation, inspection, open, onDecided }: {
   const { nameOf } = useParties()
   return (
     <section className="consultation" aria-label={`Consulta ${consultation.id}`}>
-      <p className="muted small">
-        Consulta del {formatInstant(consultation.requestedAt)} · pedida por {nameOf(consultation.requestedBy)} · respondió{' '}
-        <span className="mono">{consultation.assistant.model}</span> con el prompt{' '}
-        <span className="mono">{consultation.assistant.prompt}</span>
-      </p>
+      <div className="consultation-meta">
+        <span className="muted small">
+          Consulta del {formatInstant(consultation.requestedAt)} · pedida por {nameOf(consultation.requestedBy)}
+        </span>
+        <details className="tech">
+          <summary>Detalles técnicos</summary>
+          <span className="muted small">
+            Modelo <span className="mono">{consultation.assistant.model}</span> · instrucciones{' '}
+            <span className="mono">{consultation.assistant.prompt}</span>. Los configura el servidor; quedan
+            registrados para saber qué produjo cada sugerencia.
+          </span>
+        </details>
+      </div>
       {consultation.suggestions.length === 0 ? (
         <Empty title="Sin sugerencias" hint="El asistente no encontró problemas que las reglas no reflejen." />
       ) : (

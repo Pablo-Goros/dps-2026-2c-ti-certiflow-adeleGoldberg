@@ -1,0 +1,114 @@
+{
+  "id": "08-problema-sin-criterio",
+  "summary": "Problemas reales que ningún criterio de la inspección cubre",
+  "request": {
+    "assetType": "FACILITY",
+    "subsystems": [
+      "electrical installation",
+      "pressure system",
+      "building safety"
+    ],
+    "criteria": [
+      {
+        "id": "ELEC-INSULATION",
+        "section": "Eléctrica",
+        "subsystem": "electrical installation",
+        "answer": "16 MOhm",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "INSULATION_LOW",
+            "result": "REJECTED",
+            "severity": "CRITICAL",
+            "description": "aislación dañada o resistencia de aislación menor a 1 MOhm: riesgo de electrocución"
+          },
+          {
+            "code": "INSULATION_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "aislación íntegra, resistencia de al menos 1 MOhm"
+          }
+        ]
+      },
+      {
+        "id": "PRES-VALVES",
+        "section": "Presión",
+        "subsystem": "pressure system",
+        "answer": "VALVES_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "VALVES_LEAK",
+            "result": "REJECTED",
+            "severity": "HIGH",
+            "description": "una válvula pierde fluido"
+          },
+          {
+            "code": "VALVES_LABEL",
+            "result": "OBSERVED",
+            "severity": "LOW",
+            "description": "válvula sin identificación legible"
+          },
+          {
+            "code": "VALVES_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "válvulas estancas e identificadas"
+          }
+        ]
+      },
+      {
+        "id": "SAFE-EXITS",
+        "section": "Seguridad edilicia",
+        "subsystem": "building safety",
+        "answer": "EXITS_OK",
+        "provisionalEvaluation": {
+          "result": "APPROVED",
+          "severity": null,
+          "reasons": []
+        },
+        "observedNonConformities": [],
+        "evidence": [],
+        "outcomes": [
+          {
+            "code": "EXITS_BLOCKED",
+            "result": "REJECTED",
+            "severity": "CRITICAL",
+            "description": "salida de emergencia obstruida o cerrada con llave"
+          },
+          {
+            "code": "EXITS_SIGNAGE",
+            "result": "OBSERVED",
+            "severity": "MEDIUM",
+            "description": "señalización de salida faltante o apagada"
+          },
+          {
+            "code": "EXITS_OK",
+            "result": "APPROVED",
+            "severity": null,
+            "description": "salidas libres y señalizadas"
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "criterionId": null,
+        "text": "La pintura del pasillo de entrada está descascarada y el estacionamiento tiene baches."
+      }
+    ]
+  },
+  "expected": []
+}

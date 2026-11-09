@@ -5,7 +5,7 @@
 CertiFlow is a Java 25 / Spring Boot application with a React / TypeScript frontend
 and JDBC persistence on H2. Read `README.md` for build and run commands.
 
-- Requirements: `docs/entrega_1.md` and `docs/entrega_2.md`.
+- Requirements: `docs/entrega_1.md`, `docs/entrega_2.md` and `docs/entrega_3.md`.
 - Design decisions and deliberate technical debt: `DESIGN.md`.
 - Architecture: `docs/arquitectura-hexagonal.md`.
 - REST contract: `docs/API.md`; frontend guidance: `app/frontend/README.md`.

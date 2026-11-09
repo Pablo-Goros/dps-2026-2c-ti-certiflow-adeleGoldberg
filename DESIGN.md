@@ -1,6 +1,6 @@
 # Decisiones de diseño
 
-El proyecto abarca dos entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 19 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14). La Entrega 3 agrega el asistente de inspección; la sección 20 describe su trazabilidad y persistencia.
+El proyecto abarca tres entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 19 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14). La Entrega 3 agrega el asistente de inspección; la sección 20 describe su trazabilidad y persistencia.
 
 Además de las decisiones técnicas, se explicitan las interpretaciones adoptadas por el equipo para precisar comportamientos que el enunciado deja abiertos. Estas interpretaciones delimitan el alcance del modelo; no son requisitos adicionales impuestos por la consigna.
 
@@ -48,6 +48,10 @@ el razonamiento y las consecuencias de cada una.
 | D44 | El motivo de evaluación nombra el origen | `EvaluationReason.ObservedByInspector.describe()`, `InspectionAct.ActObservation` | Que la traza llegue a todos los informes por el camino que ya recorren los motivos, sin tocar `FindingsSummary` ni la certificación | Un campo nuevo en cada informe | Un solo punto de cambio; el texto del motivo es más largo y está en inglés como los demás motivos del núcleo (sección 20) |
 | D45 | Instrucciones del modelo en inglés, texto para el inspector en español | `suggest-findings/v1/instructions.md`, el system prompt que reciben todos los proveedores | Los modelos siguen con más fidelidad instrucciones en inglés, sobre todo los abiertos y chicos que se pueden correr localmente, y el prompt es configuración técnica, como el código. Lo que lee el inspector, `description` y `rationale`, se pide explícitamente en español, el idioma de las notas y de la interfaz | Escribir las instrucciones en español | Un modelo chico puede contestar en inglés pese a la instrucción. Si pasa, una versión en español es un prompt nuevo que se mide contra esta con el harness, como cualquier cambio de prompt |
 | D46 | La interfaz pregunta si el asistente está encendido | `GET /api/meta/assistant` (`MetaController`), puerto `AssistantAvailability` (dominio) ← record de `app.config`, `AssistantPanel` | Que la demo y el uso real muestren un aviso claro cuando el asistente está apagado o sin proveedor, en lugar de un error | Deducirlo de que las rutas del asistente responden 404, lo que ata la interfaz al texto de un error | Un endpoint más; expone solo `enabled` y el nombre del adaptador, nunca dirección, modelo ni clave (sección 20.6) |
+| D47 | Conjunto dorado como datos versionados, independiente del prompt | `infrastructure/src/test/resources/assistant/golden/*.json`, `GoldenSet`, `GoldenSetTest` | Que un caso sea exactamente lo que ve el modelo (mismo formato que `SuggestFindingsFormat.input`) y que se pueda revisar y ampliar sin tocar código | Casos armados en Java como `CableCase`, o generados por otro modelo | 14 casos escritos a mano, con negativos para que «inventar» sea medible; una muestra chica y en un solo idioma (sección 20.7) |
+| D48 | Una sola regla para filtrar lo que propone el modelo | `SuggestionScreening` (dominio), usado por `Consultation` y por `Scoring` | Que el harness cuente como inventado exactamente lo que la aplicación rechaza, sin duplicar lógica de negocio | Repetir los cuatro chequeos en el código de evaluación | Refactor sin cambio de comportamiento; el harness depende del dominio y no al revés (sección 20.7) |
+| D49 | Métricas simples por comparación exacta de criterio, resultado y severidad | `Scoring`, `Scorecard`, `EvaluationReport` | Lo que pide la consigna (correctos, severidades acertadas, inventados) más resultado equivocado y omitidos, con repeticiones para ver la variabilidad | Juez LLM o similitud de texto sobre la descripción | Reproducible y explicable; no evalúa la calidad de la redacción (sección 20.7) |
+| D50 | Stub determinista en CI, modelo real aparte, y cada versión de prompt medida antes de entrar | `HarnessWithStubIT`, `SuggestFindingsHarness` (`-Passistant-eval`), `PromptVersionsAreMeasuredTest`, `docs/assistant-eval/` | La CI no puede depender de un servicio lento, pago y no determinista, pero un prompt nuevo no debe entrar sin números | Correr el modelo real en CI, o confiar en que alguien lo mida | La CI prueba que el harness cuenta bien; los números del modelo se commitean y un test exige que existan para cada versión (sección 20.7) |
 
 ### Patrones deliberadamente no aplicados
 
@@ -961,7 +965,8 @@ no pudo verificarse desde el código.
   futura del JDK cambia el formato de clases habrá que actualizarlo. Mockito se carga con
   `-XX:+EnableDynamicAgentLoading` en la ejecución de pruebas del módulo `app`.
 - *Endpoints `/api/admin/*` sin protección* (igual que la autenticación, sección 14).
-- *Protección de ramas de GitHub* sin verificar (18.4).
+- *Protección de ramas de GitHub:* resuelta después; un ruleset del repositorio exige el check **Build and test** antes de
+  integrar a `main`.
 
 ## 19. Revisión del modelo: medición fuera del rango y textos de la interfaz
 
@@ -1038,6 +1043,8 @@ atado el contrato a un idioma.
 
 **Deuda técnica deliberada.** Sigue en pie la de la sección 16: los textos que arma el núcleo (motivos,
 descripciones de resultados) viajan en inglés y se muestran como llegan, porque son datos y no códigos.
+Excepción posterior: `lib/errors.ts` traduce el rechazo más frecuente («solo el inspector asignado puede…») y, en
+cualquier mensaje, reemplaza los ids de personas por su nombre; el resto de los mensajes del núcleo sigue en inglés.
 
 ## 20. Entrega 3: trazabilidad y persistencia del asistente
 
@@ -1140,3 +1147,44 @@ acta, registrar y quitar) y los `*ApiIT` del asistente para `/meta/assistant`.
   la API (`OBSERVATION_WITHDRAWAL`); la consigna de la Entrega 3 no lo pide.
 - *Sin streaming:* la respuesta del modelo llega entera; con un modelo local la espera puede ser larga y la interfaz
   solo muestra que está consultando.
+
+### 20.7. Harness de evaluación
+
+La consigna pide un conjunto dorado de al menos diez casos, ejecutable de forma automatizada, con métricas de
+hallazgos correctos, severidades acertadas y hallazgos inventados; que un cambio de prompt vuelva a correr el harness
+y compare; y que la CI use un stub del puerto. Cómo correrlo y los resultados están en
+[`docs/assistant-eval/`](docs/assistant-eval/README.md).
+
+**Clases agregadas y modificadas.**
+
+| Capa | Agregadas | Modificadas |
+|---|---|---|
+| Dominio | `SuggestionScreening` (+ `SuggestionScreeningTest`) | `Consultation` (usa `SuggestionScreening`) |
+| Infraestructura (recursos) | `prompts/suggest-findings/v2/` y `v3/`, `assistant/golden/*.json` (14 casos, en test) | — |
+| Infraestructura (tests, paquete `assistant.eval`) | `GoldenCase`, `GoldenSet`, `Scoring`, `Scorecard`, `Evaluation`, `EvaluationReport`, `SuggestFindingsHarness`, `GoldenSetTest`, `ScoringTest`, `HarnessWithStubIT`, `PromptVersionsAreMeasuredTest` | — |
+
+**Refactorización.** La regla con la que `Consultation` separaba sugerencias válidas de rechazadas pasó a
+`SuggestionScreening`, una función del dominio que no necesita una inspección. `Consultation` la usa igual que antes
+(mismos motivos, mismo orden) y el harness la reutiliza (D48).
+
+**Métricas (D49).** Cada respuesta pasa primero por `SuggestionScreening`. Una sugerencia es *correcta* si coincide en
+criterio y resultado con lo esperado; tiene *severidad acertada* si además coincide la severidad; es *resultado
+equivocado* si el criterio era el esperado con otro resultado; es *inventada* si el criterio no era esperado o si el
+dominio la rechazó; y cada esperado sin sugerencia es un *omitido*. Cada caso corre tres veces: el reporte muestra el
+total y el rango entre repeticiones.
+
+**Por qué no tests de igualdad.** El modelo no responde siempre lo mismo y su calidad no es binaria: un test que
+compare la respuesta exacta fallaría por razones irrelevantes o pasaría ocultando errores. El harness mide tasas
+sobre un conjunto representativo y la CI prueba lo que sí es determinista: que los casos son válidos y que las
+métricas cuentan bien (con un stub cuyas respuestas, y por lo tanto cuyos errores, se conocen).
+
+**Deuda técnica deliberada.**
+- *Muestra chica y en un solo idioma:* 14 casos escritos por el equipo, en castellano y sobre dos tipos de activo; los
+  porcentajes tienen mucho margen de error.
+- *La v3 midió peor que la v2* (67 % contra 89 % de correctos con `llama3.1:8b`): queda versionada y medida como
+  antecedente, y la recomendación sigue siendo la v2. El harness no evalúa si la justificación es más explicativa.
+- *Riesgo de sobreajuste:* la v2 del prompt se escribió después de ver los errores de la v1 sobre este mismo conjunto.
+  Sus ejemplos evitan los casos del conjunto, pero lo correcto sería medir también sobre casos reservados.
+- *Comparación exacta:* no se evalúa la redacción de la descripción ni de la justificación.
+- *Resultados en `docs/` a mano:* los reportes se copian desde `target/assistant-eval/`; el test solo verifica que
+  existan para cada versión, no que estén al día con el último cambio del prompt.
