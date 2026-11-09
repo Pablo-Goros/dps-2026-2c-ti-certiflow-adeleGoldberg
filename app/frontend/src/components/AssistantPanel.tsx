@@ -97,7 +97,7 @@ export function AssistantPanel({ inspection, onChange }: { inspection: Inspectio
           {!hasNotes && <span className="muted small">Agregá al menos una nota: es lo que lee el asistente.</span>}
         </div>
       )}
-      {consulting && <Loading what="Consultando al asistente… con un modelo local puede tardar un par de minutos." />}
+      {consulting && <Loading what="El asistente está leyendo las notas y la evidencia…" />}
       {failure && <Notice kind="error">{failure}</Notice>}
       {consultations.error && <LoadError message={consultations.error} retry={consultations.reload} />}
 
@@ -221,7 +221,7 @@ function SuggestionCard({ consultationId, suggestion, inspection, open, onDecide
         </div>
       </header>
       <p style={{ margin: '6px 0 0' }}>{suggestion.description}</p>
-      <p className="why"><span className="muted">Por qué: </span>{suggestion.rationale}</p>
+      <p className="why"><span className="muted">Por qué lo sugiere: </span>{suggestion.rationale}</p>
 
       {suggestion.decision ? (
         <DecisionView decision={suggestion.decision} />
