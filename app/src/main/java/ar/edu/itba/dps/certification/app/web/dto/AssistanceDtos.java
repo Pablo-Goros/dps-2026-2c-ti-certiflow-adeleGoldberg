@@ -10,6 +10,7 @@ import ar.edu.itba.dps.certification.domain.schema.Severity;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 /** Request and response bodies of the inspection assistant. */
 public final class AssistanceDtos {
@@ -34,15 +35,30 @@ public final class AssistanceDtos {
     public record AssistantDto(String adapter, String model, String prompt) {
     }
 
+    /**
+     * {@code withoutNotes} is what the rule concluded from the recorded answer when the assistant was
+     * asked, before reading the notes; null while the criterion had no answer.
+     */
     public record SuggestionDto(String id, String criterionId, String section, CriterionResult result,
-            Severity severity, String description, String rationale, DecisionDto decision) {
+            Severity severity, String description, String rationale, WithoutNotesDto withoutNotes,
+            DecisionDto decision) {
 
         static SuggestionDto of(Consultation consultation, Suggestion suggestion) {
-            String section = consultation.request().criterion(suggestion.criterionId())
-                    .map(CriterionContext::section).orElse(null);
-            return new SuggestionDto(suggestion.id().value(), suggestion.criterionId().value(), section,
+            var criterion = consultation.request().criterion(suggestion.criterionId());
+            return new SuggestionDto(suggestion.id().value(), suggestion.criterionId().value(),
+                    criterion.map(CriterionContext::section).orElse(null),
                     suggestion.result(), suggestion.severity(), suggestion.description(), suggestion.rationale(),
+                    criterion.flatMap(WithoutNotesDto::of).orElse(null),
                     suggestion.decision().map(DecisionDto::of).orElse(null));
+        }
+    }
+
+    /** The recorded answer and the rule's provisional verdict on it. */
+    public record WithoutNotesDto(String answer, CriterionResult result, Severity severity) {
+
+        static Optional<WithoutNotesDto> of(CriterionContext criterion) {
+            return criterion.provisional().map(provisional -> new WithoutNotesDto(
+                    criterion.answer().orElse(null), provisional.result(), provisional.severity().orElse(null)));
         }
     }
 

@@ -169,7 +169,15 @@ export interface Suggestion {
   severity: Severity
   description: string
   rationale: string
+  withoutNotes: WithoutNotes | null
   decision: SuggestionDecisionView | null
+}
+
+/** What the rule concluded from the recorded answer when the assistant was asked, before reading the notes. */
+export interface WithoutNotes {
+  answer: string | null
+  result: CriterionResult
+  severity: Severity | null
 }
 
 export interface RejectedSuggestion {

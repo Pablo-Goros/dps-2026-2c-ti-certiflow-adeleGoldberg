@@ -155,6 +155,7 @@ necesita una versión de prompt con sus propios parámetros.
     "result": "REJECTED", "severity": "CRITICAL",
     "description": "Conductor con la aislación expuesta junto al tablero",
     "rationale": "La nota general describe un cable pelado; la medición de 12 MOhm no detecta un daño visible.",
+    "withoutNotes": { "answer": "12 MOhm", "result": "APPROVED", "severity": null },
     "decision": null
   }],
   "rejected": [{ "criterionId": "DOC", "result": "APPROVED", "severity": "LOW",
@@ -163,6 +164,9 @@ necesita una versión de prompt con sus propios parámetros.
 ```
 
 - `assistant.model` es el modelo que respondió según el proveedor, no necesariamente el configurado.
+- `withoutNotes` es lo que concluía la regla con la respuesta registrada cuando se consultó, sin leer
+  las notas: la respuesta y su evaluación provisoria. Lo calcula el sistema, no el modelo, y es `null`
+  si el criterio no tenía respuesta.
 - `rejected` guarda lo que el dominio no aceptó y por qué: un criterio que no estaba en la consulta,
   un resultado aprobatorio, una descripción o justificación vacía, o un segundo resultado para el
   mismo criterio.
