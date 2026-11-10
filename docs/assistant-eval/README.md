@@ -103,8 +103,9 @@ Una versión medida no se edita: un cambio es una versión nueva, que se mide an
   copiar la frase del ejemplo de la v2. Cada hallazgo necesita una cita textual; la escala no se puede citar. Midió
   peor que la v2 con el 8b y queda como antecedente.
 
-La aplicación sigue usando la v1 por defecto (`certiflow.assistant.prompt`). Con estos resultados conviene la v2
-con un modelo de al menos 8b (la v3 midió peor); cambiar el default es una decisión aparte del equipo.
+Con estos resultados, la v2 es la versión por defecto de la aplicación (`certiflow.assistant.prompt`, decisión D41 de
+`DESIGN.md`). Conviene usarla con un modelo de al menos 8b: con los de 3b ninguna versión pasó del 33 %. La v3 midió
+peor y queda como antecedente.
 
 ## Cómo correrlo
 

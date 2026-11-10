@@ -45,7 +45,7 @@ class AssistantConfig {
             @Value("${certiflow.assistant.base-url:}") String baseUrl,
             @Value("${certiflow.assistant.model:}") String model,
             @Value("${certiflow.assistant.api-key:}") String apiKey,
-            @Value("${certiflow.assistant.prompt:suggest-findings/v1}") String prompt,
+            @Value("${certiflow.assistant.prompt:suggest-findings/v2}") String prompt,
             @Value("${certiflow.assistant.timeout-seconds:60}") int timeoutSeconds) {
         return switch (provider.strip()) {
             case "none" -> request -> {

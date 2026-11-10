@@ -1,6 +1,6 @@
 # Decisiones de diseño
 
-El proyecto abarca tres entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 19 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14). La Entrega 3 agrega el asistente de inspección; la sección 20 describe su trazabilidad y persistencia.
+El proyecto abarca tres entregas. La Entrega 1 es el núcleo de dominio Java (modelos, contratos, casos de uso concretos y pruebas); las secciones 1 a 12 lo describen. La Entrega 2 lo completa con persistencia JDBC, API REST, procesos de infraestructura (outbox y tareas programadas), notificaciones y un front end mínimo: las secciones 13 a 19 describen lo que agrega, y la 17 resume, por cada funcionalidad nueva (F1, F2 y F3), qué clases se agregaron y modificaron, qué se refactorizó y qué deuda se asumió. La autenticación real y el despliegue en la nube quedan fuera de alcance (deuda declarada en la sección 14). La Entrega 3 agrega el asistente de inspección: la sección 20 describe su trazabilidad y persistencia, y la sección 21 su arquitectura (puerto, guardrails, prompts versionados y medición); las decisiones D32 a D50 son las de este asistente.
 
 Además de las decisiones técnicas, se explicitan las interpretaciones adoptadas por el equipo para precisar comportamientos que el enunciado deja abiertos. Estas interpretaciones delimitan el alcance del modelo; no son requisitos adicionales impuestos por la consigna.
 
@@ -43,10 +43,20 @@ el razonamiento y las consecuencias de cada una.
 | D29 | Casos de uso de consulta (lado de lectura) | `BrowseParties`, `BrowseSchemas`, `BrowseInspections`, `BrowseFindings`, `BrowseCertificates`, `BrowseAuditTrail` | Que los adaptadores de entrada lean solo a través de la capa de aplicación y que las consultas con regla (versión vigente en una fecha, filtros combinados) vivan fuera del controlador | Inyectar repositorios en los controladores | Seis clases pequeñas; una prueba de arquitectura impide que la web vuelva a importar repositorios (sección 18) |
 | D30 | Notificación como puerto de salida | `NotificationSender` ← `LogNotificationSender`, `WebhookNotificationSender`; `NotifyCorrectiveActionExpiry` | Integrar un canal externo sin que el núcleo conozca HTTP, y sin que su caída afecte a los certificados | Llamar al webhook desde el caso de uso, o hacer fallar el evento si el canal falla | Entrega «al mejor esfuerzo»: una notificación puede perderse si el canal está caído (sección 18) |
 | D31 | El rango numérico clasifica, no filtra | `NumericRangeRule` (`rangeMinimum`, `rangeMaximum`, `bands`, `outOfRange`), `Inspection.recordAnswer` | Que el inspector pueda registrar lo que midió, incluso fuera de la escala, y que el sistema decida qué significa | Tratar la medición fuera del rango como respuesta inadmisible: en la primera versión 1200 se registraba y 1201 se rechazaba con un error | La regla declara un resultado más, que no puede ser aprobatorio, y el formato persistido cambió; a cambio una inspección nunca queda sin poder expresar lo que se midió (sección 19) |
+| D32 | Puerto de salida para el asistente (inversión de dependencias, adaptador) | `domain.assistant.port.InspectionAssistant` (`AssistantReply suggest(AssistanceRequest)`) ← `OpenAiCompatibleInspectionAssistant`; stub determinista en las pruebas | Que el núcleo no conozca ningún proveedor, SDK ni protocolo de modelo, y que cambiar de proveedor (o usar un modelo local) sea cambiar un adaptador | Llamar al modelo directamente desde el caso de uso, o definir la interfaz en la capa de infraestructura según el proveedor elegido | El dominio fija el contrato (entrada, salida, errores); el adaptador traduce. El costo es una interfaz y dos tipos de datos más (`AssistanceRequest`, `AssistantReply`) que hay que mantener |
+| D33 | Categorías de falla definidas por el dominio | `AssistanceUnavailableException.Reason` (`UNREACHABLE`, `REFUSED`, `INCOMPLETE`, `MALFORMED`, `MISCONFIGURED`), `ApiExceptionHandler` (503 `ASSISTANT_UNAVAILABLE`) | Que quien llama distinga «reintentar» de «revisar la configuración» sin conocer HTTP, códigos de proveedor ni mensajes del modelo | Propagar las excepciones del cliente HTTP, o devolver un resultado vacío ante cualquier falla | Cada adaptador debe traducir sus señales a estas cinco categorías. Los mensajes de error nunca citan lo que respondió el modelo, para no filtrar contenido no confiable a logs ni respuestas |
+| D34 | Pedido anónimo, mínimo y determinista (objeto de valor) | `AssistanceRequest` (tipo de activo, subsistemas, criterios, observaciones), `AssistanceRequests` (lo arma desde la inspección en curso, siempre en el mismo orden), `SuggestFindingsFormat.input` | Minimizar lo que sale hacia un tercero (sin ids de inspección ni de activo, sin personas ni nombres) y que el mismo estado produzca el mismo texto, requisito para reproducir y medir | Enviar la inspección completa serializada, o dejar que cada adaptador arme su propio pedido | El modelo no puede citar ni correlacionar entidades reales; las sugerencias se vinculan solo por `criterionId`. Si una nota contiene datos personales, el sistema no los detecta (ver deuda en 21.7) |
+| D35 | Consulta como registro inmutable de lo ocurrido (agregado) | `Consultation`, `Suggestion`, `RejectedSuggestion`, `SuggestionDecision` (sellado: aceptada, editada, descartada), `ConsultationId`, `SuggestionId` | Poder reconstruir exactamente qué vio el modelo, qué versión respondió, qué propuso, qué descartó el dominio y qué decidió el inspector | Guardar solo el evento de auditoría, o guardar las sugerencias como atributos de la inspección | Un agregado más y una regla de consistencia propia (una decisión por sugerencia, `requireDecidable`). La inspección no cambia por consultar |
+| D36 | El asistente sugiere, la persona decide: único camino hacia las consecuencias | `DecideSuggestion` (aceptar y editar llaman a `RecordObservedNonConformity.recordSuggested` dentro de la transacción de la decisión), `Consultation.ensureConsultable` (inspección `IN_PROGRESS` y solo el inspector asignado), `Consultation.requireRecordedAs` | Garantizar que una sugerencia nunca cierra una inspección, nunca emite un certificado y nunca crea un hallazgo por sí sola; solo existe lo que un inspector aceptó o editó, y con su identidad | Aplicar automáticamente las sugerencias de severidad alta, o dejar que el asistente llame a los casos de uso de hallazgos | Más pasos para el inspector (aceptar o editar cada propuesta). Editar exige una nota y un resultado que no sea aprobatorio; descartar no tiene efectos |
+| D37 | Regla de arquitectura ejecutable que aísla al asistente | `AssistantBoundaryTest` (núcleo) | Que la garantía de D36 no dependa de la disciplina de quien edite el código: si el paquete del asistente importa certificación o hallazgos, o invoca `close`, `rectify` o `inspections.save`, el build falla; y nada fuera del asistente puede importar sus paquetes | Una convención en este documento, o revisión en el pull request | La prueba revisa texto e imports, no todo el grafo de llamadas: es una red de seguridad, no una prueba formal (ver 21.7) |
+| D38 | Dos transacciones cortas alrededor de la llamada al modelo | `RequestAssistance` (primera: validar y leer; llamada al modelo sin transacción; segunda: guardar la consulta y auditar `ASSISTANCE_REQUESTED`), puerto `Transactions` (D28) | Un modelo puede tardar decenas de segundos: una transacción abierta durante la espera retiene conexiones y bloqueos | Una sola transacción que incluya la llamada, o llamar al modelo desde el controlador | Entre la lectura y el guardado la inspección puede cambiar: la segunda transacción vuelve a verificar que siga en curso. Si el modelo falla no se guarda nada |
+| D39 | Un adaptador para cualquier servidor compatible con la API de chat de OpenAI; modo de salida estructurada como estrategia configurable | `OpenAiCompatibleInspectionAssistant` (`json_schema`, `json_object`, `instructions`), nombre de adaptador `openai-compatible` | Cubrir OpenAI, Gemini (endpoint compatible), Ollama, llama.cpp y vLLM con una sola clase, y poder medir un modelo local sin costo ni enviar datos a terceros | Un adaptador por proveedor con su SDK; un framework de agentes (LangChain, Spring AI) | Dependemos del formato de chat compatible, no de funciones propias de cada proveedor. HTTP/1.1, plazo total por llamada, sin reintentos (un reintento cambia lo medido y la latencia); agregar un proveedor incompatible es una clase nueva, sin tocar el núcleo |
+| D40 | Prompts como configuración versionada e inmutable | `PromptLibrary.load(versión, adaptador)` sobre `assistant/prompts/<nombre>/v<N>/{instructions.md, output.schema.json, <adaptador>.json}`, `AssistantVersion` (adaptador, modelo, prompt) | Que cambiar un prompt sea cambiar un recurso y no código; que cada consulta registre con qué versión respondió; y que una versión medida no se edite nunca (D50) | Prompts como cadenas dentro del código, o una base de datos editable en caliente | Mejorar un prompt obliga a crear una versión nueva y a medirla antes de usarla. Hay más directorios, pero cualquier resultado queda atribuido a una versión exacta |
+| D41 | Apagado por defecto, proveedor explícito y versión de prompt por defecto elegida con datos | `AssistantConfig` (`@ConditionalOnProperty certiflow.assistant.enabled=true`), proveedores `none` y `openai-compatible`, `certiflow.assistant.prompt` (por defecto `suggest-findings/v2`), `AssistantAvailability` | Encenderlo implica enviar notas de inspección a un modelo: debe ser una decisión consciente. Con proveedor `none` cada consulta responde 503 `MISCONFIGURED`. La v2 es el default porque midió mejor que v1 y v3 (21.6) | Encendido por defecto, o dejar v1 como default pese a medir peor | Con un modelo de menos de 8b la calidad medida es mala (21.6); la clave del proveedor solo se lee de `CERTIFLOW_ASSISTANT_API_KEY` |
 | D42 | La consulta al asistente es un agregado propio, persistido como documento | `Consultation`, `ConsultationRepository` ← `JdbcConsultationRepository`, tabla `consultation` (V4), `BrowseConsultations` | Conservar qué vio el modelo, qué versión respondió, qué sugirió, qué rechazó el dominio y qué decidió el inspector, aunque la aplicación se reinicie | Guardar solo la auditoría textual, o meter las consultas dentro del documento de la inspección | El historial se consulta y se compara; decidir una sugerencia reescribe el documento con control de versión, así dos decisiones concurrentes no se pisan (409) (sección 20) |
 | D43 | Origen de la no conformidad observada como valor de la inspección | `SuggestionOrigin`, `ObservedNonConformity.origin`, `RecordObservedNonConformity.recordSuggested` | Que el acta, el hallazgo y el resumen digan qué propuso la IA y qué aceptó o editó el inspector, sin consultar otra tabla | Que solo la decisión de la consulta apunte a la observación (traza en un sentido), o referenciar `ConsultationId` desde la inspección | La traza va en los dos sentidos. Los identificadores son texto para que `inspection` no dependa de `assistant`, que ya depende de `inspection` (sección 20) |
 | D44 | El motivo de evaluación nombra el origen | `EvaluationReason.ObservedByInspector.describe()`, `InspectionAct.ActObservation` | Que la traza llegue a todos los informes por el camino que ya recorren los motivos, sin tocar `FindingsSummary` ni la certificación | Un campo nuevo en cada informe | Un solo punto de cambio; el texto del motivo es más largo y está en inglés como los demás motivos del núcleo (sección 20) |
-| D45 | Instrucciones del modelo en inglés, texto para el inspector en español | `suggest-findings/v1/instructions.md`, el system prompt que reciben todos los proveedores | Los modelos siguen con más fidelidad instrucciones en inglés, sobre todo los abiertos y chicos que se pueden correr localmente, y el prompt es configuración técnica, como el código. Lo que lee el inspector, `description` y `rationale`, se pide explícitamente en español, el idioma de las notas y de la interfaz | Escribir las instrucciones en español | Un modelo chico puede contestar en inglés pese a la instrucción. Si pasa, una versión en español es un prompt nuevo que se mide contra esta con el harness, como cualquier cambio de prompt |
+| D45 | Instrucciones del modelo en inglés, texto para el inspector en español | `suggest-findings/v*/instructions.md`, el system prompt que reciben todos los proveedores | Los modelos siguen con más fidelidad instrucciones en inglés, sobre todo los abiertos y chicos que se pueden correr localmente, y el prompt es configuración técnica, como el código. Lo que lee el inspector, `description` y `rationale`, se pide explícitamente en español, el idioma de las notas y de la interfaz | Escribir las instrucciones en español | Un modelo chico puede contestar en inglés pese a la instrucción. Si pasa, una versión en español es un prompt nuevo que se mide contra esta con el harness, como cualquier cambio de prompt |
 | D46 | La interfaz pregunta si el asistente está encendido | `GET /api/meta/assistant` (`MetaController`), puerto `AssistantAvailability` (dominio) ← record de `app.config`, `AssistantPanel` | Que la demo y el uso real muestren un aviso claro cuando el asistente está apagado o sin proveedor, en lugar de un error | Deducirlo de que las rutas del asistente responden 404, lo que ata la interfaz al texto de un error | Un endpoint más; expone solo `enabled` y el nombre del adaptador, nunca dirección, modelo ni clave (sección 20.6) |
 | D47 | Conjunto dorado como datos versionados, independiente del prompt | `infrastructure/src/test/resources/assistant/golden/*.json`, `GoldenSet`, `GoldenSetTest` | Que un caso sea exactamente lo que ve el modelo (mismo formato que `SuggestFindingsFormat.input`) y que se pueda revisar y ampliar sin tocar código | Casos armados en Java como `CableCase`, o generados por otro modelo | 14 casos escritos a mano, con negativos para que «inventar» sea medible; una muestra chica y en un solo idioma (sección 20.7) |
 | D48 | Una sola regla para filtrar lo que propone el modelo | `SuggestionScreening` (dominio), usado por `Consultation` y por `Scoring` | Que el harness cuente como inventado exactamente lo que la aplicación rechaza, sin duplicar lógica de negocio | Repetir los cuatro chequeos en el código de evaluación | Refactor sin cambio de comportamiento; el harness depende del dominio y no al revés (sección 20.7) |
@@ -79,6 +89,9 @@ porque no aportan valor en el alcance actual:
 	probar directamente en Java; incorporar un DSL dificultaría diagnóstico y trazabilidad.
 - **ORM o Active Record**: las entidades no contienen anotaciones ni operaciones de
 	persistencia, preservando el aislamiento del dominio.
+- **Patrones específicos del asistente de la Entrega 3** (frameworks de agentes, *tool calling*,
+	aplicación automática de sugerencias, RAG, modelo como juez, reintentos y cachés): se descartaron con
+	sus consecuencias en la sección 21.8.
 
 ## 1. Separación entre dominio y aplicación
 
@@ -1188,3 +1201,166 @@ métricas cuentan bien (con un stub cuyas respuestas, y por lo tanto cuyos error
 - *Comparación exacta:* no se evalúa la redacción de la descripción ni de la justificación.
 - *Resultados en `docs/` a mano:* los reportes se copian desde `target/assistant-eval/`; el test solo verifica que
   existan para cada versión, no que estén al día con el último cambio del prompt.
+
+## 21. Entrega 3: arquitectura del asistente de inspección
+
+La sección 20 describe la trazabilidad y la persistencia del asistente. Esta sección documenta cómo se
+diseñó el asistente en sí: qué lo separa del resto del sistema, cómo se garantiza que solo sugiere, cómo
+se versionan y miden los prompts y qué se descartó. Las decisiones están enumeradas como D32 a D41 (y
+D42 a D50 en la sección 20).
+
+### 21.1. Qué pide la consigna y cómo se resuelve
+
+| Requisito de la Entrega 3 | Solución | Decisión |
+|---|---|---|
+| El modelo se usa detrás de un puerto propio definido por el dominio | `InspectionAssistant`, con adaptador `OpenAiCompatibleInspectionAssistant` | D32, D39 |
+| Las sugerencias nunca cierran inspecciones ni emiten certificados; la persona acepta o descarta | `DecideSuggestion` es el único camino y pasa por `RecordObservedNonConformity`; `AssistantBoundaryTest` lo vigila | D36, D37 |
+| Todo queda trazado | `Consultation` persistida, origen en la observación, auditoría `ASSISTANCE_REQUESTED` y `ASSISTANCE_SUGGESTION_DECIDED` | D35, D42 a D44 |
+| Conjunto dorado de al menos 10 casos con métricas | 14 casos en JSON versionado; hallazgos correctos, severidades correctas e inventados | D47, D49 |
+| Prompts como configuración versionada; un cambio vuelve a correr el harness y se compara | `PromptLibrary`, versiones v1 a v3, `PromptVersionsAreMeasuredTest` | D40, D50 |
+| CI determinista con stub; modelo real aparte | `HarnessWithStubIT` en el build normal; `SuggestFindingsHarness` con `-Passistant-eval` | D50 |
+
+### 21.2. Clases agregadas
+
+| Capa | Clases |
+|---|---|
+| Dominio (`domain.assistant`) | `Consultation`, `ConsultationId`, `Suggestion`, `SuggestionId`, `SuggestionDecision` (sellado), `RejectedSuggestion`, `SuggestionScreening`, `AssistanceRequest`, `AssistanceRequests`, `CriterionContext`, `OutcomeOption`, `ProvisionalEvaluation`, `Observation`, `AssistantReply`, `SuggestedFinding`, `AssistantVersion`, `AssistanceUnavailableException` |
+| Puertos de salida | `InspectionAssistant`, `ConsultationRepository`, `AssistantAvailability` |
+| Puertos de entrada y casos de uso | `RequestAssistance`, `DecideSuggestion`, `BrowseConsultations` (interfaz en el dominio, implementación en `application.assistant.usecase`) |
+| Infraestructura | `OpenAiCompatibleInspectionAssistant`, `PromptLibrary`, `Prompt`, `SuggestFindingsFormat`, recursos `assistant/prompts/suggest-findings/v1..v3` |
+| App | `AssistantConfig`, endpoints de consulta y decisión, `GET /api/meta/assistant`, manejo de `AssistanceUnavailableException` en `ApiExceptionHandler` |
+| Pruebas (núcleo, infraestructura y app) | `AssistantBoundaryTest`, `ConsultationTest`, `SuggestionScreeningTest`, `AssistantUseCasesTest`, `AssistedInspectionIT`, `OpenAiCompatibleInspectionAssistantIT`, `PromptLibraryTest`, `SuggestFindingsFormatTest`, `GoldenSetTest`, `ScoringTest`, `HarnessWithStubIT`, `PromptVersionsAreMeasuredTest`, `AssistanceApiIT`, `AssistantDisabledApiIT`, `AssistantWithoutProviderApiIT`, `AssistantConfigTest` |
+
+Las clases existentes que se modificaron para integrar el asistente están listadas en 20.1
+(`ObservedNonConformity`, `Inspection`, `InspectionAct`, `RecordObservedNonConformity`, entre otras). El
+resto del núcleo (certificación, hallazgos, esquemas, auditoría) no cambió.
+
+### 21.3. Flujo y dónde está cada garantía
+
+1. El inspector pide ayuda (`RequestAssistance`). Primera transacción: se verifica que la inspección esté
+   en curso y que quien pide sea el inspector asignado (`Consultation.ensureConsultable`) y se arma el
+   `AssistanceRequest` (D34).
+2. Se llama a `InspectionAssistant.suggest` **fuera de toda transacción** (D38). Si falla, el dominio
+   recibe una `AssistanceUnavailableException` con una categoría (D33) y no se guarda nada.
+3. Segunda transacción: `Consultation.record` vuelve a verificar que la inspección siga en curso, filtra la
+   respuesta con `SuggestionScreening` (descarta criterio inexistente en la consulta, resultado aprobatorio,
+   texto o fundamento vacío y criterio repetido; lo descartado queda en `rejected` con su motivo), guarda
+   la consulta y audita.
+4. El inspector decide cada sugerencia (`DecideSuggestion`): aceptar o editar registran una no
+   conformidad observada con origen (D43) en la misma transacción de la decisión; descartar no tiene
+   efectos. Una sugerencia ya decidida no se puede decidir de nuevo.
+5. Todo lo que sigue (hallazgo, cierre, certificado) ocurre por los caminos normales del sistema y con
+   las reglas de siempre. El asistente no participa.
+
+**Qué impide que la IA actúe por su cuenta.** (a) `InspectionAssistant` devuelve datos: no recibe
+repositorios ni casos de uso. (b) El único código que convierte una sugerencia en un efecto es
+`DecideSuggestion`, que necesita un inspector autenticado y una orden explícita. (c) `Consultation` no
+modifica la inspección. (d) `AssistantBoundaryTest` hace fallar el build si el paquete del asistente
+importa certificación o hallazgos, o llama a `close`, `rectify` o `save` de inspecciones, y si alguna clase
+ajena al asistente lo importa. (e) Las sugerencias aprobatorias se descartan: el asistente solo puede
+proponer no conformidades, nunca un «cumple».
+
+### 21.4. Decisiones con más detalle
+
+- **Puerto y no un cliente directo (D32, D39).** El caso de uso depende de `InspectionAssistant`. La
+  alternativa de llamar a un modelo con un cliente HTTP desde el caso de uso era más corta, pero ataba el
+  dominio a un proveedor, dificultaba el stub determinista que exige la CI y mezclaba errores de red con
+  reglas de negocio. Con el puerto, las pruebas del núcleo usan un asistente falso y el harness mide el
+  adaptador real sin cambiar el dominio.
+- **Un único adaptador compatible con OpenAI (D39).** Es un caso del patrón *adaptador*: traduce
+  `AssistanceRequest` a un mensaje de chat y la respuesta a `AssistantReply`. El modo de salida
+  estructurada (`json_schema`, `json_object` o instrucciones) se elige desde el archivo de parámetros del
+  prompt, no por código, porque cada servidor soporta cosas distintas. Se descartó un adaptador por
+  proveedor con su SDK (más dependencias, más código, nada que el formato común no cubra) y un framework
+  de agentes (oculta el prompt y el flujo, y no es necesario para una sola llamada).
+- **Errores en términos del dominio (D33).** El adaptador convierte timeouts, rechazos, respuestas
+  truncadas, JSON inválido y mala configuración en cinco categorías. La API responde 503 con el nombre de
+  la categoría en `details`: el cliente distingue un problema transitorio de uno de configuración.
+- **Separación entre forma y sentido de la respuesta.** `SuggestFindingsFormat` solo verifica la *forma*
+  del JSON (la que describe `output.schema.json`). Que una sugerencia tenga *sentido* para esta inspección
+  lo decide el dominio (`SuggestionScreening`, D48), una única regla compartida por `Consultation` y por el
+  harness, de modo que lo que se mide es exactamente lo que el sistema aceptaría.
+- **Consulta como registro (D35).** Guarda la entrada exacta, la versión que respondió y lo rechazado. Sin
+  eso no se podría explicar por qué se sugirió algo ni reproducirlo al cambiar el prompt.
+- **Prompts como configuración (D40).** Instrucciones, esquema de salida y parámetros viven en recursos
+  versionados por carpeta. Los parámetros son `temperature` 0 y una semilla fija para reducir la variación
+  entre corridas. Las instrucciones están en inglés y el texto para el inspector sale en español (D45).
+- **Versión por defecto (D41).** La aplicación usa `suggest-findings/v2`, la que mejor midió (ver 21.6). La
+  versión se puede cambiar con `certiflow.assistant.prompt` sin recompilar, y cada consulta guarda con qué
+  versión se respondió.
+
+### 21.5. Refactorizaciones
+
+- `SuggestionScreening` vive en el dominio y la usan tanto `Consultation` como el harness, para que lo medido
+  y lo aceptado por el sistema sigan la misma regla y no una copia que pueda divergir (D48).
+- Los tipos de entrada (`CriterionContext`, `OutcomeOption`, `ProvisionalEvaluation`) copian lo que el modelo
+  necesita en lugar de exponer entidades de inspección: el pedido es un valor inmutable y comparable.
+- El registro de no conformidades se concentró en un método compartido por el camino manual y el sugerido
+  (20.3), para que no existan dos formas de crear la misma observación.
+- Los casos de uso del asistente usan el puerto `Transactions` (D28): abren sus propias transacciones en
+  lugar de depender del controlador.
+
+### 21.6. Medición y elección del prompt por defecto
+
+El harness (`SuggestFindingsHarness`, `-Passistant-eval`) corre cada versión de prompt sobre los 14 casos
+dorados con un modelo real. Resultados con Ollama (8 de noviembre de 2026; detalle en
+`docs/assistant-eval/README.md`):
+
+| Versión y modelo | Hallazgos correctos | Precisión | Severidad acertada | Inventados por corrida | Negativos limpios |
+|---|---|---|---|---|---|
+| v1, `llama3.2:3b` | 33 % | 21 % | 100 % | 0,57 | 0 de 18 |
+| v1, `llama3.1:8b` | 44 % | 27 % | 100 % | 0,50 | 0 de 18 |
+| v2, `llama3.2:3b` | 33 % | 21 % | 100 % | 0,64 | 0 de 18 |
+| **v2, `llama3.1:8b`** | **89 %** | **53 %** | 100 % | **0,43** | 0 de 18 |
+| v3, `llama3.2:3b` | 33 % | 21 % | 100 % | 0,57 | 0 de 18 |
+| v3, `llama3.1:8b` | 67 % | 40 % | 100 % | 0,50 | 0 de 18 |
+
+Cada caso corre 3 veces. «Negativos limpios» cuenta las corridas de casos sin nada que sugerir en las que el
+modelo efectivamente no sugirió nada.
+
+Con esos datos, v2 pasó a ser el valor por defecto de `certiflow.assistant.prompt`. v3 se conserva como
+antecedente: se probó una variante más estricta y midió peor, y el historial sirve para no repetir ese
+camino. `PromptVersionsAreMeasuredTest` exige que cada versión bajo `assistant/prompts/` tenga sus resultados
+comprometidos en `docs/assistant-eval/<prompt>-<versión>.md`: una versión nueva sin medir rompe el build. Los números dependen del modelo y la corrida; se
+presentan como evidencia de comparación entre versiones, no como garantía de calidad.
+
+### 21.7. Deuda técnica deliberada
+
+- *Precisión limitada:* con v2 y un modelo de 8b la precisión medida es del 53 % y en ninguna de las 18
+  corridas de casos sin hallazgos esperados el modelo se abstuvo de sugerir (0 de 18 negativos limpios). Por eso el diseño no confía en la salida: cada sugerencia pasa por
+  el filtro del dominio y por la decisión de una persona. Mejorar el prompt o el modelo no cambia esa
+  garantía.
+- *Datos hacia un tercero:* el pedido no incluye ids ni personas (D34), pero el texto libre de las notas
+  se envía tal cual. No hay detección de datos personales. Por eso el asistente está apagado por defecto y
+  puede apuntarse a un modelo local.
+- *Sin reintentos automáticos:* una falla del modelo se informa y el inspector puede volver
+  a pedir. Reintentar automáticamente alteraría lo medido y la latencia percibida.
+- *`AssistantBoundaryTest` revisa texto e imports,* no el grafo completo de llamadas; no sustituye la
+  revisión del código.
+- *Un solo proveedor implementado* (compatible con OpenAI). Está cubierto por pruebas contra un servidor
+  simulado; la prueba contra un modelo real es manual (el harness).
+- *Sin evaluación de otras tareas:* solo existe `suggest-findings`. Agregar otra tarea requiere un puerto o
+  método nuevo y su propio conjunto dorado.
+- *Los modelos no son deterministas* aun con temperatura 0: las métricas se interpretan con promedios y
+  varias corridas.
+
+### 21.8. Alternativas descartadas para esta entrega
+
+Además de las de la tabla, se decidió no aplicar:
+
+- **Frameworks de agentes o SDK de proveedor (LangChain, Spring AI, SDK propios):** el asistente hace una
+  llamada con entrada y salida acotadas; un framework agregaría dependencias, ocultaría el prompt y haría
+  más difícil el stub determinista. Consecuencia: escribimos y mantenemos un adaptador pequeño.
+- **Agentes con herramientas (*tool calling*) que invoquen casos de uso:** contradice la garantía central.
+  Consecuencia: el asistente no puede consultar el sistema; recibe solo el pedido que se le arma.
+- **Aplicar sugerencias automáticamente, aunque sean de alta confianza:** la consigna exige decisión
+  humana. Consecuencia: más clics para el inspector.
+- **RAG, *fine-tuning* o memoria entre consultas:** no hay corpus ni datos suficientes y cada consulta
+  debe ser reproducible a partir de su entrada guardada.
+- **Un modelo como juez de otro modelo:** las métricas comparan criterio, resultado y severidad contra
+  respuestas esperadas escritas por personas (D49), que es más simple y reproducible.
+- **Llamar al modelo dentro de la transacción de base de datos:** ver D38.
+- **Reintentos automáticos, caché de respuestas y colas asíncronas:** el volumen no lo justifica, y la
+  caché ocultaría variaciones de modelo que queremos medir.
+- **Guardar solo el evento de auditoría en lugar de la consulta:** no permitiría reconstruir qué vio el
+  modelo (D35, D42).

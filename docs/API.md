@@ -138,7 +138,7 @@ responden 404. `certiflow.assistant.provider` elige el adaptador: `none`, que re
 protocolo (OpenAI, el endpoint compatible de Gemini, Ollama, llama.cpp, vLLM…). Este último usa
 `certiflow.assistant.base-url` y `certiflow.assistant.model`, y la clave, si el proveedor la pide,
 en la variable de entorno `CERTIFLOW_ASSISTANT_API_KEY`. También se configuran
-`certiflow.assistant.prompt` (`suggest-findings/v1`) y `certiflow.assistant.timeout-seconds` (60), que
+`certiflow.assistant.prompt` (`suggest-findings/v2`) y `certiflow.assistant.timeout-seconds` (60), que
 limita la respuesta completa. Los parámetros que manda el adaptador están en el archivo de la versión
 de prompt; si el proveedor rechaza alguno (los modelos de razonamiento de OpenAI, por ejemplo, no
 aceptan `temperature` ni `max_tokens`), cada consulta responde 503 `MISCONFIGURED`, y ese modelo
@@ -149,7 +149,7 @@ necesita una versión de prompt con sus propios parámetros.
 ```json
 {
   "id": "c-1", "inspectionId": "i-1", "requestedBy": "p-7", "requestedAt": "2026-11-04T14:03:00Z",
-  "assistant": { "adapter": "openai-compatible", "model": "llama3.1:8b", "prompt": "suggest-findings/v1" },
+  "assistant": { "adapter": "openai-compatible", "model": "llama3.1:8b", "prompt": "suggest-findings/v2" },
   "suggestions": [{
     "id": "s1", "criterionId": "ELEC", "section": "Electrical",
     "result": "REJECTED", "severity": "CRITICAL",
